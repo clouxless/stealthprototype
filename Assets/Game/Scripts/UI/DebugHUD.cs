@@ -1,0 +1,129 @@
+using UnityEngine;
+using UnityEngine.InputSystem;
+using UnityEngine.SceneManagement;
+
+namespace StealthProto
+{
+    /// <summary>
+    /// Placeholder debug HUD drawn with IMGUI. Everything is labelled [PH] so it is never
+    /// mistaken for final UI (see ASSETS.md).
+    /// F1 vision cones, F2 noise rings, F3 help, R restart.
+    /// </summary>
+    public class DebugHUD : MonoBehaviour
+    {
+        public PlayerMotor player;
+
+        LightExposure exposure;
+        Health health;
+        CameraRig rig;
+        Camera cam;
+        bool showHelp = true;
+        GUIStyle label, marker;
+
+        void Start()
+        {
+            if (player == null) player = FindFirstObjectByType<PlayerMotor>();
+            if (player != null)
+            {
+                exposure = player.GetComponent<LightExposure>();
+                health = player.GetComponent<Health>();
+            }
+            rig = FindFirstObjectByType<CameraRig>();
+            cam = Camera.main;
+        }
+
+        void Update()
+        {
+            var kb = Keyboard.current;
+            if (kb == null) return;
+            if (kb.f1Key.wasPressedThisFrame) VisionConeMesh.Visible = !VisionConeMesh.Visible;
+            if (kb.f2Key.wasPressedThisFrame) NoiseSystem.ShowNoise = !NoiseSystem.ShowNoise;
+            if (kb.f3Key.wasPressedThisFrame) showHelp = !showHelp;
+            if (kb.rKey.wasPressedThisFrame)
+            {
+                Time.timeScale = 1f;
+                SceneManager.LoadScene(SceneManager.GetActiveScene().name);
+            }
+        }
+
+        void OnGUI()
+        {
+            if (label == null)
+            {
+                label = new GUIStyle(GUI.skin.label) { fontSize = 14 };
+                label.normal.textColor = Color.white;
+                marker = new GUIStyle(GUI.skin.label) { fontSize = 28, fontStyle = FontStyle.Bold, alignment = TextAnchor.MiddleCenter };
+            }
+
+            GUILayout.BeginArea(new Rect(12, 12, 300, 400), GUI.skin.box);
+            GUILayout.Label("[PH] DEBUG HUD", label);
+            if (health != null) GUILayout.Label($"HP  {health.Current} / {health.maxHealth}", label);
+            if (exposure != null)
+            {
+                GUILayout.Label($"Light  {(exposure.IsHidden ? "HIDDEN" : "EXPOSED")}  ({exposure.Exposure:0.00})", label);
+                Bar(exposure.Exposure, exposure.IsHidden ? new Color(0.3f, 0.5f, 1f) : new Color(1f, 0.85f, 0.4f));
+            }
+            if (player != null)
+            {
+                string mode = rig != null && rig.IsFirstPerson ? "FIRST PERSON" : player.IsSneaking ? "SNEAKING" : "TOP-DOWN";
+                GUILayout.Label($"Mode  {mode}", label);
+            }
+            GUILayout.Space(6);
+            foreach (var g in GuardBrain.All)
+            {
+                GUILayout.Label($"{g.name}  {g.State}", label);
+                Bar(g.Awareness, g.CurrentColor);
+            }
+            GUILayout.EndArea();
+
+            DrawGuardMarkers();
+
+            if (showHelp)
+            {
+                const string help =
+                    "[PH] CONTROLS (F3 hide)\n" +
+                    "Move WASD / left stick    Sneak (silent) Shift / LB\n" +
+                    "Dash Space / A            Melee LMB / X  (from behind = takedown)\n" +
+                    "Aim RMB / LT, fire LMB / RT\n" +
+                    "First-person look V / R3  (can't move, fire along view)\n" +
+                    "F1 vision cones   F2 noise rings   R restart";
+                GUI.Label(new Rect(12, Screen.height - 120, 620, 110), help, label);
+            }
+
+            if (health != null && health.IsDead)
+            {
+                GUI.Label(new Rect(0, Screen.height * 0.4f, Screen.width, 60), "[PH] DOWN. Restarting...", marker);
+            }
+        }
+
+        void DrawGuardMarkers()
+        {
+            if (cam == null || (rig != null && rig.IsFirstPerson)) return;
+            foreach (var g in GuardBrain.All)
+            {
+                string text = g.State switch
+                {
+                    GuardState.Suspicious => "?",
+                    GuardState.Search => "?",
+                    GuardState.Alert => "!",
+                    _ => null
+                };
+                if (text == null) continue;
+                Vector3 sp = cam.WorldToScreenPoint(g.transform.position + Vector3.up * 2.4f);
+                if (sp.z <= 0f) continue;
+                marker.normal.textColor = g.CurrentColor;
+                GUI.Label(new Rect(sp.x - 20, Screen.height - sp.y - 20, 40, 40), text, marker);
+            }
+        }
+
+        static void Bar(float value, Color color)
+        {
+            Rect r = GUILayoutUtility.GetRect(260, 8);
+            GUI.color = new Color(0f, 0f, 0f, 0.6f);
+            GUI.DrawTexture(r, Texture2D.whiteTexture);
+            GUI.color = color;
+            GUI.DrawTexture(new Rect(r.x, r.y, r.width * Mathf.Clamp01(value), r.height), Texture2D.whiteTexture);
+            GUI.color = Color.white;
+        }
+    }
+}
