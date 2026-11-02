@@ -448,7 +448,7 @@ namespace StealthProto.EditorTools
 
             var flashGO = new GameObject("PH_Flashlight");
             flashGO.transform.SetParent(head, false);
-            flashGO.transform.localPosition = new Vector3(0f, -0.15f, 0.3f);
+            flashGO.transform.localPosition = new Vector3(0f, -0.15f, 0.6f); // outside the body and nose so they never shadow the beam
             flashGO.transform.localRotation = Quaternion.Euler(12f, 0f, 0f);
             var light = flashGO.AddComponent<Light>();
             light.type = LightType.Spot;

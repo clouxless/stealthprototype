@@ -1,3 +1,4 @@
+using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.Rendering;
 
@@ -27,6 +28,11 @@ namespace StealthProto
         public float stickSpeed = 160f;
         public float pitchLimit = 70f;
 
+        [Header("Cutaway")]
+        [Tooltip("Hide geometry taller than the player's head that blocks the camera's view of them (catwalks, beams, walls). Hidden geometry still casts shadows and still blocks light and vision.")]
+        public bool cutaway = true;
+        public float cutawayRadius = 0.5f;
+
         [Header("Shake")]
         public float maxShake = 0.6f;
         public float shakeDecay = 2.5f;
@@ -38,6 +44,9 @@ namespace StealthProto
         Vector3 followPosition;
         float fpYaw, fpPitch;
         float trauma;
+        readonly HashSet<Renderer> cutHidden = new HashSet<Renderer>();
+        readonly HashSet<Renderer> cutThisFrame = new HashSet<Renderer>();
+        static readonly RaycastHit[] CutHits = new RaycastHit[16];
 
         public bool IsFirstPerson { get; private set; }
 
@@ -73,6 +82,48 @@ namespace StealthProto
             else TopDown(Time.deltaTime);
 
             trauma = Mathf.Max(0f, trauma - shakeDecay * Time.unscaledDeltaTime);
+            UpdateCutaway();
+        }
+
+        void OnDisable()
+        {
+            Cursor.lockState = CursorLockMode.None;
+            Cursor.visible = true;
+            foreach (var r in cutHidden)
+                if (r != null) r.shadowCastingMode = ShadowCastingMode.On;
+            cutHidden.Clear();
+        }
+
+        void UpdateCutaway()
+        {
+            cutThisFrame.Clear();
+            if (cutaway && !IsFirstPerson)
+            {
+                Vector3 from = cam.transform.position;
+                Vector3 to = target.position + Vector3.up * 1.2f;
+                Vector3 delta = to - from;
+                float distance = delta.magnitude - 0.6f;
+                if (distance > 0f)
+                {
+                    int count = Physics.SphereCastNonAlloc(from, cutawayRadius, delta.normalized, CutHits, distance, ~0, QueryTriggerInteraction.Ignore);
+                    float headHeight = target.position.y + 2f;
+                    for (int i = 0; i < count; i++)
+                    {
+                        Collider col = CutHits[i].collider;
+                        if (col.transform.IsChildOf(target)) continue;
+                        if (col.GetComponentInParent<GuardBrain>() != null) continue;
+                        if (col.bounds.max.y <= headHeight) continue; // low cover and floors stay visible
+                        var r = col.GetComponent<Renderer>();
+                        if (r != null) cutThisFrame.Add(r);
+                    }
+                }
+            }
+
+            foreach (var r in cutHidden)
+                if (r != null && !cutThisFrame.Contains(r)) r.shadowCastingMode = ShadowCastingMode.On;
+            foreach (var r in cutThisFrame) r.shadowCastingMode = ShadowCastingMode.ShadowsOnly;
+            cutHidden.Clear();
+            cutHidden.UnionWith(cutThisFrame);
         }
 
         public void SetFirstPerson(bool on)
@@ -100,7 +151,8 @@ namespace StealthProto
         void TopDown(float dt)
         {
             Vector3 desired = target.position + targetOffset;
-            followPosition = dt > 0f ? Vector3.Lerp(followPosition, desired, 1f - Mathf.Exp(-followSharpness * dt)) : desired;
+            // dt is 0 during hit-stop: hold position rather than snapping.
+            if (dt > 0f) followPosition = Vector3.Lerp(followPosition, desired, 1f - Mathf.Exp(-followSharpness * dt));
             transform.SetPositionAndRotation(followPosition, Quaternion.Euler(0f, yaw, 0f));
 
             Quaternion tilt = Quaternion.Euler(pitch, 0f, 0f);
