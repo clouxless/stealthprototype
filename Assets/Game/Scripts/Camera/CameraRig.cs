@@ -16,8 +16,15 @@ namespace StealthProto
         [Header("Top-down")]
         public float pitch = 58f;
         public float yaw = 0f;
-        public float distance = 20f;
-        public float fieldOfView = 40f;
+        public float distance = 12f;
+        [Tooltip("Mouse wheel / d-pad zoom range.")]
+        public float minDistance = 7f;
+        public float maxDistance = 22f;
+        [Tooltip("Metres per mouse-wheel notch.")]
+        public float wheelZoomStep = 1f;
+        [Tooltip("Metres per second while holding the d-pad.")]
+        public float padZoomSpeed = 8f;
+        public float fieldOfView = 38f;
         public float followSharpness = 10f;
         public Vector3 targetOffset = new Vector3(0f, 1f, 0f);
 
@@ -79,7 +86,15 @@ namespace StealthProto
             if (input != null && input.FirstPersonToggled) SetFirstPerson(!IsFirstPerson);
 
             if (IsFirstPerson) FirstPerson(Time.unscaledDeltaTime);
-            else TopDown(Time.deltaTime);
+            else
+            {
+                if (input != null)
+                {
+                    float zoomIn = input.ZoomWheel * wheelZoomStep + input.ZoomPad * padZoomSpeed * Time.unscaledDeltaTime;
+                    distance = Mathf.Clamp(distance - zoomIn, minDistance, maxDistance);
+                }
+                TopDown(Time.deltaTime);
+            }
 
             trauma = Mathf.Max(0f, trauma - shakeDecay * Time.unscaledDeltaTime);
             UpdateCutaway();

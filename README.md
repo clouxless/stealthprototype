@@ -47,6 +47,7 @@ and turn on **Lighting > Additional Lights > Cast Shadows**.
 | Context: takedown (hold), clamber, climb | E | Y |
 | Aim / fire | Hold RMB, LMB to fire | Hold LT, RT to fire |
 | First-person look (can't move, fire along view) | V | R3 |
+| Zoom camera | Mouse wheel | D-pad up / down |
 | Toggle vision cones / noise rings / help | F1 / F2 / F3 | |
 | Restart | R | |
 

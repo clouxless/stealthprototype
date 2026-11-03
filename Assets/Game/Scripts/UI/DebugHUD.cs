@@ -92,7 +92,7 @@ namespace StealthProto
                     "Context E / Y: takedown (behind an unalerted guard), clamber, climb\n" +
                     "Aim RMB / LT, fire LMB / RT\n" +
                     "First-person look V / R3  (can't move, fire along view)\n" +
-                    "F1 vision cones   F2 noise rings   R restart";
+                    "Zoom mouse wheel / d-pad   F1 vision cones   F2 noise rings   R restart";
                 GUI.Label(new Rect(12, Screen.height - 140, 640, 130), help, label);
             }
 

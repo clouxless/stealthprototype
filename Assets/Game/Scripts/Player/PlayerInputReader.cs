@@ -9,7 +9,7 @@ namespace StealthProto
     /// </summary>
     public class PlayerInputReader : MonoBehaviour
     {
-        InputAction move, lookMouse, lookStick, aimStick, pointer, sneak, dash, melee, fire, aim, firstPerson, interact;
+        InputAction move, lookMouse, lookStick, aimStick, pointer, sneak, dash, melee, fire, aim, firstPerson, interact, zoomWheel, zoomPad;
 
         public Vector2 Move => move.ReadValue<Vector2>();
         public Vector2 LookMouse => lookMouse.ReadValue<Vector2>();
@@ -25,6 +25,10 @@ namespace StealthProto
         /// <summary>Context action: takedown or climb, whichever is prompted.</summary>
         public bool InteractPressed => interact.WasPressedThisFrame();
         public bool InteractHeld => interact.IsPressed();
+        /// <summary>Mouse wheel this frame, about 1 per notch. Positive = zoom in.</summary>
+        public float ZoomWheel => zoomWheel.ReadValue<float>();
+        /// <summary>Gamepad d-pad up/down held, -1..1. Positive = zoom in.</summary>
+        public float ZoomPad => zoomPad.ReadValue<float>();
         /// <summary>True when the gamepad was the last device used for aiming.</summary>
         public bool UsingGamepad { get; private set; }
 
@@ -58,9 +62,13 @@ namespace StealthProto
             firstPerson.AddBinding("<Gamepad>/rightStickPress");
             interact = new InputAction("Interact", InputActionType.Button, "<Keyboard>/e");
             interact.AddBinding("<Gamepad>/buttonNorth");
+            zoomWheel = new InputAction("ZoomWheel", InputActionType.Value);
+            zoomWheel.AddBinding("<Mouse>/scroll/y").WithProcessor("scale(factor=0.00833)");
+            zoomPad = new InputAction("ZoomPad", InputActionType.Value);
+            zoomPad.AddCompositeBinding("1DAxis").With("Positive", "<Gamepad>/dpad/up").With("Negative", "<Gamepad>/dpad/down");
         }
 
-        InputAction[] AllActions => new[] { move, lookMouse, lookStick, aimStick, pointer, sneak, dash, melee, fire, aim, firstPerson, interact };
+        InputAction[] AllActions => new[] { move, lookMouse, lookStick, aimStick, pointer, sneak, dash, melee, fire, aim, firstPerson, interact, zoomWheel, zoomPad };
 
         void OnEnable()
         {
