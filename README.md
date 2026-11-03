@@ -43,9 +43,11 @@ and turn on **Lighting > Additional Lights > Cast Shadows**.
 | Move | WASD | Left stick |
 | Sneak (slow, silent) | Hold Shift | Hold LB |
 | Dash (i-frames, a little noisy) | Space | A |
-| Melee (from behind on an unalerted guard = takedown) | LMB | X |
+| Melee | LMB | X |
+| Context: takedown (hold), clamber, climb | E | Y |
 | Aim / fire | Hold RMB, LMB to fire | Hold LT, RT to fire |
 | First-person look (can't move, fire along view) | V | R3 |
+| Zoom camera | Mouse wheel | D-pad up / down |
 | Toggle vision cones / noise rings / help | F1 / F2 / F3 | |
 | Restart | R | |
 
@@ -61,8 +63,17 @@ and turn on **Lighting > Additional Lights > Cast Shadows**.
   rarely look up (20 degrees by default), so the overhead beam and the perch are safe
   until you're far enough away to be in their sightline. Low crates hide your legs but
   not your head.
+- **Scale.** Characters are placeholder mannequins at human proportions (about 1.75 m,
+  0.3 m collider radius), so level metrics match the final art.
 - **Hearing.** Running, dashing, melee and gunfire make noise (F2 shows the rings).
   Sneaking is silent. Noise passes through walls for now.
+- **Takedowns.** Get close behind a guard who isn't alert and a `Takedown` prompt
+  appears. Hold E through the choke (2.5 s). You're locked in place and visible the
+  whole time, and the struggle makes a little noise. Let go early and the guard breaks
+  free and raises the alarm.
+- **Climbing.** Face a ledge and a `Clamber` (up to 1.6 m) or `Climb` (up to 4.2 m)
+  prompt appears. Press E. The catwalk's base wall, the perch tower, crates and the
+  platform can all be climbed. Guards can't climb, so high ground is an escape route.
 - **States.** *Patrol* turns into *Suspicious* (stop, turn, go look) and then *Alert*
   (radio nearby guards, chase, shoot after a visible wind-up). When they lose you they
   switch to *Search* around your last known position, then go back to *Patrol*.
