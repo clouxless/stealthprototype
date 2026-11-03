@@ -36,6 +36,8 @@ namespace StealthProto
             if (motor != null) motor.enabled = false;
             var combat = GetComponent<PlayerCombat>();
             if (combat != null) combat.enabled = false;
+            var context = GetComponent<PlayerContextActions>();
+            if (context != null) context.enabled = false;
             Invoke(nameof(Restart), restartDelay);
         }
 

@@ -27,25 +27,25 @@ namespace StealthProto
         public GuardVision vision;
         public Transform head;
         public Light flashlight;
-        public Renderer bodyRenderer;
+        public Renderer[] bodyRenderers;
 
         [Header("Movement")]
         public float walkSpeed = 1.8f;
         public float investigateSpeed = 2.6f;
-        public float chaseSpeed = 5f;
+        public float chaseSpeed = 5.5f;
         public float turnSpeed = 360f;
 
         [Header("Awareness")]
-        public float detectRate = 1.4f;
+        public float detectRate = 2f;
         public float searchDetectMultiplier = 2f;
-        public float decayRate = 0.2f;
+        public float decayRate = 0.12f;
         [Range(0f, 1f)] public float suspiciousThreshold = 0.3f;
-        public float reactionTime = 0.6f;
+        public float reactionTime = 0.45f;
         public float suspiciousDuration = 7f;
         public float loseSightTime = 2.5f;
         public float searchDuration = 12f;
         public float searchRadius = 6f;
-        public float radioRadius = 18f;
+        public float radioRadius = 22f;
         [Tooltip("Attacks from more than this angle off the guard's facing count as from behind.")]
         public float takedownAngle = 100f;
 
@@ -58,7 +58,7 @@ namespace StealthProto
         public float fireRange = 14f;
         public float fireWindup = 0.5f;
         public float fireCooldown = 1.1f;
-        [Range(0f, 1f)] public float hitChance = 0.7f;
+        [Range(0f, 1f)] public float hitChance = 0.75f;
         public float gunNoiseRadius = 15f;
 
         [Header("State colours")]
@@ -113,8 +113,11 @@ namespace StealthProto
             if (vision == null) vision = GetComponent<GuardVision>();
             if (flashlight != null) flashBaseIntensity = flashlight.intensity;
             block = new MaterialPropertyBlock();
-            if (bodyRenderer != null && bodyRenderer.sharedMaterial != null && bodyRenderer.sharedMaterial.HasProperty(BaseColorId))
-                bodyColor = bodyRenderer.sharedMaterial.GetColor(BaseColorId);
+            if (bodyRenderers != null && bodyRenderers.Length > 0 && bodyRenderers[0] != null)
+            {
+                var mat = bodyRenderers[0].sharedMaterial;
+                if (mat != null && mat.HasProperty(BaseColorId)) bodyColor = mat.GetColor(BaseColorId);
+            }
             telegraph = FX.CreateLine(transform, "PH_FX_AimTelegraph", new Color(1f, 0.1f, 0.1f, 0.5f), 0.025f);
             telegraph.positionCount = 2;
             telegraph.enabled = false;
@@ -178,9 +181,12 @@ namespace StealthProto
             transform.rotation = Quaternion.RotateTowards(transform.rotation, Quaternion.LookRotation(d), turnSpeed * dt);
         }
 
+        /// <summary>Held by the player during a takedown. Frozen and blind until released or downed.</summary>
+        public bool IsGrabbed { get; private set; }
+
         public bool CanBeTakenDown(Vector3 attackerPosition)
         {
-            if (State == GuardState.Alert || State == GuardState.Down) return false;
+            if (State == GuardState.Alert || State == GuardState.Down || IsGrabbed) return false;
             Vector3 forward = transform.forward;
             forward.y = 0f;
             Vector3 toAttacker = attackerPosition - transform.position;
@@ -188,11 +194,49 @@ namespace StealthProto
             return Vector3.Angle(forward, toAttacker) >= takedownAngle;
         }
 
+        public void Grab()
+        {
+            IsGrabbed = true;
+            windingUp = false;
+            telegraph.enabled = false;
+            SetStopped(true);
+        }
+
+        public void Release()
+        {
+            if (!IsGrabbed) return;
+            IsGrabbed = false;
+            if (State != GuardState.Down) SetStopped(false);
+        }
+
+        /// <summary>The player let go before the takedown finished: the guard breaks free, alerted.</summary>
+        public void BreakFree(Vector3 attackerPosition)
+        {
+            if (!IsGrabbed) return;
+            IsGrabbed = false;
+            if (State == GuardState.Down) return;
+            Awareness = 1f;
+            EnterAlert(attackerPosition, true);
+        }
+
+        public void CompleteTakedown(GameObject attacker)
+        {
+            IsGrabbed = false;
+            health.TakeDamage(new DamageInfo
+            {
+                amount = health.Current,
+                point = transform.position + Vector3.up,
+                direction = transform.forward,
+                source = attacker,
+                takedown = true
+            });
+        }
+
         // ---------- update ----------
 
         void Update()
         {
-            if (State == GuardState.Down) return;
+            if (State == GuardState.Down || IsGrabbed) return;
             float dt = Time.deltaTime;
             if (dt <= 0f) return;
 
@@ -362,7 +406,7 @@ namespace StealthProto
 
         public void ReceiveRadio(Vector3 point)
         {
-            if (State == GuardState.Down) return;
+            if (State == GuardState.Down || IsGrabbed) return;
             EnterAlert(point, false);
         }
 
@@ -399,7 +443,7 @@ namespace StealthProto
             if (lostTimer >= loseSightTime && (Arrived || lostTimer >= loseSightTime * 2f)) EnterSearch();
         }
 
-        Vector3 MuzzlePosition => transform.position + Vector3.up * 1.35f + transform.forward * 0.5f;
+        Vector3 MuzzlePosition => transform.position + Vector3.up * 1.3f + transform.forward * 0.45f;
 
         void TickShooting(float dt)
         {
@@ -506,6 +550,7 @@ namespace StealthProto
 
         public void HearNoise(Vector3 position, float loudness)
         {
+            if (IsGrabbed) return;
             switch (State)
             {
                 case GuardState.Down:
@@ -552,12 +597,7 @@ namespace StealthProto
             var cone = GetComponentInChildren<VisionConeMesh>();
             if (cone != null) cone.gameObject.SetActive(false);
             foreach (var c in GetComponents<Collider>()) c.enabled = false;
-            if (bodyRenderer != null)
-            {
-                bodyRenderer.GetPropertyBlock(block);
-                block.SetColor(BaseColorId, bodyColor * 0.4f);
-                bodyRenderer.SetPropertyBlock(block);
-            }
+            SetBodyColor(bodyColor * 0.4f);
             NoiseSystem.Emit(transform.position, info.takedown ? 2.5f : 6f, 0.6f, this);
             StartCoroutine(Topple(info.direction));
         }
@@ -610,12 +650,19 @@ namespace StealthProto
                 telegraph.SetPosition(1, vision.target.position + Vector3.up * 1.1f);
             }
 
-            if (bodyRenderer != null)
+            hitFlashTimer -= dt;
+            SetBodyColor(hitFlashTimer > 0f ? Color.white : bodyColor);
+        }
+
+        void SetBodyColor(Color c)
+        {
+            if (bodyRenderers == null) return;
+            foreach (var r in bodyRenderers)
             {
-                hitFlashTimer -= dt;
-                bodyRenderer.GetPropertyBlock(block);
-                block.SetColor(BaseColorId, hitFlashTimer > 0f ? Color.white : bodyColor);
-                bodyRenderer.SetPropertyBlock(block);
+                if (r == null) continue;
+                r.GetPropertyBlock(block);
+                block.SetColor(BaseColorId, c);
+                r.SetPropertyBlock(block);
             }
         }
     }

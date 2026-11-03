@@ -10,23 +10,23 @@ namespace StealthProto
     public class PlayerMotor : MonoBehaviour
     {
         [Header("Speeds (m/s)")]
-        public float runSpeed = 6.5f;
-        public float sneakSpeed = 2.4f;
-        public float aimSpeed = 3f;
+        public float runSpeed = 5f;
+        public float sneakSpeed = 2f;
+        public float aimSpeed = 2.6f;
         public float acceleration = 70f;
         public float deceleration = 80f;
         [Tooltip("Degrees per second. Very high = Hades-style instant facing.")]
         public float turnSpeed = 1800f;
 
         [Header("Dash")]
-        public float dashDistance = 4.5f;
-        public float dashDuration = 0.16f;
-        public float dashCooldown = 0.35f;
+        public float dashDistance = 3f;
+        public float dashDuration = 0.15f;
+        public float dashCooldown = 0.6f;
 
         [Header("Noise")]
-        public float footstepNoiseRadius = 4.5f;
+        public float footstepNoiseRadius = 6f;
         public float footstepInterval = 0.32f;
-        public float dashNoiseRadius = 5f;
+        public float dashNoiseRadius = 6f;
 
         [Header("Misc")]
         public float gravity = -30f;
@@ -52,6 +52,19 @@ namespace StealthProto
         public bool MovementLocked { get; set; }
         /// <summary>Locks movement input during attack swings.</summary>
         public bool AttackLock { get; set; }
+        /// <summary>Another component (climb, takedown) is moving the player. The motor does nothing.</summary>
+        public bool ExternalControl
+        {
+            get => externalControl;
+            set
+            {
+                externalControl = value;
+                velocity = Vector3.zero;
+                lunge = Vector3.zero;
+                verticalVelocity = 0f;
+            }
+        }
+        bool externalControl;
         public Vector3 Velocity => velocity;
         public float Speed => new Vector3(velocity.x, 0f, velocity.z).magnitude;
 
@@ -80,7 +93,7 @@ namespace StealthProto
         void Update()
         {
             float dt = Time.deltaTime;
-            if (dt <= 0f) return;
+            if (dt <= 0f || externalControl) return;
 
             Vector3 wish = Vector3.zero;
             if (!MovementLocked && !AttackLock)

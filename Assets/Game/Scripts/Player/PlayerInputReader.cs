@@ -9,7 +9,7 @@ namespace StealthProto
     /// </summary>
     public class PlayerInputReader : MonoBehaviour
     {
-        InputAction move, lookMouse, lookStick, aimStick, pointer, sneak, dash, melee, fire, aim, firstPerson;
+        InputAction move, lookMouse, lookStick, aimStick, pointer, sneak, dash, melee, fire, aim, firstPerson, interact;
 
         public Vector2 Move => move.ReadValue<Vector2>();
         public Vector2 LookMouse => lookMouse.ReadValue<Vector2>();
@@ -22,6 +22,9 @@ namespace StealthProto
         public bool MeleePressed => melee.WasPressedThisFrame();
         public bool FirePressed => fire.WasPressedThisFrame();
         public bool FirstPersonToggled => firstPerson.WasPressedThisFrame();
+        /// <summary>Context action: takedown or climb, whichever is prompted.</summary>
+        public bool InteractPressed => interact.WasPressedThisFrame();
+        public bool InteractHeld => interact.IsPressed();
         /// <summary>True when the gamepad was the last device used for aiming.</summary>
         public bool UsingGamepad { get; private set; }
 
@@ -53,9 +56,11 @@ namespace StealthProto
             fire.AddBinding("<Gamepad>/rightTrigger");
             firstPerson = new InputAction("FirstPerson", InputActionType.Button, "<Keyboard>/v");
             firstPerson.AddBinding("<Gamepad>/rightStickPress");
+            interact = new InputAction("Interact", InputActionType.Button, "<Keyboard>/e");
+            interact.AddBinding("<Gamepad>/buttonNorth");
         }
 
-        InputAction[] AllActions => new[] { move, lookMouse, lookStick, aimStick, pointer, sneak, dash, melee, fire, aim, firstPerson };
+        InputAction[] AllActions => new[] { move, lookMouse, lookStick, aimStick, pointer, sneak, dash, melee, fire, aim, firstPerson, interact };
 
         void OnEnable()
         {

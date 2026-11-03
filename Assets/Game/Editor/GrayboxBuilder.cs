@@ -208,7 +208,8 @@ namespace StealthProto.EditorTools
             // North catwalk at 4 m with ramps at both ends and a railing.
             var catwalk = Group(root, "PH_Catwalk");
             Block(catwalk, "PH_CatwalkDeck", new Vector3(0f, 3.85f, 13f), new Vector3(40f, 0.3f, 4f));
-            Block(catwalk, "PH_CatwalkRail", new Vector3(0f, 4.5f, 11.05f), new Vector3(31.6f, 1f, 0.1f));
+            // Solid base under the middle of the catwalk: a 4 m wall you can climb.
+            Block(catwalk, "PH_CatwalkBase", new Vector3(0f, 1.85f, 13f), new Vector3(31.6f, 3.7f, 4f));
             Ramp(catwalk, "PH_RampWest", new Vector3(-17.5f, 0f, 1.5f), new Vector3(-17.5f, 4f, 11f), 2.6f);
             Ramp(catwalk, "PH_RampEast", new Vector3(17.5f, 0f, 1.5f), new Vector3(17.5f, 4f, 11f), 2.6f);
 
@@ -216,7 +217,7 @@ namespace StealthProto.EditorTools
             var beam = Group(root, "PH_Beam");
             Block(beam, "PH_BeamWalk", new Vector3(0f, 3.85f, 2.75f), new Vector3(1.2f, 0.3f, 16.5f));
             Block(beam, "PH_Perch", new Vector3(0f, 3.85f, -7f), new Vector3(3f, 0.3f, 3f));
-            Block(beam, "PH_PerchPillar", new Vector3(0f, 1.85f, -7f), new Vector3(0.8f, 3.7f, 0.8f));
+            Block(beam, "PH_PerchTower", new Vector3(0f, 1.85f, -7f), new Vector3(3f, 3.7f, 3f)); // climbable
 
             // Raised platform with a ramp.
             var platform = Group(root, "PH_Platform");
@@ -332,7 +333,7 @@ namespace StealthProto.EditorTools
 
             var cc = p.AddComponent<CharacterController>();
             cc.height = 1.8f;
-            cc.radius = 0.4f;
+            cc.radius = 0.3f;
             cc.center = new Vector3(0f, 0.9f, 0f);
             cc.stepOffset = 0.35f;
             cc.slopeLimit = 45f;
@@ -344,12 +345,10 @@ namespace StealthProto.EditorTools
             p.AddComponent<LightExposure>();
             p.AddComponent<PlayerCombat>();
             p.AddComponent<PlayerLife>();
-
-            var body = Visual(PrimitiveType.Capsule, p.transform, "PH_Body", new Vector3(0f, 0.9f, 0f), new Vector3(0.8f, 0.9f, 0.8f), playerMat);
-            Visual(PrimitiveType.Cube, p.transform, "PH_Nose", new Vector3(0f, 1.35f, 0.38f), new Vector3(0.25f, 0.15f, 0.3f), noseMat);
+            p.AddComponent<PlayerContextActions>();
 
             var tint = p.AddComponent<PlayerShadowTint>();
-            tint.renderers = new[] { body.GetComponent<Renderer>() };
+            tint.renderers = Mannequin(p.transform, playerMat);
             return p;
         }
 
@@ -423,13 +422,13 @@ namespace StealthProto.EditorTools
             g.transform.SetPositionAndRotation(position, Quaternion.Euler(0f, yaw, 0f));
 
             var col = g.AddComponent<CapsuleCollider>();
-            col.center = new Vector3(0f, 1f, 0f);
-            col.height = 2f;
-            col.radius = 0.4f;
+            col.center = new Vector3(0f, 0.9f, 0f);
+            col.height = 1.8f;
+            col.radius = 0.3f;
 
             var agent = g.AddComponent<NavMeshAgent>();
-            agent.radius = 0.4f;
-            agent.height = 2f;
+            agent.radius = 0.35f;
+            agent.height = 1.8f;
             agent.speed = 1.8f;
             agent.angularSpeed = 540f;
             agent.acceleration = 24f;
@@ -439,16 +438,15 @@ namespace StealthProto.EditorTools
             var health = g.AddComponent<Health>();
             health.maxHealth = 3;
 
-            var body = Visual(PrimitiveType.Capsule, g.transform, "PH_Body", new Vector3(0f, 1f, 0f), new Vector3(0.8f, 1f, 0.8f), guardMat);
-            Visual(PrimitiveType.Cube, g.transform, "PH_Nose", new Vector3(0f, 1.45f, 0.4f), new Vector3(0.3f, 0.15f, 0.3f), noseMat);
+            var bodyRenderers = Mannequin(g.transform, guardMat);
 
             var head = new GameObject("Head").transform;
             head.SetParent(g.transform, false);
-            head.localPosition = new Vector3(0f, 1.6f, 0f);
+            head.localPosition = new Vector3(0f, 1.65f, 0f);
 
             var flashGO = new GameObject("PH_Flashlight");
             flashGO.transform.SetParent(head, false);
-            flashGO.transform.localPosition = new Vector3(0f, -0.15f, 0.6f); // outside the body and nose so they never shadow the beam
+            flashGO.transform.localPosition = new Vector3(0.1f, -0.2f, 0.45f); // held out in front so the body never shadows the beam
             flashGO.transform.localRotation = Quaternion.Euler(12f, 0f, 0f);
             var light = flashGO.AddComponent<Light>();
             light.type = LightType.Spot;
@@ -473,7 +471,7 @@ namespace StealthProto.EditorTools
             brain.vision = vision;
             brain.head = head;
             brain.flashlight = light;
-            brain.bodyRenderer = body.GetComponent<Renderer>();
+            brain.bodyRenderers = bodyRenderers;
 
             var cone = new GameObject("PH_VisionCone");
             cone.transform.SetParent(g.transform, false);
@@ -482,6 +480,30 @@ namespace StealthProto.EditorTools
             var coneMesh = cone.AddComponent<VisionConeMesh>();
             coneMesh.vision = vision;
             coneMesh.brain = brain;
+        }
+
+        /// <summary>
+        /// Placeholder mannequin at human proportions (about 1.75 m, feet at the origin): legs, torso,
+        /// arms, head, and a magenta visor showing facing. Returns the body renderers (not the visor).
+        /// </summary>
+        static Renderer[] Mannequin(Transform parent, Material bodyMat)
+        {
+            var root = new GameObject("PH_Mannequin").transform;
+            root.SetParent(parent, false);
+            var parts = new[]
+            {
+                Visual(PrimitiveType.Cube, root, "PH_LegL", new Vector3(-0.1f, 0.425f, 0f), new Vector3(0.15f, 0.85f, 0.17f), bodyMat),
+                Visual(PrimitiveType.Cube, root, "PH_LegR", new Vector3(0.1f, 0.425f, 0f), new Vector3(0.15f, 0.85f, 0.17f), bodyMat),
+                Visual(PrimitiveType.Cube, root, "PH_Torso", new Vector3(0f, 1.15f, 0f), new Vector3(0.4f, 0.6f, 0.22f), bodyMat),
+                Visual(PrimitiveType.Cube, root, "PH_ArmL", new Vector3(-0.26f, 1.13f, 0f), new Vector3(0.1f, 0.62f, 0.12f), bodyMat),
+                Visual(PrimitiveType.Cube, root, "PH_ArmR", new Vector3(0.26f, 1.13f, 0f), new Vector3(0.1f, 0.62f, 0.12f), bodyMat),
+                Visual(PrimitiveType.Sphere, root, "PH_Head", new Vector3(0f, 1.6f, 0f), Vector3.one * 0.24f, bodyMat),
+            };
+            Visual(PrimitiveType.Cube, root, "PH_Visor", new Vector3(0f, 1.62f, 0.11f), new Vector3(0.17f, 0.06f, 0.06f), noseMat);
+
+            var renderers = new Renderer[parts.Length];
+            for (int i = 0; i < parts.Length; i++) renderers[i] = parts[i].GetComponent<Renderer>();
+            return renderers;
         }
 
         // ---------------------------------------------------------------- utils

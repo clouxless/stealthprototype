@@ -19,14 +19,14 @@ namespace StealthProto
         public float lookUpLimit = 20f;
         public float lookDownLimit = 65f;
         [Tooltip("Within this radius the guard notices the target regardless of facing.")]
-        public float peripheralRadius = 1.3f;
+        public float peripheralRadius = 1.8f;
 
         [Header("Light")]
         [Tooltip("Inside this range light level doesn't matter.")]
         public float closeRange = 2.5f;
         [Tooltip("Up to this range a target in shadow is partially visible.")]
-        public float darkSightDistance = 5f;
-        [Range(0f, 1f)] public float nearDarkVisibility = 0.45f;
+        public float darkSightDistance = 6f;
+        [Range(0f, 1f)] public float nearDarkVisibility = 0.55f;
 
         static readonly Vector3[] BodyPoints = { new Vector3(0f, 0.35f, 0f), new Vector3(0f, 1.1f, 0f), new Vector3(0f, 1.65f, 0f) };
 

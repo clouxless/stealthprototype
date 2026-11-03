@@ -5,7 +5,7 @@ using UnityEngine;
 namespace StealthProto
 {
     /// <summary>
-    /// Melee (lunge + arc, silent takedown from behind on unalerted guards) and a hitscan gun
+    /// Melee (lunge + arc) and a hitscan gun
     /// while aiming. In first-person mode the gun fires along the camera.
     /// </summary>
     [RequireComponent(typeof(PlayerInputReader), typeof(PlayerMotor))]
@@ -19,7 +19,6 @@ namespace StealthProto
         public float meleeRecovery = 0.22f;
         public float meleeLunge = 8f;
         public float meleeHitStop = 0.07f;
-        public float takedownHitStop = 0.14f;
 
         [Header("Gun")]
         public int fireDamage = 1;
@@ -66,7 +65,7 @@ namespace StealthProto
             if (!firstPerson && IsAiming) motor.SetFacingOverride(Flat(AimDirection));
             else motor.SetFacingOverride(null);
 
-            if (Time.time < busyUntil || motor.IsDashing) return;
+            if (Time.time < busyUntil || motor.IsDashing || motor.ExternalControl) return;
 
             if (IsAiming)
             {
@@ -140,7 +139,6 @@ namespace StealthProto
             Vector3 center = transform.position + Vector3.up + dir * 0.6f;
             int count = Physics.OverlapSphereNonAlloc(center, meleeRange, overlap, ~0, QueryTriggerInteraction.Ignore);
             bool hitAny = false;
-            bool takedown = false;
             for (int i = 0; i < count; i++)
             {
                 var h = overlap[i].GetComponentInParent<Health>();
@@ -151,21 +149,14 @@ namespace StealthProto
                 to.y = 0f;
                 if (to.sqrMagnitude > 0.01f && Vector3.Angle(dir, to) > meleeArc * 0.5f) continue;
 
-                var guard = h.GetComponent<GuardBrain>();
-                bool isTakedown = guard != null && guard.CanBeTakenDown(transform.position);
                 var info = new DamageInfo
                 {
-                    amount = isTakedown ? h.Current : meleeDamage,
+                    amount = meleeDamage,
                     point = h.transform.position + Vector3.up,
                     direction = to.sqrMagnitude > 0.01f ? to.normalized : dir,
-                    source = gameObject,
-                    takedown = isTakedown
+                    source = gameObject
                 };
-                if (h.TakeDamage(info))
-                {
-                    hitAny = true;
-                    takedown |= isTakedown;
-                }
+                if (h.TakeDamage(info)) hitAny = true;
             }
             hitSet.Clear();
 
@@ -173,10 +164,10 @@ namespace StealthProto
                 hitAny ? Color.white : new Color(1f, 1f, 1f, 0.35f), 0.08f);
             if (hitAny)
             {
-                HitStop.Do(takedown ? takedownHitStop : meleeHitStop);
-                CameraRig.Shake(takedown ? 0.25f : 0.15f);
+                HitStop.Do(meleeHitStop);
+                CameraRig.Shake(0.15f);
             }
-            NoiseSystem.Emit(transform.position, hitAny && !takedown ? 5f : 1.5f, 0.4f);
+            NoiseSystem.Emit(transform.position, hitAny ? 5f : 1.5f, 0.4f);
 
             yield return new WaitForSeconds(meleeRecovery * 0.5f);
             motor.AttackLock = false;
