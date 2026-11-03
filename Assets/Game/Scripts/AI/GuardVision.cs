@@ -47,7 +47,7 @@ namespace StealthProto
             if (eye == null) eye = transform;
             if (target == null)
             {
-                var player = FindFirstObjectByType<PlayerMotor>();
+                var player = FindAnyObjectByType<PlayerMotor>();
                 if (player != null) target = player.transform;
             }
             if (target != null)

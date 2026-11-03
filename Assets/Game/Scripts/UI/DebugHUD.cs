@@ -22,13 +22,13 @@ namespace StealthProto
 
         void Start()
         {
-            if (player == null) player = FindFirstObjectByType<PlayerMotor>();
+            if (player == null) player = FindAnyObjectByType<PlayerMotor>();
             if (player != null)
             {
                 exposure = player.GetComponent<LightExposure>();
                 health = player.GetComponent<Health>();
             }
-            rig = FindFirstObjectByType<CameraRig>();
+            rig = FindAnyObjectByType<CameraRig>();
             cam = Camera.main;
         }
 
