@@ -429,7 +429,7 @@ namespace StealthProto.EditorTools
             var agent = g.AddComponent<NavMeshAgent>();
             agent.radius = 0.35f;
             agent.height = 1.8f;
-            agent.speed = 1.8f;
+            agent.speed = 1.4f;
             agent.angularSpeed = 540f;
             agent.acceleration = 24f;
             agent.stoppingDistance = 0.2f;

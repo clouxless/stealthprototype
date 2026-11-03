@@ -11,7 +11,7 @@ namespace StealthProto
     {
         [Header("Speeds (m/s)")]
         public float runSpeed = 5f;
-        public float sneakSpeed = 2f;
+        public float sneakSpeed = 2.3f;
         public float aimSpeed = 2.6f;
         public float acceleration = 70f;
         public float deceleration = 80f;

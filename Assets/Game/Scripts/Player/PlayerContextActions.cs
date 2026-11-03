@@ -18,7 +18,7 @@ namespace StealthProto
         public enum ContextAction { None, Takedown, Clamber, Climb }
 
         [Header("Takedown")]
-        public float takedownRange = 1.6f;
+        public float takedownRange = 1.8f;
         [Tooltip("The player must be roughly facing the guard.")]
         public float takedownFacingAngle = 75f;
         public float takedownStepTime = 0.12f;

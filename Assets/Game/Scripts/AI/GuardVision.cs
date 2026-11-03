@@ -18,8 +18,10 @@ namespace StealthProto
         [Tooltip("Guards rarely look up. Targets steeper than this above the eye are unseen.")]
         public float lookUpLimit = 20f;
         public float lookDownLimit = 65f;
-        [Tooltip("Within this radius the guard notices the target regardless of facing.")]
-        public float peripheralRadius = 1.8f;
+        [Tooltip("Outside the cone, within this radius, the guard can sense a target that isn't sneaking.")]
+        public float peripheralRadius = 1.5f;
+        [Tooltip("How strongly that out-of-cone sense registers (0..1). Sneaking targets are never sensed this way.")]
+        [Range(0f, 1f)] public float peripheralStrength = 0.3f;
 
         [Header("Light")]
         [Tooltip("Inside this range light level doesn't matter.")]
@@ -32,6 +34,7 @@ namespace StealthProto
 
         LightExposure targetExposure;
         Health targetHealth;
+        PlayerMotor targetMotor;
 
         /// <summary>Widened while alert.</summary>
         public float AngleMultiplier { get; set; } = 1f;
@@ -54,6 +57,7 @@ namespace StealthProto
             {
                 targetExposure = target.GetComponent<LightExposure>();
                 targetHealth = target.GetComponent<Health>();
+                targetMotor = target.GetComponent<PlayerMotor>();
             }
         }
 
@@ -74,16 +78,22 @@ namespace StealthProto
             NormalizedDistance = Mathf.Clamp01(distance / viewDistance);
             if (distance > viewDistance) return 0f;
 
-            if (distance > peripheralRadius)
-            {
-                Vector3 flatForward = eye.forward;
-                flatForward.y = 0f;
-                Vector3 flatTo = toTarget;
-                flatTo.y = 0f;
-                if (Vector3.Angle(flatForward, flatTo) > EffectiveHalfAngle) return 0f;
+            Vector3 flatForward = eye.forward;
+            flatForward.y = 0f;
+            Vector3 flatTo = toTarget;
+            flatTo.y = 0f;
+            float vertical = Mathf.Atan2(toTarget.y, flatTo.magnitude) * Mathf.Rad2Deg;
+            bool inCone = Vector3.Angle(flatForward, flatTo) <= EffectiveHalfAngle
+                          && vertical <= lookUpLimit && vertical >= -lookDownLimit;
 
-                float vertical = Mathf.Atan2(toTarget.y, flatTo.magnitude) * Mathf.Rad2Deg;
-                if (vertical > lookUpLimit || vertical < -lookDownLimit) return 0f;
+            // Outside the cone the guard can only *sense* someone close who isn't sneaking.
+            // A sneaking player behind a guard is never sensed: that's what makes takedowns possible.
+            float senseFactor = 1f;
+            if (!inCone)
+            {
+                bool sneaking = targetMotor != null && targetMotor.IsSneaking;
+                if (distance > peripheralRadius || sneaking) return 0f;
+                senseFactor = peripheralStrength;
             }
 
             int visibleParts = 0;
@@ -97,7 +107,7 @@ namespace StealthProto
             float lightFactor = Mathf.Lerp(darkFloor, 1f, exposure);
 
             float distanceFactor = 1f - Mathf.InverseLerp(closeRange, viewDistance, distance) * 0.6f;
-            return Mathf.Clamp01(partFactor * lightFactor * distanceFactor);
+            return Mathf.Clamp01(partFactor * lightFactor * distanceFactor * senseFactor);
         }
     }
 }

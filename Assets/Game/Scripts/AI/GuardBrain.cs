@@ -30,7 +30,7 @@ namespace StealthProto
         public Renderer[] bodyRenderers;
 
         [Header("Movement")]
-        public float walkSpeed = 1.8f;
+        public float walkSpeed = 1.4f;
         public float investigateSpeed = 2.6f;
         public float chaseSpeed = 5.5f;
         public float turnSpeed = 360f;
