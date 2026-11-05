@@ -94,7 +94,7 @@ namespace StealthProto
         void Update()
         {
             Available = ContextAction.None;
-            if (Busy || motor.IsDashing || motor.ExternalControl || motor.AttackLock) return;
+            if (Busy || motor.IsDashing || motor.ExternalControl || motor.AttackLock || motor.IsProne) return;
             if (rig != null && rig.IsFirstPerson) return;
 
             takedownTarget = FindTakedownTarget();

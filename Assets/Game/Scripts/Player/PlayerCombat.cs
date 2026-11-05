@@ -71,7 +71,7 @@ namespace StealthProto
             {
                 if (input.FirePressed && Time.time >= fireReadyAt) Fire(firstPerson);
             }
-            else if (input.MeleePressed)
+            else if (input.MeleePressed && !motor.IsProne)
             {
                 StartCoroutine(MeleeRoutine());
             }
@@ -179,7 +179,7 @@ namespace StealthProto
             Vector3 dir = AimDirection;
             Vector3 origin = firstPerson && aimCamera != null
                 ? aimCamera.transform.position
-                : transform.position + Vector3.up * 1.2f + Flat(dir) * 0.45f;
+                : transform.position + Vector3.up * (motor.IsProne ? 0.3f : 1.2f) + Flat(dir) * 0.45f;
 
             Vector3 end = origin + dir * fireRange;
             if (Occlusion.Raycast(origin, dir, fireRange, transform, null, out RaycastHit hit))

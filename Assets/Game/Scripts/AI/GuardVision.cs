@@ -47,6 +47,8 @@ namespace StealthProto
         public float NormalizedDistance { get; private set; } = 1f;
         public Vector3 LastSeenPosition { get; private set; }
         public float EffectiveHalfAngle => halfAngle * AngleMultiplier;
+        /// <summary>Centre of the target's body (lower when prone).</summary>
+        public Vector3 TargetCenter => target.position + Vector3.up * (targetMotor != null ? targetMotor.CenterHeight : 1.1f);
 
         public float SightDistance(LightTier tier) => tier switch
         {
@@ -83,7 +85,7 @@ namespace StealthProto
             if (targetHealth != null && targetHealth.IsDead) return 0f;
 
             Vector3 eyePos = eye.position;
-            Vector3 toTarget = target.position + Vector3.up * 1.1f - eyePos;
+            Vector3 toTarget = TargetCenter - eyePos;
             float distance = toTarget.magnitude;
             NormalizedDistance = Mathf.Clamp01(distance / viewDistance);
             if (distance > viewDistance) return 0f;
@@ -101,16 +103,18 @@ namespace StealthProto
             float senseFactor = 1f;
             if (!inCone)
             {
-                bool sneaking = targetMotor != null && targetMotor.IsSneaking;
+                bool sneaking = targetMotor != null && targetMotor.IsQuiet;
                 if (distance > peripheralRadius || sneaking) return 0f;
                 senseFactor = peripheralStrength;
             }
 
+            // Line of sight to the body (prone bodies are long and low: low cover hides them).
+            Vector3[] points = targetMotor != null ? targetMotor.VisibilityPoints : BodyPoints;
             int visibleParts = 0;
-            foreach (var p in BodyPoints)
+            foreach (var p in points)
                 if (!Occlusion.Blocked(eyePos, target.TransformPoint(p), target, transform)) visibleParts++;
             if (visibleParts == 0) return 0f;
-            float partFactor = visibleParts / (float)BodyPoints.Length;
+            float partFactor = visibleParts / (float)points.Length;
 
             LightTier tier = targetExposure != null ? targetExposure.Tier : LightTier.Lit;
             float sight = SightDistance(tier);

@@ -614,7 +614,7 @@ namespace StealthProto
         {
             Transform t = vision.target;
             Vector3 origin = MuzzlePosition;
-            Vector3 aimPoint = t.position + Vector3.up * 1.1f;
+            Vector3 aimPoint = vision.TargetCenter;
             Vector3 dir = (aimPoint - origin).normalized;
             Vector3 end = aimPoint;
 
@@ -802,7 +802,7 @@ namespace StealthProto
             if (telegraph.enabled)
             {
                 telegraph.SetPosition(0, MuzzlePosition);
-                telegraph.SetPosition(1, vision.target.position + Vector3.up * 1.1f);
+                telegraph.SetPosition(1, vision.TargetCenter);
             }
 
             hitFlashTimer -= dt;

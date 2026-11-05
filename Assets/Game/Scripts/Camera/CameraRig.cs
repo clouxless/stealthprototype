@@ -184,7 +184,8 @@ namespace StealthProto
             fpPitch = Mathf.Clamp(fpPitch - mouse.y - stick.y, -pitchLimit, pitchLimit);
 
             target.rotation = Quaternion.Euler(0f, fpYaw, 0f);
-            cam.transform.SetPositionAndRotation(target.position + Vector3.up * eyeHeight, Quaternion.Euler(fpPitch, fpYaw, 0f));
+            float eye = motor != null && motor.IsProne ? 0.35f : eyeHeight;
+            cam.transform.SetPositionAndRotation(target.position + Vector3.up * eye, Quaternion.Euler(fpPitch, fpYaw, 0f));
         }
     }
 }

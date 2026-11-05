@@ -65,7 +65,7 @@ namespace StealthProto
             if (exposure != null) GUILayout.Label($"Light tier  {exposure.Tier.ToString().ToUpper()}  (shown on the character)", label);
             if (player != null)
             {
-                string mode = rig != null && rig.IsFirstPerson ? "FIRST PERSON" : player.IsSneaking ? "SNEAKING" : "TOP-DOWN";
+                string mode = rig != null && rig.IsFirstPerson ? "FIRST PERSON" : player.IsProne ? "PRONE" : player.IsSneaking ? "SNEAKING" : "TOP-DOWN";
                 GUILayout.Label($"Mode  {mode}", label);
             }
             GUILayout.Space(6);
@@ -86,7 +86,7 @@ namespace StealthProto
                     "Move WASD / left stick    Sneak (silent) Shift / LB\n" +
                     "Dash Space / A            Melee LMB / X\n" +
                     "Context E / Y: takedown (behind an unalerted guard), clamber, climb\n" +
-                    "Focus (hold, can't move) Q / L3: see sounds\n" +
+                    "Focus (hold, can't move) Q / L3: see sounds    Prone C / B\n" +
                     "Aim RMB / LT, fire LMB / RT\n" +
                     "First-person look V / R3  (can't move, fire along view)\n" +
                     "Zoom mouse wheel / d-pad   F1 vision cones   F2 all noise rings   R restart";
