@@ -403,7 +403,7 @@ namespace StealthProto
                 Transform p = route.GetPoint(routeIndex);
                 FaceTowards(transform.position + p.forward, dt);
             }
-            if (waitTimer >= route.waitTime)
+            if (waitTimer >= route.WaitAt(routeIndex))
             {
                 waitTimer = 0f;
                 AdvanceRoute();

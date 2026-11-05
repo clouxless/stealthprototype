@@ -106,7 +106,7 @@ namespace StealthProto
                     "Aim RMB / LT, fire LMB / RT\n" +
                     "First-person look V / R3  (can't move, fire along view)\n" +
                     "Zoom mouse wheel / d-pad   F1 vision cones   F2 all noise rings   F4 x-ray   R restart";
-                GUI.Label(new Rect(324, Screen.height - 176, 720, 166), help, label);
+                GUI.Label(new Rect(324, Screen.height - 176, 720, 166), help, label); // beside the 300-wide status panel
             }
 
             if (health != null && health.IsDead)
