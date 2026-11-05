@@ -28,6 +28,38 @@ namespace StealthProto.EditorTools
             volume.sharedProfile = profile;
 
             if (cam != null) cam.GetUniversalAdditionalCameraData().renderPostProcessing = true;
+            EnsureRendererPostProcessing();
+        }
+
+        /// <summary>
+        /// A URP renderer with no post-process data silently skips all post-processing, so the
+        /// black-and-white volume does nothing. Give the active renderer the package's default data.
+        /// </summary>
+        static void EnsureRendererPostProcessing()
+        {
+            var pipeline = GraphicsSettings.currentRenderPipeline as UniversalRenderPipelineAsset;
+            if (pipeline == null) return;
+            var list = new SerializedObject(pipeline).FindProperty("m_RendererDataList");
+            if (list == null) return;
+            for (int i = 0; i < list.arraySize; i++)
+            {
+                var data = list.GetArrayElementAtIndex(i).objectReferenceValue;
+                if (data == null) continue;
+                var so = new SerializedObject(data);
+                var post = so.FindProperty("postProcessData");
+                if (post == null || post.objectReferenceValue != null) continue;
+                var defaults = AssetDatabase.LoadAssetAtPath<Object>(
+                    "Packages/com.unity.render-pipelines.universal/Runtime/Data/PostProcessData.asset");
+                if (defaults == null)
+                {
+                    Debug.LogWarning("[PH] Couldn't find URP's default PostProcessData; enable Post-processing on your URP renderer by hand.");
+                    return;
+                }
+                post.objectReferenceValue = defaults;
+                so.ApplyModifiedPropertiesWithoutUndo();
+                EditorUtility.SetDirty(data);
+                Debug.Log($"[PH] Enabled post-processing on {data.name}.");
+            }
         }
 
         static VolumeProfile EnsureProfile()
