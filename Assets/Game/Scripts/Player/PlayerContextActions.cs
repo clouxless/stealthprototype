@@ -101,6 +101,7 @@ namespace StealthProto
         Edge edge;
         LightExposure exposure;
         PlayerCover cover;
+        PlayerGrateCrawl grate;
         readonly Collider[] overlap = new Collider[16];
         static readonly float[] WallProbeHeights = { 0.4f, 1.0f, 1.5f };
 
@@ -111,6 +112,7 @@ namespace StealthProto
             controller = GetComponent<CharacterController>();
             exposure = GetComponent<LightExposure>();
             cover = GetComponent<PlayerCover>();
+            grate = GetComponent<PlayerGrateCrawl>();
         }
 
         void Start() => rig = FindAnyObjectByType<CameraRig>();
@@ -130,6 +132,7 @@ namespace StealthProto
         void Update()
         {
             Available = ContextAction.None;
+            if (grate != null && grate.BlocksContext) return; // floor grates take the button
             // In cover, only climbing the wall you're pressed against is offered.
             bool inCover = cover != null && cover.InCover;
             if (Busy || motor.IsDashing || (motor.ExternalControl && !inCover) || motor.AttackLock || motor.IsProne) return;

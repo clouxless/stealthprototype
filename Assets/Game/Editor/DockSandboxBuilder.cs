@@ -49,11 +49,10 @@ namespace StealthProto.EditorTools
         const float WallThickness = 0.5f;
         const float CoverInset = 0.1f;
 
-        // Floor grates: crawlways under the floor. Each runs in a straight line between two cells
-        // (inclusive), with an open hatch at both end cells to drop in and climb out. The trench is
-        // 0.9 m wide and 0.75 m high: prone only. Lateral shifts the trench off the cell centre
-        // (+ is east for a north-south run, south for an east-west run) so guards can still walk
-        // past the open hatches.
+        // Floor grates: Arkham-style crawlspaces under the floor. Each runs in a straight line
+        // between two cells (inclusive). Stand on one and press E to drop in, crawl along it, press
+        // E again to climb out wherever there's room to stand (PlayerGrateCrawl). Lateral shifts
+        // the trench off the cell centre (+ is east for a north-south run, south for an east-west run).
         const float GrateWidth = 0.9f, GrateDepth = 0.8f, GrateCap = 0.05f;
         static readonly (Vector2Int from, Vector2Int to, float lateral)[] Grates =
         {
@@ -102,6 +101,7 @@ namespace StealthProto.EditorTools
             BuildWalls(level.transform);
             BuildBlocks(level.transform);
             BuildGrates(level.transform);
+            BuildGrateRuns();
             BuildCatwalk(level.transform);
             var surface = level.AddComponent<NavMeshSurface>();
             surface.collectObjects = CollectObjects.Children;
@@ -113,6 +113,7 @@ namespace StealthProto.EditorTools
             BuildGoal();
 
             var player = G.BuildPlayer(CellPos(1f, 13f));
+            player.AddComponent<PlayerGrateCrawl>();
             player.transform.rotation = Quaternion.Euler(0f, 0f, 0f);
             G.BuildCamera(player);
             BuildGuards(player.transform);
@@ -217,9 +218,8 @@ namespace StealthProto.EditorTools
 
         /// <summary>
         /// Grate cells replace their floor tile with a trench: solid floor either side, a trench
-        /// floor 0.8 m down, and a thin grate on top that guards walk over and can't see through.
-        /// End cells have no grate, so they're open hatches you walk into and drop down. Go prone
-        /// (C) to crawl, and clamber out of the far hatch. Blocks sit on top as normal.
+        /// floor 0.8 m down, and a grate on top that guards walk over and can't see through.
+        /// Blocks sit on top as normal.
         /// </summary>
         static void BuildGrates(Transform root)
         {
@@ -228,7 +228,7 @@ namespace StealthProto.EditorTools
             for (int r = 0; r < Rows; r++)
                 for (int c = 0; c < Cols; c++)
                 {
-                    if (!GrateAt(c, r, out bool alongX, out float lateral, out bool isEnd)) continue;
+                    if (!GrateAt(c, r, out bool alongX, out float lateral, out _)) continue;
                     Vector3 basePos = CellPos(c, r);
                     // Grid +r is world -Z, so a positive lateral on an east-west run is south.
                     Vector3 across = alongX ? Vector3.back : Vector3.right;
@@ -245,7 +245,6 @@ namespace StealthProto.EditorTools
                     Piece("PH_FloorTile", -half, t0, -DeckThickness, 0f);
                     Piece("PH_FloorTile", t1, half, -DeckThickness, 0f);
                     Piece("PH_GrateTrenchFloor", t0, t1, -DeckThickness, -GrateDepth);
-                    if (isEnd) continue;
 
                     Piece("PH_Grate", t0, t1, -GrateCap, 0f);
                     // Bars so the grate reads as a grate from above.
@@ -258,6 +257,27 @@ namespace StealthProto.EditorTools
                         bar.GetComponent<Renderer>().shadowCastingMode = ShadowCastingMode.Off;
                     }
                 }
+        }
+
+        /// <summary>One GrateRun per grate: the line the player crawls along, inset from the ends.</summary>
+        static void BuildGrateRuns()
+        {
+            var parent = new GameObject("PH_GrateRuns").transform;
+            const float endInset = 0.9f; // the prone body lies behind the feet, keep it inside the trench
+            foreach (var (from, to, lateral) in Grates)
+            {
+                bool alongX = from.y == to.y;
+                Vector3 across = alongX ? Vector3.back : Vector3.right;
+                Vector3 a = CellPos(from.x, from.y, -GrateDepth) + across * lateral;
+                Vector3 b = CellPos(to.x, to.y, -GrateDepth) + across * lateral;
+                Vector3 dir = (b - a).normalized;
+                var go = new GameObject("PH_GrateRun");
+                go.transform.SetParent(parent, false);
+                var run = go.AddComponent<GrateRun>();
+                run.start = a - dir * (Cell * 0.5f - endInset);
+                run.end = b + dir * (Cell * 0.5f - endInset);
+                run.surfaceY = 0f;
+            }
         }
 
         /// <summary>

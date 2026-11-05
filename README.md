@@ -120,14 +120,14 @@ While hanging: the stick shimmies along the edge, E climbs up, Space or C lets g
 the player and guard AI, laid out from Cloux's design on a 2 m grid (50 x 28 m):
 
 - **Start:** the dark south-west corner, boxed in by a solid block. Two ways out: the ladder
-  or the floor grate.
+  or the floor grate right in front of you.
 - **West catwalk:** ladders (face one, press E) at both ends lead to a catwalk 3.2 m up along
   the west wall, running south to north over the pit. Guards can't climb, and its edges can be
   hung from.
-- **Floor grates:** two crawlways under the floor, one from the start under the start block,
-  one down the pit-side lane under the north block. Walk into the open hatch at either end,
-  go prone (C) and crawl; guards walk over the grate and can't see through it. Clamber out of
-  the far hatch.
+- **Floor grates (Arkham-style):** two crawlspaces under the floor, one from the start under
+  the start block, one down the pit-side lane under the north block. Stand on a grate and press
+  E to drop in, push the stick to crawl along it, and press E again to climb out wherever there's
+  room to stand. Inside you're silent, and guards walk over you without seeing you.
 - **Bottomless pit:** a hole in the west floor. Fall in and you're downed.
 - **Yard:** six solid blocks, floor to ceiling, that block sight, with a north, middle and south lane between them.
   Downward lamps light the lane crossings and leave the runs between them dark.
@@ -161,6 +161,7 @@ the menu item again to try a variation.
 | `Scripts/AI/LastKnownMarker.cs` | Marker where hunting guards will search |
 | `Scripts/AI/VisionConeMesh.cs` | Vision drawn on the surfaces it covers |
 | `Scripts/Level/SandboxGoal.cs`, `FallHazard.cs` | Exit trigger with run stats, fall hazard |
+| `Scripts/Level/GrateRun.cs`, `Scripts/Player/PlayerGrateCrawl.cs` | Floor grates: enter, crawl, exit |
 | `Editor/GrayboxBuilder.cs` | Builds the test scene from code |
 | `Editor/DockSandboxBuilder.cs` | Builds the dock sandbox from a text map |
 | `Editor/PlaceholderAudit.cs` | Placeholder audit and release-build block |
