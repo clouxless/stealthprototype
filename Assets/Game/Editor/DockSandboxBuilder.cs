@@ -85,15 +85,8 @@ namespace StealthProto.EditorTools
                     "This builder expects a URP project (Unity Hub 'Universal 3D' template). See README.md.", "OK");
                 return;
             }
-            if (GraphicsSettings.currentRenderPipeline == null)
-            {
-                EditorUtility.DisplayDialog("No URP asset assigned",
-                    "URP is installed but no URP asset is active, so every material will render magenta. " +
-                    "Create one (Assets > Create > Rendering > URP Asset (with Universal Renderer)) and assign it in " +
-                    "Project Settings > Graphics and Project Settings > Quality. See README.md.", "OK");
-                return;
-            }
             if (!EditorSceneManager.SaveCurrentModifiedScenesIfUserWantsTo()) return;
+            UrpSetup.EnsureActive();
 
             G.EnsureFolder(G.Root + "/Materials");
             G.EnsureFolder(G.Root + "/Textures");

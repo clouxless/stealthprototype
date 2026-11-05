@@ -34,6 +34,7 @@ namespace StealthProto.EditorTools
                 return;
             }
             if (!EditorSceneManager.SaveCurrentModifiedScenesIfUserWantsTo()) return;
+            UrpSetup.EnsureActive();
 
             EnsureFolder(Root + "/Materials");
             EnsureFolder(Root + "/Textures");
