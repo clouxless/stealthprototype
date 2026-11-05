@@ -107,6 +107,8 @@ While hanging: the stick shimmies along the edge, E climbs up, Space or C lets g
   walks out along the beam to check it.
 - A crawl-only vent through the inner wall comes out in a dark lane behind the west
   guard's route, a better angle than walking round the wall past the floor guard.
+- No guard patrols back and forth in a straight line (no sudden 180-degree turns): every
+  route is a loop, and dead ends like the perch are rounded off.
 - Two tables to crawl under. No closet yet (it was optional).
 
 ## Code map

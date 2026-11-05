@@ -513,22 +513,45 @@ namespace StealthProto.EditorTools
                 (new Vector3(-8.5f, 0f, 3f), 180f));
             BuildGuard("PH_Guard_West", new Vector3(-15f, 0f, 1f), 0f, westRoute, player);
 
-            // Catwalk guard: west end, beam junction (looks down the beam), out to the perch
-            // (checks it, looks south over the room), back, east end, and round again.
-            var catwalkRoute = Route(routes, "PH_Route_Catwalk", true, 2.5f,
-                (new Vector3(-14f, 4f, 13f), 180f),
-                (new Vector3(0f, 4f, 12f), 180f),
-                (new Vector3(0f, 4f, -6.5f), 180f),
-                (new Vector3(0f, 4f, 12f), 90f),
-                (new Vector3(14f, 4f, 13f), 180f),
-                (new Vector3(0f, 4f, 13.5f), 270f));
-            BuildGuard("PH_Guard_Catwalk", new Vector3(-14f, 4f, 13f), 90f, catwalkRoute, player);
+            // Catwalk guard: one big loop, never a straight back-and-forth (no sudden 180s).
+            // East along the back of the deck, round the east end, west along the front, down the
+            // beam to check the perch (round the perch, not a spin), back up, round the west end.
+            // Wait 0 = a rounding point it walks through.
+            var catwalkRoute = RouteTimed(routes, "PH_Route_Catwalk", 2.5f,
+                (new Vector3(-13f, 4f, 14f), 90f, 0f),
+                (new Vector3(12.5f, 4f, 14f), 90f, 0f),
+                (new Vector3(14.5f, 4f, 13f), 180f, 0f),
+                (new Vector3(13f, 4f, 12f), 180f, 2.5f),       // east end: looks into the room
+                (new Vector3(1.5f, 4f, 12f), 270f, 0f),
+                (new Vector3(0f, 4f, 11f), 180f, 2.5f),        // beam junction: looks down the beam
+                (new Vector3(0.6f, 4f, -6f), 180f, 0f),
+                (new Vector3(0.6f, 4f, -7.8f), 180f, 2.5f),    // perch: looks south over the room
+                (new Vector3(-0.6f, 4f, -7.8f), 270f, 0f),
+                (new Vector3(-0.6f, 4f, -6f), 0f, 0f),
+                (new Vector3(0f, 4f, 11.2f), 0f, 0f),
+                (new Vector3(-1.5f, 4f, 12f), 270f, 0f),
+                (new Vector3(-14f, 4f, 12f), 180f, 2.5f),      // west end: looks into the room
+                (new Vector3(-15.5f, 4f, 13f), 0f, 0f));
+            BuildGuard("PH_Guard_Catwalk", new Vector3(-13f, 4f, 14f), 90f, catwalkRoute, player);
 
-            // Platform guard: a mostly stationary lookout.
-            var platformRoute = Route(routes, "PH_Route_Platform", true, 4f,
-                (new Vector3(8f, 1.5f, -5f), 270f),
-                (new Vector3(10f, 1.5f, -3f), 0f));
-            BuildGuard("PH_Guard_Platform", new Vector3(8f, 1.5f, -5f), 270f, platformRoute, player);
+            // Platform guard: a slow square on the platform, looking out from each corner.
+            var platformRoute = Route(routes, "PH_Route_Platform", true, 2.5f,
+                (new Vector3(7f, 1.5f, -7f), 225f),
+                (new Vector3(11f, 1.5f, -7f), 135f),
+                (new Vector3(11f, 1.5f, -3f), 45f),
+                (new Vector3(7f, 1.5f, -3f), 315f));
+            BuildGuard("PH_Guard_Platform", new Vector3(7f, 1.5f, -7f), 90f, platformRoute, player);
+        }
+
+        /// <summary>A looping route with a wait per point (0 = walk through).</summary>
+        internal static PatrolRoute RouteTimed(Transform parent, string name, float defaultWait, params (Vector3 pos, float yaw, float wait)[] points)
+        {
+            var simple = new (Vector3 pos, float yaw)[points.Length];
+            for (int i = 0; i < points.Length; i++) simple[i] = (points[i].pos, points[i].yaw);
+            var route = Route(parent, name, true, defaultWait, simple);
+            for (int i = 0; i < points.Length; i++)
+                route.GetPoint(i).gameObject.AddComponent<PatrolPoint>().wait = points[i].wait;
+            return route;
         }
 
         internal static PatrolRoute Route(Transform parent, string name, bool loop, float wait, params (Vector3 pos, float yaw)[] points)
