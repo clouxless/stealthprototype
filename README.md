@@ -145,8 +145,11 @@ the menu item again to try a variation.
 
 ## Look and testing toggles
 
-- **Black and white:** the world renders in greyscale through a global URP volume
-  (`Assets/Game/Rendering/BlackAndWhite.asset`, saturation -100). The debug HUD keeps its colours.
+- **Black and white, except guard state:** a global URP volume
+  (`Assets/Game/Rendering/BlackAndWhite.asset`) greys out every hue except red through amber, so
+  the only colour in the world is suspicious (amber) and alert (red) guards: their cones,
+  bodies, the last-known marker and their shots. Keep everything else neutral or it'll show
+  through. The debug HUD keeps its colours.
 - **Flashlights aren't drawn.** They still light you for the light tiers; the vision cones (F1)
   show where guards are looking.
 - **Long sight:** guards see a Lit player dead ahead (within 12 degrees) out to 26 m, shown as a

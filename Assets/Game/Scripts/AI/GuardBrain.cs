@@ -93,8 +93,10 @@ namespace StealthProto
         public float runStepInterval = 0.3f;
 
         [Header("State colours")]
-        public Color patrolColor = new Color(1f, 0.93f, 0.78f);
-        public Color suspiciousColor = new Color(1f, 0.7f, 0.15f);
+        // The world renders in black and white except reds and ambers (see LookSetup), so these
+        // two are the only colours on screen. Keep patrol neutral and the others inside that band.
+        public Color patrolColor = new Color(0.95f, 0.95f, 0.95f);
+        public Color suspiciousColor = new Color(1f, 0.6f, 0.1f);
         public Color alertColor = new Color(1f, 0.15f, 0.1f);
 
         public GuardState State { get; private set; } = GuardState.Patrol;
@@ -820,7 +822,9 @@ namespace StealthProto
             hitFlashTimer -= dt;
             Color silhouette = CurrentColor;
             silhouette.a = 0.55f;
-            SetBodyColor(hitFlashTimer > 0f ? Color.white : bodyColor, silhouette);
+            // Suspicious and alert guards are tinted too, so state reads on the body as well as the cone.
+            Color body = State == GuardState.Patrol ? bodyColor : Color.Lerp(bodyColor, CurrentColor, 0.75f);
+            SetBodyColor(hitFlashTimer > 0f ? Color.white : body, silhouette);
         }
 
         void SetBodyColor(Color c, Color silhouette)

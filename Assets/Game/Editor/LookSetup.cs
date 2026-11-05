@@ -6,8 +6,11 @@ using UnityEngine.Rendering.Universal;
 namespace StealthProto.EditorTools
 {
     /// <summary>
-    /// The game's look: the world renders in black and white (a global URP volume with saturation
-    /// at -100). The debug HUD is drawn after post-processing, so it keeps its colours.
+    /// The game's look: the world renders in black and white, except reds and ambers, which are kept
+    /// for guard state (suspicious amber, alert red). A global URP volume with a Hue vs Saturation
+    /// curve does it: zero saturation for every hue outside the red-amber band. So nothing else in
+    /// the world should be red or amber (lights and materials are neutral). The debug HUD is drawn
+    /// after post-processing, so it keeps its colours.
     /// Scene builders call Apply after creating the camera.
     /// </summary>
     public static class LookSetup
@@ -44,9 +47,29 @@ namespace StealthProto.EditorTools
                 AssetDatabase.AddObjectToAsset(color, profile);
             }
             color.active = true;
-            color.saturation.Override(-100f);
+            color.saturation.overrideState = false; // the curve below does the desaturation
             color.contrast.Override(15f); // a little punch, so light pools read crisply
 
+            if (!profile.TryGet(out ColorCurves curves))
+            {
+                curves = profile.Add<ColorCurves>(true);
+                curves.name = "ColorCurves";
+                AssetDatabase.AddObjectToAsset(curves, profile);
+            }
+            curves.active = true;
+            // Hue 0..1 around the wheel; 0.5 leaves saturation alone, 0 removes it. Keep red through
+            // amber (hue 0 to 0.1, and the reds wrapping round from 0.95), grey out everything else.
+            var keys = new[]
+            {
+                new Keyframe(0.00f, 0.5f),
+                new Keyframe(0.10f, 0.5f),
+                new Keyframe(0.125f, 0f),
+                new Keyframe(0.92f, 0f),
+                new Keyframe(0.95f, 0.5f),
+            };
+            curves.hueVsSat.Override(new TextureCurve(keys, 0.5f, true, new Vector2(0f, 1f)));
+
+            EditorUtility.SetDirty(curves);
             EditorUtility.SetDirty(color);
             EditorUtility.SetDirty(profile);
             AssetDatabase.SaveAssets();

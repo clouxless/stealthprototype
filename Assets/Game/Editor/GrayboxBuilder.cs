@@ -85,11 +85,12 @@ namespace StealthProto.EditorTools
 
             gridMat = MakeLitMaterial("PH_Grid", grid, Color.white);
             playerMat = MakeLitMaterial("PH_Player", checkerTex, new Color(0.25f, 0.9f, 1f));
-            guardMat = MakeLitMaterial("PH_Guard", checkerTex, new Color(1f, 0.55f, 0.2f));
+            // Neutral: only guard state (amber, red) shows in colour. See LookSetup.
+            guardMat = MakeLitMaterial("PH_Guard", checkerTex, new Color(0.8f, 0.8f, 0.8f));
             noseMat = MakeLitMaterial("PH_Nose", null, new Color(1f, 0f, 1f));
-            lampMat = MakeLitMaterial("PH_Lamp", null, new Color(1f, 0.9f, 0.6f));
+            lampMat = MakeLitMaterial("PH_Lamp", null, new Color(1f, 1f, 1f));
             lampMat.EnableKeyword("_EMISSION");
-            lampMat.SetColor("_EmissionColor", new Color(1f, 0.85f, 0.5f) * 2f);
+            lampMat.SetColor("_EmissionColor", Color.white * 2f);
 
             playerSilhouetteMat = MakeSilhouetteMaterial("PH_SilhouettePlayer", new Color(0.35f, 0.95f, 1f, 0.5f));
             // You always see yourself behind walls; guards only with the x-ray testing toggle (F4).
@@ -260,7 +261,7 @@ namespace StealthProto.EditorTools
             light.innerSpotAngle = spotAngle - 2f;
             light.range = range;
             light.intensity = intensity;
-            light.color = new Color(1f, 0.86f, 0.62f);
+            light.color = Color.white; // warm light would survive the red/amber colour band
             light.shadows = LightShadows.Hard; // crisp pool edges
             go.AddComponent<StealthLight>();
 
@@ -592,7 +593,7 @@ namespace StealthProto.EditorTools
             light.spotAngle = 70f;
             light.innerSpotAngle = 68f;
             light.intensity = 30f;
-            light.color = new Color(1f, 0.93f, 0.78f);
+            light.color = Color.white;
             light.shadows = LightShadows.Hard;
             // The flashlight still lights the player for the light tiers, but it isn't drawn: the
             // vision cone is the visual for where a guard is looking.
