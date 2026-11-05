@@ -1,11 +1,14 @@
+using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.Rendering;
 
 namespace StealthProto
 {
     /// <summary>
-    /// Faint floor fan showing a guard's vision, clipped by walls and tinted by state.
-    /// Secondary to the flashlight; toggle with F1.
+    /// The guard's vision drawn on the surfaces it actually covers: a grid draped over floors,
+    /// platform tops and catwalks, shown only where the guard can see (its visible height layers,
+    /// line of sight from the eye). So it's clear at a glance whether a cone reaches the catwalk.
+    /// Tinted by state. Toggle with F1.
     /// </summary>
     [RequireComponent(typeof(MeshFilter), typeof(MeshRenderer))]
     public class VisionConeMesh : MonoBehaviour
@@ -14,15 +17,24 @@ namespace StealthProto
 
         public GuardVision vision;
         public GuardBrain brain;
-        public int segments = 24;
-        [Range(0f, 1f)] public float alpha = 0.16f;
+        public int segments = 20;
+        [Tooltip("Distance between rows of the grid, in metres.")]
+        public float rowStep = 0.75f;
+        public float updateInterval = 0.1f;
+        [Range(0f, 1f)] public float alpha = 0.2f;
         public float heightOffset = 0.04f;
+        [Tooltip("Cells whose corners differ in height by more than this are skipped (no sheets up walls).")]
+        public float maxStepInCell = 0.4f;
 
         Mesh mesh;
         MeshRenderer meshRenderer;
         Vector3[] vertices;
         Color[] colors;
-        int[] triangles;
+        bool[] valid;
+        float[] heights;
+        readonly List<int> triangles = new List<int>();
+        int rows;
+        float timer;
 
         void Awake()
         {
@@ -33,24 +45,34 @@ namespace StealthProto
             if (meshRenderer.sharedMaterial == null) meshRenderer.sharedMaterial = FX.LineMaterial;
             meshRenderer.shadowCastingMode = ShadowCastingMode.Off;
             meshRenderer.receiveShadows = false;
+        }
 
-            vertices = new Vector3[segments + 2];
-            colors = new Color[segments + 2];
-            triangles = new int[segments * 3];
-            for (int i = 0; i < segments; i++)
-            {
-                triangles[i * 3] = 0;
-                triangles[i * 3 + 1] = i + 1;
-                triangles[i * 3 + 2] = i + 2;
-            }
+        void Allocate()
+        {
+            rows = Mathf.Max(2, Mathf.CeilToInt(vision.viewDistance / rowStep) + 1);
+            int count = (segments + 1) * rows;
+            vertices = new Vector3[count];
+            colors = new Color[count];
+            valid = new bool[count];
+            heights = new float[count];
         }
 
         void LateUpdate()
         {
-            meshRenderer.enabled = Visible && vision != null;
+            meshRenderer.enabled = Visible && vision != null && vision.eye != null;
             if (!meshRenderer.enabled) return;
 
-            Vector3 origin = vision.eye.position;
+            timer -= Time.deltaTime;
+            if (timer > 0f) return;
+            timer = updateInterval;
+
+            if (vertices == null || rows != Mathf.Max(2, Mathf.CeilToInt(vision.viewDistance / rowStep) + 1)) Allocate();
+            Rebuild();
+        }
+
+        void Rebuild()
+        {
+            Vector3 eye = vision.eye.position;
             Vector3 forward = vision.eye.forward;
             forward.y = 0f;
             if (forward.sqrMagnitude < 0.0001f) return;
@@ -58,30 +80,61 @@ namespace StealthProto
 
             float half = vision.EffectiveHalfAngle;
             float range = vision.viewDistance;
-            float floorY = transform.position.y + heightOffset;
+            Transform self = vision.transform;
+            Transform target = vision.target;
 
-            Color near = brain != null ? brain.CurrentColor : Color.white;
-            near.a = alpha;
-            Color far = near;
-            far.a = alpha * 0.25f;
+            Color baseColor = brain != null ? brain.CurrentColor : Color.white;
+            float castTop = eye.y + 0.2f; // guards don't see above their eyes unless searching
+            if (vision.LookUp) castTop += 6f;
 
-            vertices[0] = transform.InverseTransformPoint(new Vector3(origin.x, floorY, origin.z));
-            colors[0] = near;
             for (int i = 0; i <= segments; i++)
             {
                 float angle = Mathf.Lerp(-half, half, i / (float)segments);
                 Vector3 dir = Quaternion.Euler(0f, angle, 0f) * forward;
-                float d = range;
-                if (Occlusion.Raycast(origin, dir, range, vision.transform, vision.target, out RaycastHit hit)) d = hit.distance;
-                Vector3 p = origin + dir * d;
-                p.y = floorY;
-                vertices[i + 1] = transform.InverseTransformPoint(p);
-                colors[i + 1] = Color.Lerp(near, far, d / range);
+                for (int j = 0; j < rows; j++)
+                {
+                    int v = i * rows + j;
+                    float dist = Mathf.Min(range, 0.3f + j * rowStep);
+                    Vector3 column = new Vector3(eye.x, castTop, eye.z) + dir * dist;
+
+                    bool ok = false;
+                    float y = transform.position.y;
+                    if (Occlusion.Raycast(column, Vector3.down, 12f, self, target, out RaycastHit hit) && hit.normal.y > 0.6f)
+                    {
+                        y = hit.point.y;
+                        ok = vision.CanSeeLayer(HeightLayers.LayerOf(y))
+                             && !Occlusion.Blocked(eye, hit.point + Vector3.up * 0.3f, self, target);
+                    }
+
+                    heights[v] = y;
+                    valid[v] = ok;
+                    vertices[v] = transform.InverseTransformPoint(new Vector3(column.x, y + heightOffset, column.z));
+                    Color c = baseColor;
+                    c.a = ok ? Mathf.Lerp(alpha, alpha * 0.3f, dist / range) : 0f;
+                    colors[v] = c;
+                }
             }
 
+            triangles.Clear();
+            for (int i = 0; i < segments; i++)
+            {
+                for (int j = 0; j < rows - 1; j++)
+                {
+                    int a = i * rows + j, b = (i + 1) * rows + j, c = (i + 1) * rows + j + 1, d = i * rows + j + 1;
+                    if (!(valid[a] || valid[b] || valid[c] || valid[d])) continue;
+                    float min = Mathf.Min(Mathf.Min(heights[a], heights[b]), Mathf.Min(heights[c], heights[d]));
+                    float max = Mathf.Max(Mathf.Max(heights[a], heights[b]), Mathf.Max(heights[c], heights[d]));
+                    if (max - min > maxStepInCell) continue;
+                    // Clockwise seen from above: near-left, far-left, far-right / near-left, far-right, near-right.
+                    triangles.Add(a); triangles.Add(d); triangles.Add(c);
+                    triangles.Add(a); triangles.Add(c); triangles.Add(b);
+                }
+            }
+
+            mesh.Clear();
             mesh.vertices = vertices;
             mesh.colors = colors;
-            mesh.triangles = triangles;
+            mesh.SetTriangles(triangles, 0);
             mesh.RecalculateBounds();
         }
     }

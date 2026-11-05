@@ -15,6 +15,7 @@ namespace StealthProto
 
         LightExposure exposure;
         PlayerContextActions context;
+        PlayerCover cover;
         Health health;
         CameraRig rig;
         Camera cam;
@@ -29,6 +30,7 @@ namespace StealthProto
                 exposure = player.GetComponent<LightExposure>();
                 health = player.GetComponent<Health>();
                 context = player.GetComponent<PlayerContextActions>();
+                cover = player.GetComponent<PlayerCover>();
             }
             rig = FindAnyObjectByType<CameraRig>();
             cam = Camera.main;
@@ -62,14 +64,13 @@ namespace StealthProto
             GUILayout.BeginArea(new Rect(12, 12, 300, 400), GUI.skin.box);
             GUILayout.Label("[PH] DEBUG HUD", label);
             if (health != null) GUILayout.Label($"HP  {health.Current} / {health.maxHealth}", label);
-            if (exposure != null)
-            {
-                GUILayout.Label($"Light  {(exposure.IsHidden ? "HIDDEN" : "EXPOSED")}  ({exposure.Exposure:0.00})", label);
-                Bar(exposure.Exposure, exposure.IsHidden ? new Color(0.3f, 0.5f, 1f) : new Color(1f, 0.85f, 0.4f));
-            }
+            if (exposure != null) GUILayout.Label($"Light tier  {exposure.Tier.ToString().ToUpper()}  (shown on the character)", label);
             if (player != null)
             {
-                string mode = rig != null && rig.IsFirstPerson ? "FIRST PERSON" : player.IsSneaking ? "SNEAKING" : "TOP-DOWN";
+                string mode = rig != null && rig.IsFirstPerson ? "FIRST PERSON"
+                    : context != null && context.Hanging ? "HANGING"
+                    : cover != null && cover.InCover ? "COVER"
+                    : player.IsProne ? "PRONE" : player.IsSneaking ? "SNEAKING" : "TOP-DOWN";
                 GUILayout.Label($"Mode  {mode}", label);
             }
             GUILayout.Space(6);
@@ -89,11 +90,14 @@ namespace StealthProto
                     "[PH] CONTROLS (F3 hide)\n" +
                     "Move WASD / left stick    Sneak (silent) Shift / LB\n" +
                     "Dash Space / A            Melee LMB / X\n" +
-                    "Context E / Y: takedown (behind an unalerted guard), clamber, climb\n" +
+                    "Context E / Y: takedown (behind an unalerted guard), clamber, climb, hang off edges\n" +
+                    "Cover: push into a wall. Slide to an end to peek, LMB / X knock, push away to leave\n" +
+                    "Hanging: stick shimmies, E climbs up, Space / C lets go (grip runs out)\n" +
+                    "Focus (hold, can't move) Q / L3: see sounds    Prone C / B\n" +
                     "Aim RMB / LT, fire LMB / RT\n" +
                     "First-person look V / R3  (can't move, fire along view)\n" +
-                    "Zoom mouse wheel / d-pad   F1 vision cones   F2 noise rings   R restart";
-                GUI.Label(new Rect(12, Screen.height - 140, 640, 130), help, label);
+                    "Zoom mouse wheel / d-pad   F1 vision cones   F2 all noise rings   R restart";
+                GUI.Label(new Rect(324, Screen.height - 176, 720, 166), help, label); // beside the 300-wide status panel
             }
 
             if (health != null && health.IsDead)
@@ -107,24 +111,45 @@ namespace StealthProto
             if (cam == null || (rig != null && rig.IsFirstPerson)) return;
             foreach (var g in GuardBrain.All)
             {
-                string text = g.State switch
-                {
-                    GuardState.Suspicious => "?",
-                    GuardState.Search => "?",
-                    GuardState.Alert => "!",
-                    _ => null
-                };
-                if (text == null) continue;
-                Vector3 sp = cam.WorldToScreenPoint(g.transform.position + Vector3.up * 2.4f);
+                // Tells are big; the ongoing state is a small reminder.
+                var tell = g.CurrentTell;
+                string text;
+                int size;
+                if (tell == GuardBrain.Tell.Exclamation) { text = "!"; size = 44; }
+                else if (tell == GuardBrain.Tell.Question) { text = "?"; size = 40; }
+                else if (g.State == GuardState.Alert) { text = "!"; size = 22; }
+                else if (g.State == GuardState.Suspicious || g.State == GuardState.Search) { text = "?"; size = 22; }
+                else continue;
+
+                Vector3 sp = cam.WorldToScreenPoint(g.transform.position + Vector3.up * 2.3f);
                 if (sp.z <= 0f) continue;
+                marker.fontSize = size;
                 marker.normal.textColor = g.CurrentColor;
-                GUI.Label(new Rect(sp.x - 20, Screen.height - sp.y - 20, 40, 40), text, marker);
+                GUI.Label(new Rect(sp.x - 30, Screen.height - sp.y - 30, 60, 60), text, marker);
             }
         }
 
         void DrawContextPrompt()
         {
-            if (context == null || cam == null) return;
+            if (cam == null) return;
+            if (cover != null && cover.InCover && (context == null || context.PromptLabel == null))
+            {
+                Vector3 cp = cam.WorldToScreenPoint(player.transform.position + Vector3.up * 2.3f);
+                if (cp.z > 0f) GUI.Box(new Rect(cp.x - 120, Screen.height - cp.y - 16, 240, 32), $"[PH] {cover.Prompt}", prompt);
+                return;
+            }
+            if (context == null) return;
+            if (context.Hanging)
+            {
+                Vector3 hp = cam.WorldToScreenPoint(context.PromptPosition);
+                if (hp.z <= 0f) return;
+                var r = new Rect(hp.x - 130, Screen.height - hp.y - 16, 260, 32);
+                GUI.Box(r, "[PH] E climb up  |  Space drop", prompt);
+                GUI.color = Color.Lerp(new Color(1f, 0.3f, 0.2f, 0.8f), new Color(1f, 1f, 1f, 0.5f), context.GripFraction);
+                GUI.DrawTexture(new Rect(r.x, r.yMax, r.width * context.GripFraction, 6), Texture2D.whiteTexture);
+                GUI.color = Color.white;
+                return;
+            }
             bool choking = context.TakedownProgress >= 0f;
             if (!choking && context.PromptLabel == null) return;
             Vector3 sp = cam.WorldToScreenPoint(context.PromptPosition);

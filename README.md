@@ -44,50 +44,89 @@ and turn on **Lighting > Additional Lights > Cast Shadows**.
 | Sneak (slow, silent) | Hold Shift | Hold LB |
 | Dash (i-frames, a little noisy) | Space | A |
 | Melee | LMB | X |
-| Context: takedown (hold), clamber, climb | E | Y |
+| Context: takedown (hold), clamber, climb, hang off an edge | E | Y |
+| Cover: push into a tall wall; knock while in cover | Move into wall; LMB | Left stick; X |
+| Focus (hold; you can't move) | Q | L3 |
+| Prone (crawl) | C | B |
 | Aim / fire | Hold RMB, LMB to fire | Hold LT, RT to fire |
 | First-person look (can't move, fire along view) | V | R3 |
 | Zoom camera | Mouse wheel | D-pad up / down |
 | Toggle vision cones / noise rings / help | F1 / F2 / F3 | |
 | Restart | R | |
 
+While hanging: the stick shimmies along the edge, E climbs up, Space or C lets go.
+
 ## How the stealth works
 
-- **Light is the read on vision.** Every guard carries a flashlight whose cone matches
-  their vision cone. If the beam is on you, you're in danger. The beam's colour shows the
-  guard's state: warm white for patrol, amber for suspicious or searching, red for alert.
-- **Exposure.** Lights with a `StealthLight` component add to your exposure, and they're
-  blocked by geometry. In shadow you turn into a dark silhouette and guards can only see
-  you up close. The HUD shows HIDDEN or EXPOSED.
-- **Verticality.** Guards check line of sight in 3D against your feet, chest and head. They
-  rarely look up (20 degrees by default), so the overhead beam and the perch are safe
-  until you're far enough away to be in their sightline. Low crates hide your legs but
-  not your head.
-- **Scale.** Characters are placeholder mannequins at human proportions (about 1.75 m,
-  0.3 m collider radius), so level metrics match the final art.
-- **Hearing.** Running, dashing, melee and gunfire make noise (F2 shows the rings).
-  Sneaking is silent. Noise passes through walls for now.
+- **Light in three tiers.** Only the floor under your feet counts: Dark, Dim or Lit. Each
+  tier has one fixed guard sight distance everywhere (Dark 2.5 m, Dim 6.5 m, Lit 13 m).
+  Lamp pools have a crisp Lit core and a Dim ring. A flashlight counts only if its beam
+  lights the floor you stand on. Your character's tint shows the tier; there's no meter.
+- **Guards don't roll dice.** Patrols, pauses, head sweeps and searches are the same every
+  time. A "?" shows before a guard turns suspicious and a "!" before an alert. Shots have
+  a visible wind-up and always hit unless you break line of sight first.
+- **Short hunts.** When a guard loses you, a marker shows where they'll search: your last
+  known position, then one step further along your heading. Break line of sight or lure
+  them with noise and the hunt ends quickly. The lasting cost is the room: after the
+  first alert, guards stay wary (they spot you faster) and the red alarm floods stay on.
+- **Focus.** Hold Q to listen. The screen dims and sounds show as ripples. Hold longer for
+  more: loud nearby sounds, then every sound with edge arrows for off-screen ones, then
+  which guard made it and their state. Only sound shows. Critical sounds (gunshots,
+  shouts) always draw a ring, focus or not.
+- **Crawling.** Prone is slow and the quietest way to move. Lying right behind a low crate hides you
+  and you fit under tables and through the vent in the inner wall. You can't stand up
+  where there's no head room.
+- **Height layers.** Floor, platform (from 0.75 m) and catwalk (from 2.75 m). Guards see
+  their own layer and one below; they only look up while searching. Vision cones are drawn
+  on the surfaces they cover, so you can see whether a cone reaches the catwalk. Geometry
+  above you fades out, and characters behind walls show as silhouettes.
+- **Cover.** Push into a tall wall to press against it, then slide along it. At the end,
+  keep pushing to peek: the view slides round the corner. LMB knocks on the wall, a noise
+  that draws guards to it. Cover is for seeing, not hiding: guards still see you there.
+- **Ledge hang.** At a drop (the catwalk edge, the beam), walk to the edge and press E to
+  hang. Shimmy along, climb back up with E, or let go. Your grip lasts 6 s. While hanging,
+  the floor below you sets your light tier (switchable to the ledge on
+  `PlayerContextActions.hangLight`).
 - **Takedowns.** Get close behind a guard who isn't alert and a `Takedown` prompt
   appears. Hold E through the choke (2.5 s). You're locked in place and visible the
   whole time, and the struggle makes a little noise. Let go early and the guard breaks
   free and raises the alarm.
 - **Climbing.** Face a ledge and a `Clamber` (up to 1.6 m) or `Climb` (up to 4.2 m)
-  prompt appears. Press E. The catwalk's base wall, the perch tower, crates and the
-  platform can all be climbed. Guards can't climb, so high ground is an escape route.
-- **States.** *Patrol* turns into *Suspicious* (stop, turn, go look) and then *Alert*
-  (radio nearby guards, chase, shoot after a visible wind-up). When they lose you they
-  switch to *Search* around your last known position, then go back to *Patrol*.
+  prompt appears. Press E (also from cover). Guards can't climb, so high ground is an
+  escape route.
+- **Scale.** Characters are placeholder mannequins at human proportions (about 1.75 m,
+  0.3 m collider radius), so level metrics match the final art.
+
+## The graybox room
+
+- Four guards with overlapping coverage: floor, west, catwalk and platform. Taking one out
+  usually happens inside another's sightline.
+- Darkness is scarce: wide lamp pools with narrow dark lanes between them. You start in
+  the dark south-west corner.
+- The perch has a counter: a lamp lights its east half, and every lap the catwalk guard
+  walks out along the beam to check it.
+- A crawl-only vent through the inner wall comes out in a dark lane behind the west
+  guard's route, a better angle than walking round the wall past the floor guard.
+- No guard patrols back and forth in a straight line (no sudden 180-degree turns): every
+  route is a loop, and dead ends like the perch are rounded off.
+- Two tables to crawl under. No closet yet (it was optional).
 
 ## Code map
 
 | Path | What |
 | --- | --- |
-| `Scripts/Player/PlayerMotor.cs` | Movement, sneak, dash, footstep noise |
-| `Scripts/Player/PlayerCombat.cs` | Melee, takedowns, aiming, gun |
+| `Scripts/Player/PlayerMotor.cs` | Movement, sneak, dash, prone, footstep noise |
+| `Scripts/Player/PlayerContextActions.cs` | E: takedown, clamber, climb, ledge hang |
+| `Scripts/Player/PlayerCover.cs` | Cover cling, peek, knock |
+| `Scripts/Player/FocusMode.cs` | Focus (sound ripples) |
+| `Scripts/Player/PlayerCombat.cs` | Melee, aiming, gun |
 | `Scripts/Camera/CameraRig.cs` | Top-down follow, first-person look, shake |
-| `Scripts/Stealth/StealthLight.cs`, `LightExposure.cs` | Light-based visibility |
-| `Scripts/AI/GuardVision.cs` | Cone, 3D line of sight, light factor |
-| `Scripts/AI/GuardBrain.cs` | State machine, hearing, radio, shooting |
-| `Scripts/AI/VisionConeMesh.cs` | Floor fan showing vision (debug-ish) |
+| `Scripts/Stealth/StealthLight.cs`, `LightExposure.cs` | Light tiers from the floor under the player |
+| `Scripts/Stealth/HeightLayers.cs` | Named height layers |
+| `Scripts/Level/AlarmLight.cs` | Lights that switch on for good after the first alert |
+| `Scripts/AI/GuardVision.cs` | Cone, line of sight, tier sight distances, height layers |
+| `Scripts/AI/GuardBrain.cs` | State machine, tells, hearing, radio, search, shooting |
+| `Scripts/AI/LastKnownMarker.cs` | Marker where hunting guards will search |
+| `Scripts/AI/VisionConeMesh.cs` | Vision drawn on the surfaces it covers |
 | `Editor/GrayboxBuilder.cs` | Builds the test scene from code |
 | `Editor/PlaceholderAudit.cs` | Placeholder audit and release-build block |

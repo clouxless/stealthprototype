@@ -2,7 +2,12 @@ using UnityEngine;
 
 namespace StealthProto
 {
-    /// <summary>Waypoints are this object's children. A waypoint's forward is where the guard looks while waiting.</summary>
+    /// <summary>
+    /// Waypoints are this object's children. A waypoint's forward is where the guard looks while waiting.
+    /// Design rule: no straight back-and-forth routes. A guard reaching the end of a line and
+    /// spinning 180 degrees surprises the player unfairly, so routes are loops, and dead ends are
+    /// rounded off with a few pass-through points (PatrolPoint wait 0) so the turn is gradual.
+    /// </summary>
     public class PatrolRoute : MonoBehaviour
     {
         [Tooltip("Loop back to the first point, or walk back and forth.")]
@@ -13,6 +18,13 @@ namespace StealthProto
 
         public int Count => transform.childCount;
         public Transform GetPoint(int index) => transform.GetChild(index);
+
+        /// <summary>Seconds to wait at a point: its PatrolPoint override if it has one, else waitTime.</summary>
+        public float WaitAt(int index)
+        {
+            var point = GetPoint(index).GetComponent<PatrolPoint>();
+            return point != null ? point.wait : waitTime;
+        }
 
         void OnDrawGizmos()
         {

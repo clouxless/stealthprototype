@@ -18,6 +18,12 @@ namespace StealthProto
         [Tooltip("Degrees per second. Very high = Hades-style instant facing.")]
         public float turnSpeed = 1800f;
 
+        [Header("Prone (C / gamepad B)")]
+        public float proneSpeed = 1f;
+        public float proneHeight = 0.6f;
+        [Tooltip("Name of the child holding the character visuals, rotated to lie flat when prone.")]
+        public string visualRootName = "PH_Mannequin";
+
         [Header("Dash")]
         public float dashDistance = 3f;
         public float dashDuration = 0.15f;
@@ -48,10 +54,21 @@ namespace StealthProto
 
         public bool IsDashing => dashTimer > 0f;
         public bool IsSneaking { get; private set; }
+        public bool IsProne { get; private set; }
+        /// <summary>Sneaking or prone: guards can't sense you outside their cone.</summary>
+        public bool IsQuiet => IsSneaking || IsProne;
+        /// <summary>Height of the body's centre above the feet (aim point for guards).</summary>
+        public float CenterHeight => IsProne ? 0.25f : 1.1f;
+        /// <summary>Local-space points guards test line of sight against.</summary>
+        public Vector3[] VisibilityPoints => IsProne ? PronePoints : StandingPoints;
+        static readonly Vector3[] StandingPoints = { new Vector3(0f, 0.35f, 0f), new Vector3(0f, 1.1f, 0f), new Vector3(0f, 1.65f, 0f) };
+        static readonly Vector3[] PronePoints = { new Vector3(0f, 0.2f, -0.6f), new Vector3(0f, 0.22f, 0f), new Vector3(0f, 0.25f, 0.7f) };
         /// <summary>Locks movement input (first-person look mode).</summary>
         public bool MovementLocked { get; set; }
         /// <summary>Locks movement input during attack swings.</summary>
         public bool AttackLock { get; set; }
+        /// <summary>Locks movement input while Focus is held.</summary>
+        public bool FocusLock { get; set; }
         /// <summary>Another component (climb, takedown) is moving the player. The motor does nothing.</summary>
         public bool ExternalControl
         {
@@ -68,11 +85,46 @@ namespace StealthProto
         public Vector3 Velocity => velocity;
         public float Speed => new Vector3(velocity.x, 0f, velocity.z).magnitude;
 
+        float standHeight;
+        Transform visualRoot;
+        readonly Collider[] standCheck = new Collider[8];
+
         void Awake()
         {
             controller = GetComponent<CharacterController>();
             input = GetComponent<PlayerInputReader>();
             health = GetComponent<Health>();
+            standHeight = controller.height;
+            visualRoot = transform.Find(visualRootName);
+        }
+
+        /// <summary>Go prone or stand up. Standing needs head room.</summary>
+        public bool SetProne(bool prone)
+        {
+            if (prone == IsProne) return true;
+            if (!prone && !CanStand()) return false;
+            IsProne = prone;
+            float h = prone ? proneHeight : standHeight;
+            controller.height = h;
+            controller.center = new Vector3(0f, h * 0.5f, 0f);
+            if (visualRoot != null)
+            {
+                // Lie face down along the facing direction, centred on the collider.
+                visualRoot.localRotation = prone ? Quaternion.Euler(90f, 0f, 0f) : Quaternion.identity;
+                visualRoot.localPosition = prone ? new Vector3(0f, 0.13f, -0.85f) : Vector3.zero;
+            }
+            return true;
+        }
+
+        bool CanStand()
+        {
+            float r = controller.radius;
+            Vector3 p1 = transform.position + Vector3.up * (r + 0.05f);
+            Vector3 p2 = transform.position + Vector3.up * (standHeight - r);
+            int n = Physics.OverlapCapsuleNonAlloc(p1, p2, r * 0.95f, standCheck, ~0, QueryTriggerInteraction.Ignore);
+            for (int i = 0; i < n; i++)
+                if (!standCheck[i].transform.IsChildOf(transform)) return false;
+            return true;
         }
 
         void OnDisable()
@@ -96,25 +148,26 @@ namespace StealthProto
             if (dt <= 0f || externalControl) return;
 
             Vector3 wish = Vector3.zero;
-            if (!MovementLocked && !AttackLock)
+            if (!MovementLocked && !AttackLock && !FocusLock)
             {
                 wish = CameraRelative(input.Move);
                 if (wish.sqrMagnitude > 1f) wish.Normalize();
             }
 
-            IsSneaking = input.SneakHeld && !IsDashing;
-            float maxSpeed = input.AimHeld ? aimSpeed : IsSneaking ? sneakSpeed : runSpeed;
+            if (input.ProneToggled && !IsDashing && controller.isGrounded) SetProne(!IsProne);
+            IsSneaking = input.SneakHeld && !IsDashing && !IsProne;
+            float maxSpeed = IsProne ? proneSpeed : input.AimHeld ? aimSpeed : IsSneaking ? sneakSpeed : runSpeed;
 
             // Dash
             dashCooldownTimer -= dt;
-            if (input.DashPressed && !MovementLocked && !IsDashing && dashCooldownTimer <= 0f)
+            if (input.DashPressed && !MovementLocked && !IsProne && !IsDashing && dashCooldownTimer <= 0f)
             {
                 dashDirection = wish.sqrMagnitude > 0.01f ? wish.normalized : transform.forward;
                 dashTimer = dashDuration;
                 dashCooldownTimer = dashDuration + dashCooldown;
                 if (health != null) health.Invulnerable = true;
                 transform.rotation = Quaternion.LookRotation(dashDirection);
-                NoiseSystem.Emit(transform.position, dashNoiseRadius, 0.5f);
+                NoiseSystem.Emit(transform.position, dashNoiseRadius, 0.5f, null, SoundKind.Movement, gameObject);
             }
 
             Vector3 horizontal;
@@ -153,10 +206,11 @@ namespace StealthProto
 
             // Footsteps: sneaking is silent, running is not.
             footstepTimer -= dt;
-            if (!IsSneaking && !IsDashing && Speed > sneakSpeed + 0.5f && footstepTimer <= 0f)
+            if (!IsQuiet && !IsDashing && Speed > sneakSpeed + 0.5f && footstepTimer <= 0f)
             {
                 footstepTimer = footstepInterval;
-                NoiseSystem.Emit(transform.position, footstepNoiseRadius * Mathf.Clamp01(Speed / runSpeed), 0.4f);
+                NoiseSystem.Emit(transform.position, footstepNoiseRadius * Mathf.Clamp01(Speed / runSpeed), 0.4f,
+                    null, SoundKind.Footstep, gameObject);
             }
         }
     }

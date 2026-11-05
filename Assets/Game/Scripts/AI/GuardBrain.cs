@@ -9,18 +9,31 @@ namespace StealthProto
     public enum GuardState { Patrol, Suspicious, Alert, Search, Down }
 
     /// <summary>
-    /// Guard state machine.
-    /// Patrol: walk the route, sweep the flashlight at waypoints.
-    /// Suspicious: something was glimpsed or heard. Pause, turn, go look.
-    /// Alert: player confirmed. Radio nearby guards, chase, shoot with a visible wind-up.
-    /// Search: lost the player. Sweep around the last known position, then go back to patrol.
+    /// Guard state machine. No dice rolls anywhere: the same stimulus always gets the same
+    /// response, and every state change is announced by a visible tell first.
+    ///
+    /// Patrol: walk the route, fixed pauses and head sweeps at waypoints.
+    /// Suspicious: "?" tell (stop, turn), walk the shortest path to the stimulus, one fixed
+    ///   look-around, back to the route.
+    /// Alert: "!" tell (freeze, face you) before anything else, then radio nearby guards, chase,
+    ///   and shoot after a visible wind-up. A shot always hits unless you break line of sight.
+    /// Search: lost you. A short fixed pattern at the last known position (shown by a marker),
+    ///   then back to patrol. Noise moves the search.
     /// Down: taken out.
-    /// The flashlight colour shows the state: warm white, amber, red.
+    ///
+    /// After the first alert the room stays changed: guards remain wary (faster to notice) and
+    /// any AlarmLight in the scene switches on for good.
     /// </summary>
     [RequireComponent(typeof(NavMeshAgent), typeof(Health))]
     public class GuardBrain : MonoBehaviour, INoiseListener
     {
+        public enum Tell { None, Question, Exclamation }
+
         public static readonly List<GuardBrain> All = new List<GuardBrain>();
+        /// <summary>True once any guard has gone fully alert in this scene.</summary>
+        public static bool RoomAlerted { get; private set; }
+        /// <summary>Fired once, the first time any guard finishes its alert tell.</summary>
+        public static event Action RoomAlertRaised;
 
         [Header("References")]
         public PatrolRoute route;
@@ -38,28 +51,46 @@ namespace StealthProto
         [Header("Awareness")]
         public float detectRate = 2f;
         public float searchDetectMultiplier = 2f;
+        [Tooltip("Detection multiplier for every guard once the room has been alerted.")]
+        public float waryDetectMultiplier = 1.5f;
         public float decayRate = 0.12f;
         [Range(0f, 1f)] public float suspiciousThreshold = 0.3f;
-        public float reactionTime = 0.45f;
-        public float suspiciousDuration = 7f;
-        public float loseSightTime = 2.5f;
-        public float searchDuration = 12f;
-        public float searchRadius = 6f;
-        public float radioRadius = 22f;
-        [Tooltip("Attacks from more than this angle off the guard's facing count as from behind.")]
+        [Tooltip("Takedowns: attacks from more than this angle off the guard's facing count as from behind.")]
         public float takedownAngle = 100f;
+
+        [Header("Tells (seconds)")]
+        [Tooltip("\"?\" pause before investigating.")]
+        public float reactionTime = 0.6f;
+        [Tooltip("\"!\" freeze before chasing and shooting. Your window to break line of sight.")]
+        public float alertTellTime = 0.6f;
+        [Tooltip("Shorter \"!\" when alerted by radio or by being hit.")]
+        public float secondhandTellTime = 0.35f;
+
+        [Header("Investigate and hunt (seconds / metres)")]
+        public float lookAroundTime = 3f;
+        public float loseSightTime = 1.2f;
+        public float searchPointLookTime = 2.2f;
+        [Tooltip("Second search point: this far past the last known position, in the direction of the chase.")]
+        public float searchStep = 3.5f;
+        [Tooltip("Safety net if a point can't be reached.")]
+        public float investigateTimeout = 12f;
+        public float radioRadius = 22f;
 
         [Header("Head sweep")]
         public float sweepAngle = 45f;
-        public float sweepSpeed = 1.3f;
+        public float sweepSpeed = 1.6f;
 
         [Header("Shooting")]
         public int fireDamage = 1;
         public float fireRange = 14f;
-        public float fireWindup = 0.5f;
+        public float fireWindup = 0.6f;
         public float fireCooldown = 1.1f;
-        [Range(0f, 1f)] public float hitChance = 0.75f;
         public float gunNoiseRadius = 15f;
+
+        [Header("Footsteps (heard only through Focus)")]
+        public float footstepRadius = 9f;
+        public float walkStepInterval = 0.55f;
+        public float runStepInterval = 0.3f;
 
         [Header("State colours")]
         public Color patrolColor = new Color(1f, 0.93f, 0.78f);
@@ -71,6 +102,24 @@ namespace StealthProto
         public event Action<GuardState> StateChanged;
         public Vector3 ListenPosition => transform.position;
 
+        /// <summary>The tell currently shown over this guard.</summary>
+        public Tell CurrentTell
+        {
+            get
+            {
+                if (State == GuardState.Alert && alertTellTimer > 0f) return Tell.Exclamation;
+                if (State == GuardState.Suspicious && suspiciousPhase == SuspiciousPhase.React) return Tell.Question;
+                return Tell.None;
+            }
+        }
+
+        /// <summary>True while the guard has lost sight of you and is heading for HuntPoint.</summary>
+        public bool IsHunting => State == GuardState.Search
+                                 || (State == GuardState.Alert && alertTellTimer <= 0f && lostTimer > 0.25f);
+        public Vector3 HuntPoint => State == GuardState.Search && searchIndex < searchPoints.Count ? searchPoints[0] : lastKnown;
+        /// <summary>Searching guards look up at higher layers (see GuardVision).</summary>
+        public bool IsSearching => State == GuardState.Search;
+
         public Color CurrentColor => State switch
         {
             GuardState.Suspicious => suspiciousColor,
@@ -79,7 +128,10 @@ namespace StealthProto
             _ => patrolColor
         };
 
+        enum SuspiciousPhase { React, Walk, Look }
+
         static readonly int BaseColorId = Shader.PropertyToID("_BaseColor");
+        static readonly int SilhouetteColorId = Shader.PropertyToID("_Color");
 
         NavMeshAgent agent;
         Health health;
@@ -91,7 +143,7 @@ namespace StealthProto
         int routeStep = 1;
         float waitTimer;
         float stateTimer;
-        float reactTimer;
+        float phaseTimer;
         float lostTimer;
         float lastSeenTime = -999f;
         float staggerTimer;
@@ -99,12 +151,34 @@ namespace StealthProto
         float fireTimer;
         float windupTimer;
         bool windingUp;
+        float alertTellTimer;
+        bool radioPending;
         float flashBaseIntensity;
+        float sweepTimer;
+        bool wasSweeping;
+        float stepTimer;
+        SuspiciousPhase suspiciousPhase;
         Vector3 investigatePoint;
         Vector3 lastKnown;
+        readonly List<Vector3> searchPoints = new List<Vector3>();
+        int searchIndex;
+        bool searchLooking;
 
         [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.SubsystemRegistration)]
-        static void ResetStatics() => All.Clear();
+        static void ResetStatics()
+        {
+            All.Clear();
+            RoomAlerted = false;
+            RoomAlertRaised = null;
+            // A restart reloads the scene: the room starts calm again.
+            UnityEngine.SceneManagement.SceneManager.sceneLoaded -= OnSceneLoaded;
+            UnityEngine.SceneManagement.SceneManager.sceneLoaded += OnSceneLoaded;
+        }
+
+        static void OnSceneLoaded(UnityEngine.SceneManagement.Scene scene, UnityEngine.SceneManagement.LoadSceneMode mode)
+        {
+            if (mode == UnityEngine.SceneManagement.LoadSceneMode.Single) RoomAlerted = false;
+        }
 
         void Awake()
         {
@@ -181,6 +255,14 @@ namespace StealthProto
             transform.rotation = Quaternion.RotateTowards(transform.rotation, Quaternion.LookRotation(d), turnSpeed * dt);
         }
 
+        static Vector3 Flat(Vector3 v, Vector3 fallback)
+        {
+            v.y = 0f;
+            return v.sqrMagnitude > 0.0001f ? v.normalized : fallback;
+        }
+
+        // ---------- takedowns ----------
+
         /// <summary>Held by the player during a takedown. Frozen and blind until released or downed.</summary>
         public bool IsGrabbed { get; private set; }
 
@@ -216,7 +298,7 @@ namespace StealthProto
             IsGrabbed = false;
             if (State == GuardState.Down) return;
             Awareness = 1f;
-            EnterAlert(attackerPosition, true);
+            EnterAlert(attackerPosition, true, secondhandTellTime);
         }
 
         public void CompleteTakedown(GameObject attacker)
@@ -241,13 +323,14 @@ namespace StealthProto
             if (dt <= 0f) return;
 
             vision.AngleMultiplier = State == GuardState.Alert ? 1.35f : 1f;
+            vision.LookUp = IsSearching;
             vision.Tick();
             UpdateAwareness(dt);
 
             if (staggerTimer > 0f)
             {
                 staggerTimer -= dt;
-                if (staggerTimer <= 0f) SetStopped(false);
+                if (staggerTimer <= 0f && alertTellTimer <= 0f) SetStopped(false);
             }
 
             switch (State)
@@ -260,6 +343,18 @@ namespace StealthProto
 
             UpdateHead(dt);
             UpdateVisuals(dt);
+            UpdateFootsteps(dt);
+        }
+
+        void UpdateFootsteps(float dt)
+        {
+            if (!AgentReady) return;
+            float speed = agent.velocity.magnitude;
+            if (speed < 0.3f) return;
+            stepTimer -= dt;
+            if (stepTimer > 0f) return;
+            stepTimer = speed > walkSpeed + 0.5f ? runStepInterval : walkStepInterval;
+            NoiseSystem.Ambient(transform.position, footstepRadius, speed > walkSpeed + 0.5f ? 0.4f : 0.25f, SoundKind.Footstep, gameObject);
         }
 
         void UpdateAwareness(float dt)
@@ -271,6 +366,7 @@ namespace StealthProto
                 lastKnown = vision.LastSeenPosition;
                 float proximity = Mathf.Lerp(2.5f, 0.75f, vision.NormalizedDistance);
                 float mult = State == GuardState.Search ? searchDetectMultiplier : 1f;
+                if (RoomAlerted) mult *= waryDetectMultiplier;
                 Awareness += v * detectRate * proximity * mult * dt;
             }
             else if (State != GuardState.Alert && Time.time - lastSeenTime > 1f)
@@ -280,7 +376,7 @@ namespace StealthProto
             Awareness = Mathf.Clamp01(Awareness);
 
             if (State == GuardState.Alert) return;
-            if (Awareness >= 1f) EnterAlert(lastKnown, true);
+            if (Awareness >= 1f) EnterAlert(lastKnown, true, alertTellTime);
             else if (State == GuardState.Patrol && Awareness >= suspiciousThreshold) EnterSuspicious(lastKnown);
             else if (State == GuardState.Suspicious && v > 0f) EnterSuspicious(lastKnown);
         }
@@ -299,7 +395,7 @@ namespace StealthProto
                 Transform p = route.GetPoint(routeIndex);
                 FaceTowards(transform.position + p.forward, dt);
             }
-            if (waitTimer >= route.waitTime)
+            if (waitTimer >= route.WaitAt(routeIndex))
             {
                 waitTimer = 0f;
                 AdvanceRoute();
@@ -334,52 +430,73 @@ namespace StealthProto
             SetState(GuardState.Patrol);
             SetStopped(false);
             waitTimer = 0f;
+            agent.speed = walkSpeed;
             GoToRoutePoint();
         }
 
-        // ---------- suspicious ----------
+        // ---------- suspicious: "?" tell, go look, fixed look-around, back ----------
 
         void EnterSuspicious(Vector3 point)
         {
             investigatePoint = point;
-            stateTimer = 0f;
             if (State == GuardState.Suspicious)
             {
-                if (reactTimer <= 0f) SetDestination(point);
+                // New stimulus: same response, go to the new point (no second "?" pause).
+                if (suspiciousPhase != SuspiciousPhase.React)
+                {
+                    suspiciousPhase = SuspiciousPhase.Walk;
+                    phaseTimer = 0f;
+                    SetDestination(point);
+                }
                 return;
             }
             SetState(GuardState.Suspicious);
-            reactTimer = reactionTime;
+            stateTimer = 0f;
+            suspiciousPhase = SuspiciousPhase.React;
+            phaseTimer = 0f;
             SetStopped(true);
         }
 
         void TickSuspicious(float dt)
         {
             stateTimer += dt;
-            if (reactTimer > 0f)
-            {
-                reactTimer -= dt;
-                FaceTowards(investigatePoint, dt);
-                if (reactTimer <= 0f)
-                {
-                    SetStopped(false);
-                    agent.speed = investigateSpeed;
-                    SetDestination(investigatePoint);
-                }
-                return;
-            }
-
+            phaseTimer += dt;
             agent.speed = investigateSpeed;
-            if (stateTimer >= suspiciousDuration && Time.time - lastSeenTime > 2f)
+
+            switch (suspiciousPhase)
             {
-                Awareness = Mathf.Min(Awareness, suspiciousThreshold * 0.5f);
-                ReturnToPatrol();
+                case SuspiciousPhase.React:
+                    FaceTowards(investigatePoint, dt);
+                    if (phaseTimer >= reactionTime)
+                    {
+                        suspiciousPhase = SuspiciousPhase.Walk;
+                        phaseTimer = 0f;
+                        SetStopped(false);
+                        SetDestination(investigatePoint);
+                    }
+                    break;
+
+                case SuspiciousPhase.Walk:
+                    if (Arrived || phaseTimer >= investigateTimeout)
+                    {
+                        suspiciousPhase = SuspiciousPhase.Look;
+                        phaseTimer = 0f;
+                    }
+                    break;
+
+                case SuspiciousPhase.Look:
+                    if (phaseTimer >= lookAroundTime)
+                    {
+                        Awareness = Mathf.Min(Awareness, suspiciousThreshold * 0.5f);
+                        ReturnToPatrol();
+                    }
+                    break;
             }
         }
 
-        // ---------- alert ----------
+        // ---------- alert: "!" tell, radio, chase, shoot ----------
 
-        void EnterAlert(Vector3 point, bool broadcast)
+        void EnterAlert(Vector3 point, bool broadcast, float tellTime)
         {
             lastKnown = point;
             lostTimer = 0f;
@@ -387,11 +504,14 @@ namespace StealthProto
             if (State != GuardState.Alert)
             {
                 SetState(GuardState.Alert);
-                fireTimer = fireWindup * 0.5f;
+                alertTellTimer = tellTime;
+                radioPending = broadcast;
                 windingUp = false;
+                fireTimer = 0f;
+                SetStopped(true);
+                return;
             }
-            if (staggerTimer <= 0f) SetStopped(false);
-            if (broadcast) Radio(point);
+            if (broadcast && alertTellTimer <= 0f) Radio(point);
         }
 
         void Radio(Vector3 point)
@@ -407,7 +527,12 @@ namespace StealthProto
         public void ReceiveRadio(Vector3 point)
         {
             if (State == GuardState.Down || IsGrabbed) return;
-            EnterAlert(point, false);
+            if (State == GuardState.Alert)
+            {
+                if (lostTimer > 0f) lastKnown = point;
+                return;
+            }
+            EnterAlert(point, false, secondhandTellTime);
         }
 
         void TickAlert(float dt)
@@ -420,10 +545,28 @@ namespace StealthProto
                 lostTimer = 0f;
                 lastKnown = t.position;
             }
-            else
+
+            // "!" tell: freeze and face the player before doing anything.
+            if (alertTellTimer > 0f)
             {
-                lostTimer += dt;
+                alertTellTimer -= dt;
+                FaceTowards(lastKnown, dt);
+                if (alertTellTimer <= 0f)
+                {
+                    if (!RoomAlerted)
+                    {
+                        RoomAlerted = true;
+                        RoomAlertRaised?.Invoke();
+                    }
+                    if (radioPending) Radio(lastKnown);
+                    radioPending = false;
+                    NoiseSystem.Emit(transform.position, 10f, 0.9f, this, SoundKind.Shout, gameObject);
+                    if (staggerTimer <= 0f) SetStopped(false);
+                }
+                return;
             }
+
+            if (!sees) lostTimer += dt;
 
             float distance = Vector3.Distance(transform.position, t.position);
             if (sees && distance <= fireRange)
@@ -440,7 +583,7 @@ namespace StealthProto
                 SetDestination(lastKnown);
             }
 
-            if (lostTimer >= loseSightTime && (Arrived || lostTimer >= loseSightTime * 2f)) EnterSearch();
+            if (lostTimer >= loseSightTime) EnterSearch(lastKnown);
         }
 
         Vector3 MuzzlePosition => transform.position + Vector3.up * 1.3f + transform.forward * 0.45f;
@@ -466,84 +609,92 @@ namespace StealthProto
             }
         }
 
+        /// <summary>Always hits unless line of sight is broken at the moment of firing.</summary>
         void Shoot()
         {
             Transform t = vision.target;
             Vector3 origin = MuzzlePosition;
-            Vector3 aimPoint = t.position + Vector3.up * 1.1f;
-            var targetHealth = t.GetComponent<Health>();
-            bool clear = !Occlusion.Blocked(origin, aimPoint, t, transform);
-            bool hit = clear && UnityEngine.Random.value <= hitChance;
-
+            Vector3 aimPoint = vision.TargetCenter;
+            Vector3 dir = (aimPoint - origin).normalized;
             Vector3 end = aimPoint;
-            if (hit && targetHealth != null)
+
+            if (!Occlusion.Blocked(origin, aimPoint, t, transform))
             {
-                targetHealth.TakeDamage(new DamageInfo
+                var targetHealth = t.GetComponent<Health>();
+                if (targetHealth != null)
                 {
-                    amount = fireDamage,
-                    point = aimPoint,
-                    direction = (aimPoint - origin).normalized,
-                    source = gameObject
-                });
+                    targetHealth.TakeDamage(new DamageInfo
+                    {
+                        amount = fireDamage,
+                        point = aimPoint,
+                        direction = dir,
+                        source = gameObject
+                    });
+                }
             }
-            else
+            else if (Occlusion.Raycast(origin, dir, 40f, transform, t, out RaycastHit hit))
             {
-                Vector3 missPoint = aimPoint + UnityEngine.Random.insideUnitSphere * 1.5f;
-                Vector3 dir = (missPoint - origin).normalized;
-                end = Occlusion.Raycast(origin, dir, 40f, transform, null, out RaycastHit rh) ? rh.point : origin + dir * 40f;
+                end = hit.point;
             }
 
             FX.Line(origin, end, new Color(1f, 0.35f, 0.2f, 0.9f), 0.05f, 0.07f);
-            NoiseSystem.Emit(transform.position, gunNoiseRadius, 1f, this);
+            NoiseSystem.Emit(transform.position, gunNoiseRadius, 1f, this, SoundKind.Gunshot, gameObject);
         }
 
-        // ---------- search ----------
+        // ---------- search: short fixed pattern ----------
 
-        void EnterSearch()
+        void EnterSearch(Vector3 center)
         {
             SetState(GuardState.Search);
             stateTimer = 0f;
-            waitTimer = 0f;
             Awareness = 0.6f;
             windingUp = false;
             SetStopped(false);
             agent.speed = investigateSpeed;
-            SetDestination(lastKnown);
+            BuildSearchPattern(center);
+            searchIndex = 0;
+            searchLooking = false;
+            phaseTimer = 0f;
+            SetDestination(searchPoints[0]);
+        }
+
+        /// <summary>The last known position, then one step further the way the chase was heading.</summary>
+        void BuildSearchPattern(Vector3 center)
+        {
+            searchPoints.Clear();
+            searchPoints.Add(center);
+            Vector3 heading = Flat(center - transform.position, transform.forward);
+            if (NavMesh.SamplePosition(center + heading * searchStep, out NavMeshHit hit, 1.5f, NavMesh.AllAreas))
+                searchPoints.Add(hit.position);
         }
 
         void TickSearch(float dt)
         {
             stateTimer += dt;
+            phaseTimer += dt;
             agent.speed = investigateSpeed;
-            if (Arrived)
+
+            if (!searchLooking)
             {
-                waitTimer += dt;
-                if (waitTimer > 1.5f)
+                if (Arrived || phaseTimer >= investigateTimeout)
                 {
-                    waitTimer = 0f;
-                    if (TryRandomNavPoint(lastKnown, searchRadius, out Vector3 p)) SetDestination(p);
+                    searchLooking = true;
+                    phaseTimer = 0f;
                 }
+                return;
             }
-            if (stateTimer >= searchDuration)
+
+            if (phaseTimer < searchPointLookTime) return;
+            searchIndex++;
+            if (searchIndex >= searchPoints.Count)
             {
                 Awareness = suspiciousThreshold * 0.5f;
                 ReturnToPatrol();
+                return;
             }
-        }
-
-        static bool TryRandomNavPoint(Vector3 center, float radius, out Vector3 point)
-        {
-            for (int i = 0; i < 8; i++)
-            {
-                Vector2 offset = UnityEngine.Random.insideUnitCircle * radius;
-                if (NavMesh.SamplePosition(center + new Vector3(offset.x, 0f, offset.y), out NavMeshHit hit, 2f, NavMesh.AllAreas))
-                {
-                    point = hit.position;
-                    return true;
-                }
-            }
-            point = center;
-            return false;
+            searchLooking = false;
+            phaseTimer = 0f;
+            SetDestination(searchPoints[searchIndex]);
         }
 
         // ---------- hearing ----------
@@ -556,16 +707,12 @@ namespace StealthProto
                 case GuardState.Down:
                     return;
                 case GuardState.Alert:
-                    if (loudness >= 0.9f && Time.time - lastSeenTime > 0.5f)
-                    {
+                    if (alertTellTimer <= 0f && loudness >= 0.9f && Time.time - lastSeenTime > 0.5f)
                         lastKnown = position;
-                        lostTimer = 0f;
-                    }
                     return;
                 case GuardState.Search:
-                    lastKnown = position;
-                    stateTimer = 0f;
-                    SetDestination(position);
+                    // Same response every time: restart the short pattern at the noise.
+                    EnterSearch(position);
                     return;
                 default:
                     Awareness = Mathf.Max(Awareness, suspiciousThreshold + 0.1f + 0.3f * loudness);
@@ -584,21 +731,22 @@ namespace StealthProto
             SetStopped(true);
             if (AgentReady) agent.Move(info.direction * 0.4f);
             Vector3 source = info.source != null ? info.source.transform.position : transform.position;
-            EnterAlert(source, true);
+            EnterAlert(source, true, secondhandTellTime);
         }
 
         void OnDied(DamageInfo info)
         {
             SetState(GuardState.Down);
             windingUp = false;
+            alertTellTimer = 0f;
             telegraph.enabled = false;
             if (agent.enabled) agent.enabled = false;
             if (flashlight != null) flashlight.enabled = false;
             var cone = GetComponentInChildren<VisionConeMesh>();
             if (cone != null) cone.gameObject.SetActive(false);
             foreach (var c in GetComponents<Collider>()) c.enabled = false;
-            SetBodyColor(bodyColor * 0.4f);
-            NoiseSystem.Emit(transform.position, info.takedown ? 2.5f : 6f, 0.6f, this);
+            SetBodyColor(bodyColor * 0.4f, new Color(0.4f, 0.4f, 0.4f, 0.35f));
+            NoiseSystem.Emit(transform.position, info.takedown ? 2.5f : 6f, 0.6f, this, SoundKind.Impact, gameObject);
             StartCoroutine(Topple(info.direction));
         }
 
@@ -614,7 +762,7 @@ namespace StealthProto
             {
                 float k = t * t;
                 transform.rotation = Quaternion.Slerp(start, end, k);
-                transform.position = startPos + Vector3.up * (0.4f * k);
+                transform.position = startPos + Vector3.up * (0.3f * k);
                 yield return null;
             }
             transform.rotation = end;
@@ -626,9 +774,15 @@ namespace StealthProto
         {
             if (head == null) return;
             bool sweep = (State == GuardState.Patrol && route != null && Arrived && waitTimer > 0.3f)
-                         || (State == GuardState.Search && Arrived)
-                         || (State == GuardState.Suspicious && reactTimer <= 0f && Arrived);
-            float targetYaw = sweep ? Mathf.Sin(Time.time * sweepSpeed) * sweepAngle : 0f;
+                         || (State == GuardState.Search && searchLooking)
+                         || (State == GuardState.Suspicious && suspiciousPhase == SuspiciousPhase.Look);
+
+            // Deterministic: every sweep starts centred and turns the same way.
+            if (sweep && !wasSweeping) sweepTimer = 0f;
+            wasSweeping = sweep;
+            if (sweep) sweepTimer += dt;
+
+            float targetYaw = sweep ? Mathf.Sin(sweepTimer * sweepSpeed) * sweepAngle : 0f;
             float current = Mathf.DeltaAngle(0f, head.localEulerAngles.y);
             head.localRotation = Quaternion.Euler(0f, Mathf.MoveTowards(current, targetYaw, 120f * dt), 0f);
         }
@@ -639,7 +793,8 @@ namespace StealthProto
             {
                 flashlight.color = Color.Lerp(flashlight.color, CurrentColor, 1f - Mathf.Exp(-10f * dt));
                 float intensity = flashBaseIntensity;
-                if (windingUp) intensity *= Mathf.PingPong(Time.time * 20f, 1f) > 0.5f ? 1.3f : 0.6f;
+                bool flashing = windingUp || (State == GuardState.Alert && alertTellTimer > 0f);
+                if (flashing) intensity *= Mathf.PingPong(Time.time * 20f, 1f) > 0.5f ? 1.3f : 0.6f;
                 flashlight.intensity = intensity;
             }
 
@@ -647,14 +802,16 @@ namespace StealthProto
             if (telegraph.enabled)
             {
                 telegraph.SetPosition(0, MuzzlePosition);
-                telegraph.SetPosition(1, vision.target.position + Vector3.up * 1.1f);
+                telegraph.SetPosition(1, vision.TargetCenter);
             }
 
             hitFlashTimer -= dt;
-            SetBodyColor(hitFlashTimer > 0f ? Color.white : bodyColor);
+            Color silhouette = CurrentColor;
+            silhouette.a = 0.55f;
+            SetBodyColor(hitFlashTimer > 0f ? Color.white : bodyColor, silhouette);
         }
 
-        void SetBodyColor(Color c)
+        void SetBodyColor(Color c, Color silhouette)
         {
             if (bodyRenderers == null) return;
             foreach (var r in bodyRenderers)
@@ -662,6 +819,7 @@ namespace StealthProto
                 if (r == null) continue;
                 r.GetPropertyBlock(block);
                 block.SetColor(BaseColorId, c);
+                block.SetColor(SilhouetteColorId, silhouette);
                 r.SetPropertyBlock(block);
             }
         }

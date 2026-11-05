@@ -10,12 +10,17 @@ namespace StealthProto
     ///    early and the guard breaks free, alerted. The struggle makes a little noise.
     /// 2. Clamber / Climb: facing a ledge between minClimbHeight and maxClimbHeight with room to
     ///    stand on top. Up to clamberMaxHeight is a quick clamber, above that a slower climb.
-    /// Takedown wins if both are available.
+    /// 3. Hang (MGS2-style): at a drop of at least minHangDrop with nothing in front, lower yourself
+    ///    over the edge. Shimmy along it with the stick, E to climb back up, Space / C to let go.
+    ///    Grip runs out after gripTime and you fall.
+    /// Priority: takedown, then clamber/climb, then hang.
     /// </summary>
     [RequireComponent(typeof(PlayerMotor), typeof(PlayerInputReader), typeof(CharacterController))]
     public class PlayerContextActions : MonoBehaviour
     {
-        public enum ContextAction { None, Takedown, Clamber, Climb }
+        public enum ContextAction { None, Takedown, Clamber, Climb, Hang }
+        /// <summary>Which surface sets the light tier while hanging (open design question).</summary>
+        public enum HangLightSource { FloorBelow, Ledge }
 
         [Header("Takedown")]
         public float takedownRange = 1.8f;
@@ -40,6 +45,17 @@ namespace StealthProto
         public float climbTimePerMetre = 0.16f;
         public float climbNoiseRadius = 2f;
 
+        [Header("Ledge hang")]
+        [Tooltip("Smallest drop past an edge that offers a hang.")]
+        public float minHangDrop = 1.7f;
+        [Tooltip("Feet below the ledge top while hanging (hands on the edge).")]
+        public float hangDepth = 2.05f;
+        [Tooltip("Seconds you can hang before your grip gives out.")]
+        public float gripTime = 6f;
+        public float shimmySpeed = 1.2f;
+        public float hangEnterTime = 0.3f;
+        public HangLightSource hangLight = HangLightSource.FloorBelow;
+
         public ContextAction Available { get; private set; }
         public bool Busy { get; private set; }
         /// <summary>0..1 while a takedown choke is in progress, otherwise -1.</summary>
@@ -51,8 +67,21 @@ namespace StealthProto
             ContextAction.Takedown => "Takedown (hold)",
             ContextAction.Clamber => "Clamber",
             ContextAction.Climb => "Climb",
+            ContextAction.Hang => "Hang off edge",
             _ => null
         };
+
+        public bool Hanging { get; private set; }
+        /// <summary>Grip left while hanging, 1..0.</summary>
+        public float GripFraction { get; private set; }
+
+        struct Edge
+        {
+            public Vector3 normal;   // horizontal, pointing out over the drop
+            public Vector3 face;     // a point on the outer face, just under the top
+            public float topY;
+            public Vector3 hangPoint;
+        }
 
         struct Ledge
         {
@@ -69,6 +98,9 @@ namespace StealthProto
         GuardBrain takedownTarget;
         GuardBrain grabbed;
         Ledge ledge;
+        Edge edge;
+        LightExposure exposure;
+        PlayerCover cover;
         readonly Collider[] overlap = new Collider[16];
         static readonly float[] WallProbeHeights = { 0.4f, 1.0f, 1.5f };
 
@@ -77,6 +109,8 @@ namespace StealthProto
             motor = GetComponent<PlayerMotor>();
             input = GetComponent<PlayerInputReader>();
             controller = GetComponent<CharacterController>();
+            exposure = GetComponent<LightExposure>();
+            cover = GetComponent<PlayerCover>();
         }
 
         void Start() => rig = FindAnyObjectByType<CameraRig>();
@@ -87,6 +121,8 @@ namespace StealthProto
             grabbed = null;
             if (motor != null) motor.ExternalControl = false;
             if (controller != null) controller.enabled = true;
+            if (exposure != null) exposure.SampleOverride = null;
+            Hanging = false;
             Busy = false;
             TakedownProgress = -1f;
         }
@@ -94,23 +130,33 @@ namespace StealthProto
         void Update()
         {
             Available = ContextAction.None;
-            if (Busy || motor.IsDashing || motor.ExternalControl || motor.AttackLock) return;
+            // In cover, only climbing the wall you're pressed against is offered.
+            bool inCover = cover != null && cover.InCover;
+            if (Busy || motor.IsDashing || (motor.ExternalControl && !inCover) || motor.AttackLock || motor.IsProne) return;
             if (rig != null && rig.IsFirstPerson) return;
 
-            takedownTarget = FindTakedownTarget();
+            takedownTarget = inCover ? null : FindTakedownTarget();
+            Vector3 facing = inCover ? -cover.WallNormal : transform.forward;
             if (takedownTarget != null)
             {
                 Available = ContextAction.Takedown;
                 PromptPosition = takedownTarget.transform.position + Vector3.up * 2.1f;
             }
-            else if (controller.isGrounded && FindLedge(out ledge))
+            else if (controller.isGrounded && FindLedge(facing, out ledge))
             {
                 Available = ledge.height <= clamberMaxHeight ? ContextAction.Clamber : ContextAction.Climb;
                 PromptPosition = ledge.standPoint + Vector3.up * 0.4f;
             }
+            else if (!inCover && controller.isGrounded && FindEdge(out edge))
+            {
+                Available = ContextAction.Hang;
+                PromptPosition = new Vector3(edge.face.x, edge.topY + 0.4f, edge.face.z);
+            }
 
             if (Available == ContextAction.None || !input.InteractPressed) return;
+            if (inCover) cover.Release();
             if (Available == ContextAction.Takedown) StartCoroutine(TakedownRoutine(takedownTarget));
+            else if (Available == ContextAction.Hang) StartCoroutine(HangRoutine(edge));
             else StartCoroutine(ClimbRoutine(ledge));
         }
 
@@ -187,7 +233,7 @@ namespace StealthProto
                 if (noiseTimer <= 0f)
                 {
                     noiseTimer = struggleNoiseInterval;
-                    NoiseSystem.Emit(transform.position, struggleNoiseRadius, 0.3f);
+                    NoiseSystem.Emit(transform.position, struggleNoiseRadius, 0.3f, null, SoundKind.Struggle, gameObject);
                     CameraRig.Shake(0.05f);
                 }
                 yield return null;
@@ -198,7 +244,7 @@ namespace StealthProto
             guard.CompleteTakedown(gameObject);
             HitStop.Do(0.1f);
             CameraRig.Shake(0.2f);
-            NoiseSystem.Emit(transform.position, takedownNoiseRadius, 0.3f);
+            NoiseSystem.Emit(transform.position, takedownNoiseRadius, 0.3f, null, SoundKind.Impact, gameObject);
 
             yield return new WaitForSeconds(0.15f);
             motor.ExternalControl = false;
@@ -214,11 +260,10 @@ namespace StealthProto
 
         // ---------------------------------------------------------------- climb
 
-        bool FindLedge(out Ledge result)
+        bool FindLedge(Vector3 forward, out Ledge result)
         {
             result = default;
             Vector3 origin = transform.position;
-            Vector3 forward = transform.forward;
             forward.y = 0f;
             forward.Normalize();
 
@@ -283,7 +328,160 @@ namespace StealthProto
             yield return Move(raised, l.standPoint, overTime);
 
             controller.enabled = true;
-            NoiseSystem.Emit(transform.position, climbNoiseRadius, 0.3f);
+            NoiseSystem.Emit(transform.position, climbNoiseRadius, 0.3f, null, SoundKind.Movement, gameObject);
+            motor.ExternalControl = false;
+            Busy = false;
+        }
+
+        // ---------------------------------------------------------------- ledge hang
+
+        bool FindEdge(out Edge result)
+        {
+            result = default;
+            Vector3 origin = transform.position;
+            Vector3 forward = transform.forward;
+            forward.y = 0f;
+            if (forward.sqrMagnitude < 0.01f) return false;
+            forward.Normalize();
+            float radius = controller.radius;
+
+            // 1. Nothing in front at chest height, and a real drop just ahead.
+            if (Occlusion.Raycast(origin + Vector3.up * 1.2f, forward, radius + 0.8f, transform, null, out _)) return false;
+            Vector3 beyond = origin + forward * (radius + 0.45f) + Vector3.up * 0.3f;
+            if (Occlusion.Raycast(beyond, Vector3.down, minHangDrop + 0.3f, transform, null, out _)) return false;
+
+            // 2. The outer face of what we stand on: cast back towards us from out over the drop.
+            Vector3 outside = origin + forward * (radius + 0.8f) + Vector3.down * 0.12f; // decks can be thin
+            if (!Occlusion.Raycast(outside, -forward, 1.2f, transform, null, out RaycastHit face)) return false;
+            if (Mathf.Abs(face.normal.y) > 0.3f) return false;
+            Vector3 normal = face.normal;
+            normal.y = 0f;
+            normal.Normalize();
+            if (Vector3.Dot(normal, forward) < 0.6f) return false;
+
+            // 3. The top of the edge.
+            if (!FindTop(face.point, normal, out float topY)) return false;
+            if (Mathf.Abs(topY - origin.y) > 0.3f) return false;
+
+            Vector3 hang = new Vector3(face.point.x, topY - hangDepth, face.point.z) + normal * (radius + 0.05f);
+            if (!BodyFits(hang)) return false;
+
+            result = new Edge { normal = normal, face = face.point, topY = topY, hangPoint = hang };
+            return true;
+        }
+
+        /// <summary>Walkable top just inside a face point.</summary>
+        bool FindTop(Vector3 facePoint, Vector3 normal, out float topY)
+        {
+            topY = 0f;
+            Vector3 above = facePoint - normal * 0.15f + Vector3.up * 0.8f;
+            if (!Occlusion.Raycast(above, Vector3.down, 1.5f, transform, null, out RaycastHit top)) return false;
+            if (top.normal.y < 0.7f) return false;
+            topY = top.point.y;
+            return true;
+        }
+
+        bool BodyFits(Vector3 feet)
+        {
+            float radius = controller.radius;
+            Vector3 p1 = feet + Vector3.up * (radius + 0.05f);
+            Vector3 p2 = feet + Vector3.up * (controller.height - radius);
+            int count = Physics.OverlapCapsuleNonAlloc(p1, p2, radius * 0.95f, overlap, ~0, QueryTriggerInteraction.Ignore);
+            for (int i = 0; i < count; i++)
+                if (!overlap[i].transform.IsChildOf(transform)) return false;
+            return true;
+        }
+
+        /// <summary>Is the ledge still there for hanging at this position? Updates the edge if so.</summary>
+        bool EdgeAt(Vector3 hangPoint, ref Edge e)
+        {
+            Vector3 probe = hangPoint + Vector3.up * (hangDepth - 0.12f);
+            if (!Occlusion.Raycast(probe, -e.normal, controller.radius + 0.4f, transform, null, out RaycastHit face)) return false;
+            if (Mathf.Abs(face.normal.y) > 0.3f) return false;
+            Vector3 normal = face.normal;
+            normal.y = 0f;
+            normal.Normalize();
+            if (!FindTop(face.point, normal, out float topY) || Mathf.Abs(topY - e.topY) > 0.2f) return false;
+            if (!BodyFits(hangPoint)) return false;
+            e.normal = normal;
+            e.face = face.point;
+            e.topY = topY;
+            e.hangPoint = new Vector3(face.point.x, topY - hangDepth, face.point.z) + normal * (controller.radius + 0.05f);
+            return true;
+        }
+
+        IEnumerator HangRoutine(Edge e)
+        {
+            Busy = true;
+            motor.ExternalControl = true;
+            controller.enabled = false;
+
+            // Over the edge and down, ending up facing the wall.
+            Vector3 start = transform.position;
+            Vector3 over = new Vector3(e.hangPoint.x, start.y, e.hangPoint.z);
+            transform.rotation = Quaternion.LookRotation(e.normal);
+            yield return Move(start, over, hangEnterTime * 0.4f);
+            transform.rotation = Quaternion.LookRotation(-e.normal);
+            yield return Move(over, e.hangPoint, hangEnterTime * 0.6f);
+            NoiseSystem.Emit(transform.position + Vector3.up * hangDepth, climbNoiseRadius, 0.3f, null, SoundKind.Movement, gameObject);
+
+            Hanging = true;
+            float grip = gripTime;
+            bool climbUp = false;
+            while (true)
+            {
+                float dt = Time.deltaTime;
+                grip -= dt;
+                GripFraction = Mathf.Clamp01(grip / gripTime);
+                PromptPosition = new Vector3(e.face.x, e.topY + 0.4f, e.face.z);
+                if (exposure != null)
+                    exposure.SampleOverride = hangLight == HangLightSource.Ledge
+                        ? new Vector3(e.face.x, e.topY + 0.05f, e.face.z) - e.normal * 0.3f
+                        : (Vector3?)null;
+
+                if (grip <= 0f || input.DashPressed || input.ProneToggled) break;
+                if (input.InteractPressed)
+                {
+                    climbUp = true;
+                    break;
+                }
+
+                // Shimmy along the edge.
+                Vector3 tangent = Vector3.Cross(Vector3.up, e.normal);
+                Vector3 wish = motor.CameraRelative(input.Move);
+                float along = Vector3.Dot(wish, tangent);
+                if (Mathf.Abs(along) > 0.2f && dt > 0f)
+                {
+                    Vector3 next = transform.position + tangent * (Mathf.Clamp(along, -1f, 1f) * shimmySpeed * dt);
+                    Edge candidate = e;
+                    if (EdgeAt(next, ref candidate))
+                    {
+                        e = candidate;
+                        transform.position = Vector3.MoveTowards(next, e.hangPoint, 1f * dt);
+                        transform.rotation = Quaternion.LookRotation(-e.normal);
+                    }
+                }
+                yield return null;
+            }
+
+            Hanging = false;
+            GripFraction = 0f;
+            if (exposure != null) exposure.SampleOverride = null;
+
+            if (climbUp)
+            {
+                Vector3 stand = new Vector3(e.face.x, e.topY, e.face.z) - e.normal * (controller.radius + 0.25f);
+                if (BodyFits(stand))
+                {
+                    Vector3 raised = new Vector3(transform.position.x, e.topY + 0.05f, transform.position.z);
+                    yield return Move(transform.position, raised, 0.15f + climbTimePerMetre * hangDepth);
+                    yield return Move(raised, stand, 0.2f);
+                    NoiseSystem.Emit(transform.position, climbNoiseRadius, 0.3f, null, SoundKind.Movement, gameObject);
+                }
+                // No room up there: just let go.
+            }
+
+            controller.enabled = true;
             motor.ExternalControl = false;
             Busy = false;
         }
