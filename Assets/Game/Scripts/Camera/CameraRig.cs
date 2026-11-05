@@ -39,6 +39,8 @@ namespace StealthProto
         [Tooltip("Hide geometry taller than the player's head that blocks the camera's view of them (catwalks, beams, walls). Hidden geometry still casts shadows and still blocks light and vision.")]
         public bool cutaway = true;
         public float cutawayRadius = 0.5f;
+        [Tooltip("Also hide geometry entirely above the player's head within this horizontal radius (decks, beams overhead).")]
+        public float overheadRadius = 6f;
 
         [Header("Shake")]
         public float maxShake = 0.6f;
@@ -54,6 +56,7 @@ namespace StealthProto
         readonly HashSet<Renderer> cutHidden = new HashSet<Renderer>();
         readonly HashSet<Renderer> cutThisFrame = new HashSet<Renderer>();
         static readonly RaycastHit[] CutHits = new RaycastHit[16];
+        static readonly Collider[] OverheadHits = new Collider[32];
 
         public bool IsFirstPerson { get; private set; }
 
@@ -131,6 +134,20 @@ namespace StealthProto
                         var r = col.GetComponent<Renderer>();
                         if (r != null) cutThisFrame.Add(r);
                     }
+                }
+
+                // Everything wholly above your head nearby (the layer above you) goes too.
+                float above = target.position.y + 2f;
+                Vector3 centre = new Vector3(target.position.x, above + 10f, target.position.z);
+                int n = Physics.OverlapBoxNonAlloc(centre, new Vector3(overheadRadius, 10f, overheadRadius), OverheadHits,
+                    Quaternion.identity, ~0, QueryTriggerInteraction.Ignore);
+                for (int i = 0; i < n; i++)
+                {
+                    Collider col = OverheadHits[i];
+                    if (col.bounds.min.y < above) continue;
+                    if (col.GetComponentInParent<GuardBrain>() != null) continue;
+                    var r = col.GetComponent<Renderer>();
+                    if (r != null) cutThisFrame.Add(r);
                 }
             }
 

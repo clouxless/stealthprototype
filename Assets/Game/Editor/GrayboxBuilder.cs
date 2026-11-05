@@ -21,6 +21,7 @@ namespace StealthProto.EditorTools
         const string ScenePath = Root + "/Scenes/PH_GrayboxTest.unity";
 
         internal static Material gridMat, playerMat, guardMat, noseMat, coneMat, lampMat;
+        internal static Material playerSilhouetteMat, guardSilhouetteMat;
         internal static readonly Dictionary<Vector3, Mesh> MeshCache = new Dictionary<Vector3, Mesh>();
 
         [MenuItem("Stealth Prototype/Build Graybox Test Scene", priority = 0)]
@@ -58,6 +59,7 @@ namespace StealthProto.EditorTools
 
             new GameObject("PH_DebugHUD").AddComponent<DebugHUD>();
             new GameObject("PH_LastKnownMarker").AddComponent<LastKnownMarker>();
+            new GameObject("HeightLayers").AddComponent<HeightLayers>(); // Floor < 0.75 m <= Platform < 2.75 m <= Catwalk
 
             EditorSceneManager.SaveScene(scene, ScenePath);
             AddToBuildSettings(ScenePath);
@@ -87,6 +89,9 @@ namespace StealthProto.EditorTools
             lampMat.EnableKeyword("_EMISSION");
             lampMat.SetColor("_EmissionColor", new Color(1f, 0.85f, 0.5f) * 2f);
 
+            playerSilhouetteMat = MakeSilhouetteMaterial("PH_SilhouettePlayer", new Color(0.35f, 0.95f, 1f, 0.5f));
+            guardSilhouetteMat = MakeSilhouetteMaterial("PH_SilhouetteGuard", new Color(1f, 0.6f, 0.2f, 0.55f));
+
             string conePath = Root + "/Materials/PH_VisionCone.mat";
             coneMat = AssetDatabase.LoadAssetAtPath<Material>(conePath);
             if (coneMat == null)
@@ -114,6 +119,28 @@ namespace StealthProto.EditorTools
             importer.wrapMode = TextureWrapMode.Repeat;
             importer.SaveAndReimport();
             return AssetDatabase.LoadAssetAtPath<Texture2D>(path);
+        }
+
+        /// <summary>X-ray silhouette (Assets/_Placeholder/Shaders/PH_Silhouette.shader). Null if the shader is missing.</summary>
+        internal static Material MakeSilhouetteMaterial(string name, Color color)
+        {
+            var shader = Shader.Find("StealthProto/PH_Silhouette");
+            if (shader == null)
+            {
+                Debug.LogWarning("[PH] PH_Silhouette shader not found; characters won't show through walls.");
+                return null;
+            }
+            string path = $"{Root}/Materials/{name}.mat";
+            var mat = AssetDatabase.LoadAssetAtPath<Material>(path);
+            if (mat == null)
+            {
+                mat = new Material(shader);
+                AssetDatabase.CreateAsset(mat, path);
+            }
+            mat.shader = shader;
+            mat.SetColor("_Color", color);
+            EditorUtility.SetDirty(mat);
+            return mat;
         }
 
         internal static Material MakeLitMaterial(string name, Texture2D tex, Color color)
@@ -362,7 +389,7 @@ namespace StealthProto.EditorTools
             p.AddComponent<FocusMode>();
 
             var tint = p.AddComponent<PlayerShadowTint>();
-            tint.renderers = Mannequin(p.transform, playerMat);
+            tint.renderers = Mannequin(p.transform, playerMat, playerSilhouetteMat);
             return p;
         }
 
@@ -452,7 +479,7 @@ namespace StealthProto.EditorTools
             var health = g.AddComponent<Health>();
             health.maxHealth = 3;
 
-            var bodyRenderers = Mannequin(g.transform, guardMat);
+            var bodyRenderers = Mannequin(g.transform, guardMat, guardSilhouetteMat);
 
             var head = new GameObject("Head").transform;
             head.SetParent(g.transform, false);
@@ -500,7 +527,7 @@ namespace StealthProto.EditorTools
         /// Placeholder mannequin at human proportions (about 1.75 m, feet at the origin): legs, torso,
         /// arms, head, and a magenta visor showing facing. Returns the body renderers (not the visor).
         /// </summary>
-        static Renderer[] Mannequin(Transform parent, Material bodyMat)
+        internal static Renderer[] Mannequin(Transform parent, Material bodyMat, Material silhouetteMat = null)
         {
             var root = new GameObject("PH_Mannequin").transform;
             root.SetParent(parent, false);
@@ -516,7 +543,12 @@ namespace StealthProto.EditorTools
             Visual(PrimitiveType.Cube, root, "PH_Visor", new Vector3(0f, 1.62f, 0.11f), new Vector3(0.17f, 0.06f, 0.06f), noseMat);
 
             var renderers = new Renderer[parts.Length];
-            for (int i = 0; i < parts.Length; i++) renderers[i] = parts[i].GetComponent<Renderer>();
+            for (int i = 0; i < parts.Length; i++)
+            {
+                renderers[i] = parts[i].GetComponent<Renderer>();
+                // Second material: drawn only where the part is hidden behind geometry.
+                if (silhouetteMat != null) renderers[i].sharedMaterials = new[] { bodyMat, silhouetteMat };
+            }
             return renderers;
         }
 

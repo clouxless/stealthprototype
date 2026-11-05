@@ -3,8 +3,8 @@ using UnityEngine;
 namespace StealthProto
 {
     /// <summary>
-    /// 3D vision: a horizontal cone with separate look-up and look-down limits (so perches above
-    /// a guard are safe up close), line-of-sight against three body points, and the target's
+    /// 3D vision: a horizontal cone, height layers (a guard sees its own layer and the one below,
+    /// and looks up only while searching), line of sight against the body, and the target's
     /// light tier. Each tier has one fixed sight distance, the same for every guard.
     /// Inside that distance the target is seen; beyond it, not at all.
     /// </summary>
@@ -17,9 +17,8 @@ namespace StealthProto
         [Tooltip("Cone length. Also the sight distance for a Lit target.")]
         public float viewDistance = 13f;
         public float halfAngle = 35f;
-        [Tooltip("Guards rarely look up. Targets steeper than this above the eye are unseen.")]
-        public float lookUpLimit = 20f;
-        public float lookDownLimit = 65f;
+        [Tooltip("How many height layers below its own a guard can see.")]
+        public int layersDown = 1;
         [Tooltip("Outside the cone, within this radius, the guard can sense a target that isn't sneaking.")]
         public float peripheralRadius = 1.5f;
         [Tooltip("How strongly that out-of-cone sense registers (0..1). Sneaking targets are never sensed this way.")]
@@ -37,7 +36,17 @@ namespace StealthProto
         Health targetHealth;
         PlayerMotor targetMotor;
 
-        /// <summary>Set by the brain while searching: the guard checks higher ground too.</summary>
+        public int OwnLayer => HeightLayers.LayerOf(transform.position.y);
+
+        /// <summary>Whether this guard can currently see things on a height layer.</summary>
+        public bool CanSeeLayer(int layer)
+        {
+            int own = OwnLayer;
+            if (layer < own - layersDown) return false;
+            return layer <= own || LookUp;
+        }
+
+        /// <summary>Set by the brain while searching: the guard checks higher layers too.</summary>
         public bool LookUp { get; set; }
         /// <summary>Widened while alert.</summary>
         public float AngleMultiplier { get; set; } = 1f;
@@ -94,9 +103,8 @@ namespace StealthProto
             flatForward.y = 0f;
             Vector3 flatTo = toTarget;
             flatTo.y = 0f;
-            float vertical = Mathf.Atan2(toTarget.y, flatTo.magnitude) * Mathf.Rad2Deg;
-            bool inCone = Vector3.Angle(flatForward, flatTo) <= EffectiveHalfAngle
-                          && (LookUp || vertical <= lookUpLimit) && vertical >= -lookDownLimit;
+            if (!CanSeeLayer(HeightLayers.LayerOf(target.position.y))) return 0f;
+            bool inCone = Vector3.Angle(flatForward, flatTo) <= EffectiveHalfAngle;
 
             // Outside the cone the guard can only *sense* someone close who isn't sneaking.
             // A sneaking player behind a guard is never sensed: that's what makes takedowns possible.
