@@ -63,6 +63,10 @@ namespace StealthProto
 
         public bool IsFirstPerson { get; private set; }
 
+        /// <summary>Extra metres of distance on top of the player's zoom (Focus pulls the camera out). Not clamped by max zoom.</summary>
+        public float ExtraDistance { get; set; }
+        float extraCurrent;
+
         /// <summary>Slide the top-down view by this world offset (cover peeking). Zero to recentre.</summary>
         public void SetPeekOffset(Vector3 offset) => peekTarget = offset;
 
@@ -196,7 +200,8 @@ namespace StealthProto
 
             Quaternion tilt = Quaternion.Euler(pitch, 0f, 0f);
             Vector3 shake = Random.insideUnitSphere * (trauma * trauma * maxShake);
-            cam.transform.localPosition = tilt * new Vector3(0f, 0f, -distance) + shake;
+            if (dt > 0f) extraCurrent = Mathf.Lerp(extraCurrent, ExtraDistance, 1f - Mathf.Exp(-6f * dt));
+            cam.transform.localPosition = tilt * new Vector3(0f, 0f, -(distance + extraCurrent)) + shake;
             cam.transform.localRotation = tilt;
         }
 

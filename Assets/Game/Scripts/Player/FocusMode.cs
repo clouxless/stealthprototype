@@ -4,13 +4,14 @@ using UnityEngine;
 namespace StealthProto
 {
     /// <summary>
-    /// Focus, first pass. Hold Q (gamepad L3) to listen: you can't move, the screen dims, and
-    /// sounds from NoiseSystem appear as ripples. The longer you hold, the more you get:
+    /// Focus. Hold Q (gamepad L3) to listen: you can't move, the camera pulls out and the world
+    /// fades to pitch black over activateTime, leaving only you and the sounds from NoiseSystem,
+    /// drawn as ripples. The longer you hold, the more you get:
     ///   tier 1 (from the start): loud, nearby sounds
-    ///   tier 2 (after detailTime): every sound in range, so footstep rhythm shows, plus arrows
-    ///          at the screen edge pointing to sounds off screen
+    ///   tier 2 (after detailTime): every sound in range, so footstep rhythm shows
     ///   tier 3 (after identifyTime): which guard made it and their state
-    /// Focus only shows sound: still guards, lights and sightlines stay hidden.
+    /// Focus only shows sound: still guards, lights and sightlines stay hidden, and sounds off
+    /// screen get no marker (the zoom-out is what widens what you can hear).
     /// Moving, attacking, aiming, dashing or interacting breaks it. Cues linger, then fade.
     /// Drawn with placeholder IMGUI ([PH]).
     /// </summary>
@@ -18,8 +19,10 @@ namespace StealthProto
     public class FocusMode : MonoBehaviour
     {
         [Header("Timing")]
-        public float detailTime = 1f;
-        public float identifyTime = 2.5f;
+        [Tooltip("Seconds of holding until the screen is fully black and the camera fully pulled out.")]
+        public float activateTime = 3f;
+        public float detailTime = 1.5f;
+        public float identifyTime = 3f;
         public float lingerTime = 1.2f;
         [Tooltip("How long one ripple lasts on screen.")]
         public float rippleLife = 1.2f;
@@ -30,7 +33,10 @@ namespace StealthProto
         [Range(0f, 1f)] public float loudThreshold = 0.6f;
 
         [Header("Look")]
-        [Range(0f, 1f)] public float dimAlpha = 0.55f;
+        [Tooltip("Metres the camera pulls back at full focus.")]
+        public float zoomOut = 10f;
+        [Tooltip("Radius of the clear spot around the player, in metres.")]
+        public float selfRadius = 0.9f;
 
         public bool IsFocusing { get; private set; }
         public float HoldTime { get; private set; }
@@ -43,7 +49,7 @@ namespace StealthProto
         bool latchedOff; // broken focus needs a fresh press
         float releasedAt = -999f;
         float holdAtRelease;
-        Texture2D ringTex;
+        Texture2D ringTex, holeTex;
         GUIStyle labelStyle;
 
         void Awake()
@@ -64,6 +70,7 @@ namespace StealthProto
         {
             NoiseSystem.SoundMade -= OnSound;
             if (IsFocusing) StopFocus();
+            if (rig != null) rig.ExtraDistance = 0f;
         }
 
         void OnSound(SoundEvent e)
@@ -74,6 +81,7 @@ namespace StealthProto
 
         void Update()
         {
+            if (rig != null) rig.ExtraDistance = zoomOut * Activation();
             sounds.RemoveAll(s => Time.time - s.time > rippleLife + lingerTime + 0.5f);
 
             bool held = input.FocusHeld;
@@ -100,6 +108,15 @@ namespace StealthProto
             }
         }
 
+        /// <summary>0..1: how far the blackout and zoom have gone, fading back out after release.</summary>
+        float Activation()
+        {
+            float hold = IsFocusing ? HoldTime : holdAtRelease;
+            float a = Mathf.SmoothStep(0f, 1f, Mathf.Clamp01(hold / Mathf.Max(0.01f, activateTime)));
+            if (!IsFocusing) a *= Mathf.Clamp01(1f - (Time.time - releasedAt) / lingerTime);
+            return a;
+        }
+
         void StopFocus()
         {
             IsFocusing = false;
@@ -117,14 +134,14 @@ namespace StealthProto
             float hold = IsFocusing ? HoldTime : holdAtRelease;
 
             if (ringTex == null) ringTex = MakeRing();
+            if (holeTex == null) holeTex = MakeHole();
             if (labelStyle == null)
             {
                 labelStyle = new GUIStyle(GUI.skin.label) { fontSize = 13, alignment = TextAnchor.UpperCenter };
             }
 
             GUI.depth = 1; // under the debug HUD
-            GUI.color = new Color(0f, 0f, 0f, dimAlpha * linger);
-            GUI.DrawTexture(new Rect(0, 0, Screen.width, Screen.height), Texture2D.whiteTexture);
+            DrawBlackout(Activation());
 
             int tier = hold >= identifyTime ? 3 : hold >= detailTime ? 2 : 1;
             foreach (var s in sounds)
@@ -171,21 +188,30 @@ namespace StealthProto
                     GUI.Label(new Rect(sp.x - 120, Screen.height - sp.y + 6, 240, 20), who, labelStyle);
                 }
             }
-            else if (tier >= 2)
+        }
+
+        /// <summary>Black over everything except a soft spot on the player, at this opacity.</summary>
+        void DrawBlackout(float alpha)
+        {
+            if (alpha <= 0.001f) return;
+            GUI.color = new Color(0f, 0f, 0f, alpha);
+            Vector3 centre = transform.position + Vector3.up * 0.9f;
+            Vector3 sp = cam.WorldToScreenPoint(centre);
+            if (sp.z <= 0f)
             {
-                // Off screen: an arrow on the screen edge pointing at it.
-                Vector3 me = cam.WorldToScreenPoint(transform.position);
-                Vector2 dir = new Vector2(sp.x - me.x, sp.y - me.y);
-                if (sp.z < 0f) dir = -dir;
-                if (dir.sqrMagnitude < 1f) return;
-                dir.Normalize();
-                Vector2 centre = new Vector2(Screen.width * 0.5f, Screen.height * 0.5f);
-                float t = Mathf.Min(Mathf.Abs((centre.x - 24f) / Mathf.Max(0.001f, Mathf.Abs(dir.x))),
-                                    Mathf.Abs((centre.y - 24f) / Mathf.Max(0.001f, Mathf.Abs(dir.y))));
-                Vector2 p = centre + dir * t;
-                GUI.color = c;
-                GUI.DrawTexture(new Rect(p.x - 10f, Screen.height - p.y - 10f, 20f, 20f), ringTex);
+                GUI.DrawTexture(new Rect(0, 0, Screen.width, Screen.height), Texture2D.whiteTexture);
+                return;
             }
+            Vector3 edge = cam.WorldToScreenPoint(centre + cam.transform.right * selfRadius);
+            float r = Mathf.Max(8f, Mathf.Abs(edge.x - sp.x));
+            float x0 = sp.x - r, x1 = sp.x + r;
+            float y0 = Screen.height - sp.y - r, y1 = Screen.height - sp.y + r;
+            var white = Texture2D.whiteTexture;
+            GUI.DrawTexture(new Rect(0, 0, Screen.width, Mathf.Max(0f, y0)), white);                       // above
+            GUI.DrawTexture(new Rect(0, y1, Screen.width, Mathf.Max(0f, Screen.height - y1)), white);     // below
+            GUI.DrawTexture(new Rect(0, y0, Mathf.Max(0f, x0), r * 2f), white);                            // left
+            GUI.DrawTexture(new Rect(x1, y0, Mathf.Max(0f, Screen.width - x1), r * 2f), white);           // right
+            GUI.DrawTexture(new Rect(x0, y0, r * 2f, r * 2f), holeTex);                                    // the spot
         }
 
         static Color KindColor(SoundKind kind) => kind switch
@@ -198,6 +224,27 @@ namespace StealthProto
             SoundKind.Footstep => new Color(0.85f, 0.95f, 1f),
             _ => new Color(0.6f, 0.85f, 1f)
         };
+
+        /// <summary>Opaque square with a clear centre that fades out to the edge of the circle.</summary>
+        static Texture2D MakeHole()
+        {
+            const int size = 128;
+            var tex = new Texture2D(size, size, TextureFormat.RGBA32, false) { name = "PH_FocusHole", wrapMode = TextureWrapMode.Clamp };
+            float half = (size - 1) * 0.5f;
+            var px = new Color[size * size];
+            for (int y = 0; y < size; y++)
+            {
+                for (int x = 0; x < size; x++)
+                {
+                    float r = Mathf.Sqrt((x - half) * (x - half) + (y - half) * (y - half)) / half;
+                    float a = Mathf.SmoothStep(0f, 1f, Mathf.InverseLerp(0.55f, 1f, r));
+                    px[y * size + x] = new Color(1f, 1f, 1f, a);
+                }
+            }
+            tex.SetPixels(px);
+            tex.Apply();
+            return tex;
+        }
 
         static Texture2D MakeRing()
         {

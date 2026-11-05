@@ -74,9 +74,10 @@ While hanging: the stick shimmies along the edge, E climbs up, Space or C lets g
   known position, then one step further along your heading. Break line of sight or lure
   them with noise and the hunt ends quickly. The lasting cost is the room: after the
   first alert, guards stay wary (they spot you faster) and the red alarm floods stay on.
-- **Focus.** Hold Q to listen. The screen dims and sounds show as ripples. Hold longer for
-  more: loud nearby sounds, then every sound with edge arrows for off-screen ones, then
-  which guard made it and their state. Only sound shows. Critical sounds (gunshots,
+- **Focus.** Hold Q to listen. Over about 3 seconds the camera pulls out and the world fades
+  to pitch black, leaving only you and sounds drawn as ripples. Hold longer for more: loud
+  nearby sounds, then every sound (from 1.5 s), then which guard made it and their state
+  (from 3 s). Sounds off screen get no marker. Only sound shows. Critical sounds (gunshots,
   shouts) always draw a ring, focus or not.
 - **Crawling.** Prone is slow and the quietest way to move. Lying right behind a low crate hides you
   and you fit under tables and through the vent in the inner wall. You can't stand up
