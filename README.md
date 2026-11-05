@@ -34,6 +34,12 @@ The repo holds only our code and docs. Unity generates the project settings, so:
 7. Commit the template's files (`Assets/`, `Packages/`, `ProjectSettings/`, and all
    `.meta` files) so the project opens the same everywhere.
 
+If everything renders **solid magenta**, URP is installed but no URP asset is active (this
+happens when the project wasn't made from the Universal 3D template). Create one with
+**Assets > Create > Rendering > URP Asset (with Universal Renderer)**, then drag it into
+**Project Settings > Graphics > Default Render Pipeline** and into every level under
+**Project Settings > Quality > Render Pipeline Asset**. Rebuild the scene afterwards.
+
 If point lights don't cast shadows, open the URP asset in `Assets/Settings` (the PC one)
 and turn on **Lighting > Additional Lights > Cast Shadows**.
 
