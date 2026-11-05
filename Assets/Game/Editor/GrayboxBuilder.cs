@@ -186,17 +186,51 @@ namespace StealthProto.EditorTools
             moon.transform.rotation = Quaternion.Euler(55f, -30f, 0f);
         }
 
+        /// <summary>
+        /// Darkness is scarce: wide, crisp pools close enough that only narrow dark lanes run
+        /// between them. The player starts in the dark south-west corner.
+        /// </summary>
         static void BuildLamps(Transform parent)
         {
             var lamps = new GameObject("PH_Lamps").transform;
             lamps.SetParent(parent, false);
-            Lamp(lamps, new Vector3(-8f, 3.2f, -3f), 7f);
-            Lamp(lamps, new Vector3(8f, 3.4f, 6f), 7f);
-            Lamp(lamps, new Vector3(-14f, 3.2f, 7f), 6f);
-            Lamp(lamps, new Vector3(16f, 3.2f, -3f), 6f);
-            Lamp(lamps, new Vector3(0f, 6.6f, 13f), 6f);
-            Lamp(lamps, new Vector3(-5f, 3.2f, -12f), 5f);
+            const float h = 3.4f;     // under the 4 m catwalk and beam
+            const float angle = 100f; // about a 4 m pool radius from this height
+            const float range = 7f;
+
+            // South row (the start corner at -17, -12 stays dark).
+            WideLamp(lamps, new Vector3(-9f, h, -11f), angle, range);
+            WideLamp(lamps, new Vector3(4f, h, -11.5f), angle, range);
+            WideLamp(lamps, new Vector3(16f, h, -10f), angle, range);
+            // Middle row. The vent comes out in the dark west of the first pool.
+            WideLamp(lamps, new Vector3(-12.5f, h, -2.5f), angle, range);
+            WideLamp(lamps, new Vector3(-5f, h, -4.5f), angle, range);
+            WideLamp(lamps, new Vector3(9f, 4.9f, -5f), angle, range); // over the platform
+            WideLamp(lamps, new Vector3(16.5f, h, 1f), angle, range);
+            // North row.
+            WideLamp(lamps, new Vector3(-13f, h, 6.5f), angle, range);
+            WideLamp(lamps, new Vector3(-5f, h, 4.5f), angle, range);
+            WideLamp(lamps, new Vector3(4.5f, h, 5f), angle, range);
+            WideLamp(lamps, new Vector3(13f, h, 7f), angle, range);
+            // Catwalk: the beam junction and the west half are lit, the east half is the dark way along.
+            Lamp(lamps, new Vector3(0f, 6.8f, 13f), 6f);
+            Lamp(lamps, new Vector3(-11f, 6.8f, 13f), 6f);
+
+            // The counter to the beam and perch: a lamp lighting the east half of the perch, so
+            // only a narrow dark strip on its west side is safe (and the catwalk guard checks it).
+            SpotLamp(lamps, "PH_Lamp_Perch", new Vector3(2.6f, 6.4f, -7f), new Vector3(1.1f, 4f, -7f), 42f, 6f);
+
+            // Alarm floods: off until the room is alerted, then on for good (the lasting cost).
+            var south = SpotLamp(lamps, "PH_AlarmFlood", new Vector3(-6f, 7.2f, -14.6f), new Vector3(-6f, 0f, -3f), 75f, 18f, 18f);
+            south.color = new Color(1f, 0.55f, 0.5f);
+            south.gameObject.AddComponent<AlarmLight>();
+            var north = SpotLamp(lamps, "PH_AlarmFlood", new Vector3(10f, 7.2f, 14.6f), new Vector3(9f, 0f, 3f), 75f, 18f, 18f);
+            north.color = new Color(1f, 0.55f, 0.5f);
+            north.gameObject.AddComponent<AlarmLight>();
         }
+
+        static Light WideLamp(Transform parent, Vector3 position, float angle, float range)
+            => SpotLamp(parent, "PH_Lamp", position, position + Vector3.down, angle, range);
 
         /// <summary>
         /// Ceiling lamp: a downward spot with a crisp stepped pool (Lit core, Dim ring) so the floor
@@ -243,9 +277,14 @@ namespace StealthProto.EditorTools
             Block(walls, "PH_Wall_S", new Vector3(0f, 4f, -15.5f), new Vector3(42f, 8f, 1f));
             Block(walls, "PH_Wall_E", new Vector3(20.5f, 4f, 0f), new Vector3(1f, 8f, 30f));
             Block(walls, "PH_Wall_W", new Vector3(-20.5f, 4f, 0f), new Vector3(1f, 8f, 30f));
-            Block(walls, "PH_Wall_Inner", new Vector3(-16f, 2f, -6f), new Vector3(8f, 4f, 0.5f));
+            // Inner wall between the start corner and the west side, x -20..-11. Walking around
+            // its east end passes the floor guard's route; the vent goes through it instead.
+            Block(walls, "PH_Wall_Inner", new Vector3(-19f, 2f, -6f), new Vector3(2f, 4f, 0.5f));
+            Block(walls, "PH_Wall_Inner", new Vector3(-14f, 2f, -6f), new Vector3(6f, 4f, 0.5f));
+            Block(walls, "PH_Wall_InnerOverVent", new Vector3(-17.5f, 2.35f, -6f), new Vector3(1f, 3.3f, 0.5f));
+            BuildVent(root);
 
-            // North catwalk at 4 m with ramps at both ends and a railing.
+            // North catwalk at 4 m with ramps at both ends.
             var catwalk = Group(root, "PH_Catwalk");
             Block(catwalk, "PH_CatwalkDeck", new Vector3(0f, 3.85f, 13f), new Vector3(40f, 0.3f, 4f));
             // Solid base under the middle of the catwalk: a 4 m wall you can climb.
@@ -253,9 +292,10 @@ namespace StealthProto.EditorTools
             Ramp(catwalk, "PH_RampWest", new Vector3(-17.5f, 0f, 1.5f), new Vector3(-17.5f, 4f, 11f), 2.6f);
             Ramp(catwalk, "PH_RampEast", new Vector3(17.5f, 0f, 1.5f), new Vector3(17.5f, 4f, 11f), 2.6f);
 
-            // Overhead beam from the catwalk out over the room, ending in a perch.
+            // Overhead beam from the catwalk out over the room, ending in a perch. Wide enough for
+            // the catwalk guard to walk out and check the perch. Its edges are good for hanging.
             var beam = Group(root, "PH_Beam");
-            Block(beam, "PH_BeamWalk", new Vector3(0f, 3.85f, 2.75f), new Vector3(1.2f, 0.3f, 16.5f));
+            Block(beam, "PH_BeamWalk", new Vector3(0f, 3.85f, 2.75f), new Vector3(1.6f, 0.3f, 16.5f));
             Block(beam, "PH_Perch", new Vector3(0f, 3.85f, -7f), new Vector3(3f, 0.3f, 3f));
             Block(beam, "PH_PerchTower", new Vector3(0f, 1.85f, -7f), new Vector3(3f, 3.7f, 3f)); // climbable
 
@@ -264,7 +304,7 @@ namespace StealthProto.EditorTools
             Block(platform, "PH_PlatformBlock", new Vector3(9f, 0.75f, -5f), new Vector3(7f, 1.5f, 7f));
             Ramp(platform, "PH_PlatformRamp", new Vector3(9f, 0f, -12.5f), new Vector3(9f, 1.5f, -8.5f), 2.2f);
 
-            // Cover: low crates (see over them) and tall crates (full cover).
+            // Cover: low crates (see over them, hide behind them prone) and tall crates (full cover, cling to them).
             var crates = Group(root, "PH_Crates");
             Block(crates, "PH_CrateLow", new Vector3(-10f, 0.55f, -3f), new Vector3(2f, 1.1f, 1.2f));
             Block(crates, "PH_CrateLow", new Vector3(-4f, 0.55f, -10f), new Vector3(1.2f, 1.1f, 2f));
@@ -274,6 +314,37 @@ namespace StealthProto.EditorTools
             Block(crates, "PH_CrateTall", new Vector3(-6f, 1.3f, -1f), new Vector3(1.5f, 2.6f, 3f));
             Block(crates, "PH_CrateTall", new Vector3(13f, 1.3f, -12f), new Vector3(2.5f, 2.6f, 2.5f));
             Block(crates, "PH_CrateTall", new Vector3(6f, 1.3f, 9f), new Vector3(2.5f, 2.6f, 2.5f));
+
+            // Tables: crawl under them (0.75 m clearance; you can't stand up underneath).
+            var tables = Group(root, "PH_Tables");
+            Table(tables, new Vector3(-1f, 0f, 7.5f), new Vector2(3f, 1.4f));
+            Table(tables, new Vector3(14.5f, 0f, -6.5f), new Vector2(1.4f, 3f));
+        }
+
+        /// <summary>
+        /// A crawl-only vent through the inner wall: a 1 m wide, 0.7 m high gap with a short duct
+        /// that comes out in a dark lane on the west side, behind the west guard's route.
+        /// </summary>
+        static void BuildVent(Transform root)
+        {
+            var vent = Group(root, "PH_Vent");
+            const float x = -17.5f, z0 = -5.75f, z1 = -3.25f, height = 0.7f;
+            float length = z1 - z0, zc = (z0 + z1) * 0.5f;
+            Block(vent, "PH_VentSide", new Vector3(x - 0.55f, height * 0.5f, zc), new Vector3(0.1f, height, length));
+            Block(vent, "PH_VentSide", new Vector3(x + 0.55f, height * 0.5f, zc), new Vector3(0.1f, height, length));
+            Block(vent, "PH_VentTop", new Vector3(x, height + 0.05f, zc), new Vector3(1.2f, 0.1f, length));
+        }
+
+        /// <summary>A table: a top at height with four thin legs. Underside clearance is height - 0.1.</summary>
+        internal static void Table(Transform parent, Vector3 feet, Vector2 size, float height = 0.85f)
+        {
+            var t = Group(parent, "PH_Table");
+            t.position = feet;
+            Block(t, "PH_TableTop", feet + Vector3.up * (height - 0.05f), new Vector3(size.x, 0.1f, size.y));
+            float lx = size.x * 0.5f - 0.1f, lz = size.y * 0.5f - 0.1f;
+            float legH = height - 0.1f;
+            foreach (var corner in new[] { new Vector2(-lx, -lz), new Vector2(lx, -lz), new Vector2(-lx, lz), new Vector2(lx, lz) })
+                Block(t, "PH_TableLeg", feet + new Vector3(corner.x, legH * 0.5f, corner.y), new Vector3(0.1f, legH, 0.1f));
         }
 
         internal static Transform Group(Transform parent, string name)
@@ -416,11 +487,15 @@ namespace StealthProto.EditorTools
             combat.rig = rig;
         }
 
+        /// <summary>
+        /// Four guards with overlapping coverage: taking one out usually happens in another's view.
+        /// All routes are deterministic loops with fixed pauses and look directions.
+        /// </summary>
         static void BuildGuards(Transform player)
         {
             var routes = new GameObject("PH_PatrolRoutes").transform;
 
-            // Floor guard: a loop around the middle of the room.
+            // Floor guard: a loop around the middle of the room, past the vent wall's east end.
             var floorRoute = Route(routes, "PH_Route_Floor", true, 1.5f,
                 (new Vector3(-10f, 0f, 1.5f), 270f),
                 (new Vector3(3f, 0f, 1.5f), 90f),
@@ -428,11 +503,24 @@ namespace StealthProto.EditorTools
                 (new Vector3(-9f, 0f, -11f), 270f));
             BuildGuard("PH_Guard_Floor", new Vector3(-10f, 0f, 1.5f), 90f, floorRoute, player);
 
-            // Catwalk guard: back and forth along the catwalk, looking down into the room.
-            var catwalkRoute = Route(routes, "PH_Route_Catwalk", false, 2.5f,
+            // West guard: the west side north of the inner wall. Its route touches the floor
+            // guard's at the north-west corner, so each covers the other's back there.
+            var westRoute = Route(routes, "PH_Route_West", true, 2f,
+                (new Vector3(-15f, 0f, 1f), 90f),
+                (new Vector3(-15f, 0f, 9f), 0f),
+                (new Vector3(-8.5f, 0f, 9f), 90f),
+                (new Vector3(-8.5f, 0f, 3f), 180f));
+            BuildGuard("PH_Guard_West", new Vector3(-15f, 0f, 1f), 0f, westRoute, player);
+
+            // Catwalk guard: west end, beam junction (looks down the beam), out to the perch
+            // (checks it, looks south over the room), back, east end, and round again.
+            var catwalkRoute = Route(routes, "PH_Route_Catwalk", true, 2.5f,
                 (new Vector3(-14f, 4f, 13f), 180f),
-                (new Vector3(0f, 4f, 13f), 180f),
-                (new Vector3(14f, 4f, 13f), 180f));
+                (new Vector3(0f, 4f, 12f), 180f),
+                (new Vector3(0f, 4f, -6.5f), 180f),
+                (new Vector3(0f, 4f, 12f), 90f),
+                (new Vector3(14f, 4f, 13f), 180f),
+                (new Vector3(0f, 4f, 13.5f), 270f));
             BuildGuard("PH_Guard_Catwalk", new Vector3(-14f, 4f, 13f), 90f, catwalkRoute, player);
 
             // Platform guard: a mostly stationary lookout.
