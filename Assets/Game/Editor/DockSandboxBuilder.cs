@@ -10,60 +10,56 @@ using G = StealthProto.EditorTools.GrayboxBuilder;
 namespace StealthProto.EditorTools
 {
     /// <summary>
-    /// Builds the dock sandbox: an original night-time quay for testing the player and guard AI.
-    /// You start at the end of a dark pier, cross a grid of cover blocks split by long sightline
-    /// lanes, and leave through a lit gate at the north end. The layout comes from the text map
-    /// below, so it's easy to tweak: edit the map and run the menu item again.
+    /// Builds the dock sandbox from Cloux's layout: a yard of six sight-blocking blocks between
+    /// a bottomless pit on the west and an elevator exit on the east. A ladder by the start leads
+    /// up to a catwalk that runs the west wall from south to north, over the pit.
+    /// The floor plan is the text map below, so tweaks are an edit plus a rebuild.
     /// Everything it makes is a placeholder (Assets/_Placeholder, PH_*).
     /// </summary>
     public static class DockSandboxBuilder
     {
         const string ScenePath = G.Root + "/Scenes/PH_DockSandbox.unity";
 
-        // Each cell is 3 x 3 m. Top row is north. Columns run west to east.
-        // W water    . deck    P pier (deck over water)    # gate wall (4.5 m, too tall to climb)
-        // L low cover (1.1 m: hides legs, not head)    T tall cover (2.6 m: full cover, climbable)
-        // S stack (3.9 m vantage, climbable)    H hide shed (dark, roofed, one open side)
-        // G exit goal
+        // Each cell is 2 x 2 m. Row 0 is north. Columns run west to east.
+        // X nothing (walled off)   . floor   O bottomless pit   G elevator (exit)
+        // L low block (1.1 m: hides legs, not head)   T tall block (2.6 m: blocks sight, climbable)
         static readonly string[] Map =
         {
-            "WW####GG####", // 13  exit gate
-            "WW..H.......", // 12  gate apron, shed beside the gate
-            "WW........S.", // 11  stack overlooks the apron
-            "WW.L.....TT.", // 10
-            "WW.TT.TT....", //  9  cover grid: lanes on rows 4, 6, 8 and columns 2, 5, 8
-            "WW........L.", //  8
-            "WW.TT.TL.TT.", //  7
-            "WW..........", //  6
-            "WW.TL.TT.TT.", //  5
-            "WW.........H", //  4  shed at the end of a long lane
-            "WW.L..L.....", //  3
-            "PP.......L..", //  2  start at the west end of the pier
-            "WW..T.......", //  1
-            "WWWWWWWWWWWW", //  0
+            "........XXXXXXXXXXXXXXXXX", //  0
+            "....TT..XXXXXXXXXXXXXXXXX", //  1
+            "....TT...............TTXX", //  2
+            ".......................XX", //  3  north lane
+            "OOOOOOO.TTT..TTT.TTT...XX", //  4
+            "OOOOOOO.TTT..TTT.TTT...GG", //  5
+            "OOOOOOO................GG", //  6  middle lane
+            "OOOOOOO................GG", //  7
+            "OOOOOOO.TTT..TTT.TTT...XX", //  8
+            "OOOOOOO.TTT..TTT.TTT.XXXX", //  9
+            "........TTT..TTT.TTT.XXXX", // 10
+            "..TT...............L.XXXX", // 11  south lane
+            "..TT....XXXXXXXXXXXXXXXXX", // 12
+            "........XXXXXXXXXXXXXXXXX", // 13
         };
 
-        /// <summary>Which side of each hide shed is open, by cell.</summary>
-        static readonly Dictionary<Vector2Int, Vector3> ShedOpenings = new Dictionary<Vector2Int, Vector3>
-        {
-            { new Vector2Int(11, 4), Vector3.left },  // faces back down the row-4 lane
-            { new Vector2Int(4, 12), Vector3.back },  // faces south, away from the gate guard
-        };
-
-        const float Cell = 3f;
+        const float Cell = 2f;
         const float DeckThickness = 1.5f;
-        const float PierThickness = 0.4f;
-        const float WaterLevel = -1f;
-        const float CoverInset = 0.2f;
+        const float WallHeight = 4.5f;      // above the 4.2 m climb limit
+        const float WallThickness = 0.5f;
+        const float CoverInset = 0.1f;
+
+        // West catwalk: column 0, from the north wall to the ladder at its south end.
+        const int CatwalkColumn = 0, CatwalkNorthRow = 0, CatwalkSouthRow = 12;
+        const float CatwalkTop = 3.2f, CatwalkThickness = 0.3f;
 
         static int Rows => Map.Length;
         static int Cols => Map[0].Length;
 
-        static char At(int c, int r) => Map[Rows - 1 - r][c];
+        static char At(int c, int r) => c < 0 || r < 0 || c >= Cols || r >= Rows ? 'X' : Map[r][c];
+        static bool IsFloor(char ch) => ch != 'X' && ch != 'O';
 
-        /// <summary>World position of a cell centre (fractions allowed).</summary>
+        /// <summary>World position of a cell centre (fractions allowed). Row 0 is north (+Z).</summary>
         static Vector3 CellPos(float c, float r, float y = 0f) =>
-            new Vector3((c - (Cols - 1) * 0.5f) * Cell, y, (r - (Rows - 1) * 0.5f) * Cell);
+            new Vector3((c - (Cols - 1) * 0.5f) * Cell, y, ((Rows - 1) * 0.5f - r) * Cell);
 
         [MenuItem("Stealth Prototype/Build Dock Sandbox Scene", priority = 1)]
         public static void Build()
@@ -81,28 +77,26 @@ namespace StealthProto.EditorTools
             G.EnsureFolder(G.Root + "/Scenes");
             G.MeshCache.Clear();
             G.CreateMaterials();
-            var waterMat = G.MakeLitMaterial("PH_Water", null, new Color(0.05f, 0.12f, 0.2f));
-            waterMat.SetFloat("_Smoothness", 0.85f);
 
             var scene = EditorSceneManager.NewScene(NewSceneSetup.EmptyScene, NewSceneMode.Single);
             G.SetupLighting();
 
             var level = new GameObject("PH_Level");
-            BuildDeck(level.transform);
-            BuildCover(level.transform);
-            BuildSheds(level.transform);
-            BuildPerimeter(level.transform);
+            BuildFloor(level.transform);
+            BuildWalls(level.transform);
+            BuildBlocks(level.transform);
+            BuildCatwalk(level.transform);
             var surface = level.AddComponent<NavMeshSurface>();
             surface.collectObjects = CollectObjects.Children;
             surface.useGeometry = NavMeshCollectGeometry.PhysicsColliders;
             level.AddComponent<RuntimeNavMeshBaker>();
 
             BuildLamps(level.transform);
-            BuildWater(waterMat);   // outside PH_Level so the NavMesh never sees it
+            BuildPitHazard();   // outside PH_Level so the NavMesh never sees it
             BuildGoal();
 
-            var player = G.BuildPlayer(CellPos(0.2f, 2f));
-            player.transform.rotation = Quaternion.Euler(0f, 90f, 0f);
+            var player = G.BuildPlayer(CellPos(1f, 13f));
+            player.transform.rotation = Quaternion.Euler(0f, 0f, 0f);
             G.BuildCamera(player);
             BuildGuards(player.transform);
 
@@ -118,170 +112,160 @@ namespace StealthProto.EditorTools
 
         // ---------------------------------------------------------------- level
 
-        static void BuildDeck(Transform root)
+        static void BuildFloor(Transform root)
         {
-            var deck = G.Group(root, "PH_Deck");
+            var floor = G.Group(root, "PH_Floor");
+            for (int r = 0; r < Rows; r++)
+                for (int c = 0; c < Cols; c++)
+                    if (IsFloor(At(c, r)))
+                        // One block per cell keeps the number of lights touching each block low.
+                        G.Block(floor, "PH_FloorTile", CellPos(c, r, -DeckThickness * 0.5f), new Vector3(Cell, DeckThickness, Cell));
+        }
+
+        /// <summary>A wall on every cell edge between the playable area (floor or pit) and nothing.</summary>
+        static void BuildWalls(Transform root)
+        {
+            var walls = G.Group(root, "PH_Walls");
+            var sides = new[] { (dc: 0, dr: -1), (dc: 0, dr: 1), (dc: 1, dr: 0), (dc: -1, dr: 0) };
+            float height = WallHeight + DeckThickness;
             for (int r = 0; r < Rows; r++)
                 for (int c = 0; c < Cols; c++)
                 {
-                    char ch = At(c, r);
-                    if (ch == 'W' || ch == '#') continue; // gate walls reach down to the waterline themselves
-                    // One block per cell keeps the number of lights touching each block low.
-                    float thickness = ch == 'P' ? PierThickness : DeckThickness;
-                    G.Block(deck, ch == 'P' ? "PH_Pier" : "PH_DeckTile",
-                        CellPos(c, r, -thickness * 0.5f), new Vector3(Cell, thickness, Cell));
-                }
-
-            // Mooring posts along the pier, so it reads as a pier. Low enough to step around, not over.
-            for (int c = 0; c < Cols && At(c, 2) == 'P'; c++)
-            {
-                G.Block(deck, "PH_Bollard", CellPos(c, 2, 0.35f) + new Vector3(0f, 0f, Cell * 0.5f - 0.3f), new Vector3(0.4f, 0.7f, 0.4f));
-                G.Block(deck, "PH_Bollard", CellPos(c, 2, 0.35f) - new Vector3(0f, 0f, Cell * 0.5f - 0.3f), new Vector3(0.4f, 0.7f, 0.4f));
-            }
-        }
-
-        static void BuildCover(Transform root)
-        {
-            var cover = G.Group(root, "PH_Cover");
-            for (int r = 0; r < Rows; r++)
-            {
-                int c = 0;
-                while (c < Cols)
-                {
-                    char ch = At(c, r);
-                    float height = HeightOf(ch);
-                    if (height <= 0f) { c++; continue; }
-
-                    // Merge a run of the same block along the row into one box, so tops are walkable.
-                    int start = c;
-                    while (c < Cols && At(c, r) == ch) c++;
-                    int count = c - start;
-
-                    bool wall = ch == '#';
-                    float inset = wall ? 0f : CoverInset;
-                    float bottom = wall ? -DeckThickness : 0f;
-                    var size = new Vector3(count * Cell - inset * 2f, height - bottom, Cell - inset * 2f);
-                    var center = CellPos(start + (count - 1) * 0.5f, r, (height + bottom) * 0.5f);
-                    G.Block(cover, NameOf(ch), center, size);
-                }
-            }
-        }
-
-        static float HeightOf(char ch) => ch switch
-        {
-            'L' => 1.1f,
-            'T' => 2.6f,
-            'S' => 3.9f,
-            '#' => 4.5f,
-            _ => 0f,
-        };
-
-        static string NameOf(char ch) => ch switch
-        {
-            'L' => "PH_CoverLow",
-            'T' => "PH_CoverTall",
-            'S' => "PH_Stack",
-            _ => "PH_GateWall",
-        };
-
-        /// <summary>Three walls and a roof: a pocket of darkness with one way in and one way to be seen.</summary>
-        static void BuildSheds(Transform root)
-        {
-            var sheds = G.Group(root, "PH_HideSheds");
-            const float height = 2.4f, wall = 0.3f, roof = 0.2f;
-            float half = Cell * 0.5f - 0.15f;
-
-            for (int r = 0; r < Rows; r++)
-                for (int c = 0; c < Cols; c++)
-                {
-                    if (At(c, r) != 'H') continue;
-                    var shed = G.Group(sheds, "PH_HideShed");
-                    Vector3 basePos = CellPos(c, r);
-                    Vector3 open = ShedOpenings.TryGetValue(new Vector2Int(c, r), out var o) ? o : Vector3.back;
-
-                    foreach (var side in new[] { Vector3.forward, Vector3.back, Vector3.left, Vector3.right })
+                    if (At(c, r) == 'X') continue;
+                    foreach (var (dc, dr) in sides)
                     {
-                        if (side == open) continue;
-                        bool alongX = side.z != 0f;
-                        var size = alongX ? new Vector3(half * 2f, height, wall) : new Vector3(wall, height, half * 2f);
-                        G.Block(shed, "PH_ShedWall", basePos + side * (half - wall * 0.5f) + Vector3.up * height * 0.5f, size);
+                        if (At(c + dc, r + dr) != 'X') continue;
+                        // Grid +r is world -Z.
+                        Vector3 outward = new Vector3(dc, 0f, -dr);
+                        Vector3 center = CellPos(c, r, height * 0.5f - DeckThickness) + outward * (Cell + WallThickness) * 0.5f;
+                        // Overlap the corners so there are no gaps where two walls meet.
+                        float length = Cell + WallThickness * 2f;
+                        var size = dc != 0 ? new Vector3(WallThickness, height, length) : new Vector3(length, height, WallThickness);
+                        G.Block(walls, "PH_Wall", center, size);
                     }
-                    G.Block(shed, "PH_ShedRoof", basePos + Vector3.up * (height + roof * 0.5f), new Vector3(half * 2f, roof, half * 2f));
                 }
         }
 
-        static void BuildPerimeter(Transform root)
+        /// <summary>Sight blocks. Touching cells of the same type merge into one rectangle.</summary>
+        static void BuildBlocks(Transform root)
         {
-            var walls = G.Group(root, "PH_Perimeter");
-            Vector3 east = CellPos(Cols - 1, 0f) + Vector3.right * (Cell * 0.5f + 0.5f);
-            float zMin = CellPos(0, 1).z - Cell * 0.5f, zMax = CellPos(0, Rows - 1).z + Cell * 0.5f;
-            G.Block(walls, "PH_Wall_E", new Vector3(east.x, 1.5f, (zMin + zMax) * 0.5f), new Vector3(1f, 6f, zMax - zMin));
+            var blocks = G.Group(root, "PH_Blocks");
+            var used = new bool[Cols, Rows];
+            for (int r = 0; r < Rows; r++)
+                for (int c = 0; c < Cols; c++)
+                {
+                    char ch = At(c, r);
+                    float height = ch == 'T' ? 2.6f : ch == 'L' ? 1.1f : 0f;
+                    if (height <= 0f || used[c, r]) continue;
 
-            // Close the back of the goal cells.
-            for (int c = 0; c < Cols; c++)
-                if (At(c, Rows - 1) == 'G')
-                    G.Block(walls, "PH_Wall_N", CellPos(c, Rows - 1, 1.5f) + Vector3.forward * (Cell * 0.5f + 0.5f), new Vector3(Cell, 6f, 1f));
+                    int w = 1;
+                    while (At(c + w, r) == ch && !used[c + w, r]) w++;
+                    int h = 1;
+                    while (RowMatches(c, r + h, w, ch, used)) h++;
+                    for (int y = r; y < r + h; y++)
+                        for (int x = c; x < c + w; x++)
+                            used[x, y] = true;
+
+                    var center = CellPos(c + (w - 1) * 0.5f, r + (h - 1) * 0.5f, height * 0.5f);
+                    var size = new Vector3(w * Cell - CoverInset * 2f, height, h * Cell - CoverInset * 2f);
+                    G.Block(blocks, ch == 'T' ? "PH_BlockTall" : "PH_BlockLow", center, size);
+                }
+        }
+
+        static bool RowMatches(int c, int r, int w, char ch, bool[,] used)
+        {
+            if (r >= Rows) return false;
+            for (int x = c; x < c + w; x++)
+                if (At(x, r) != ch || used[x, r]) return false;
+            return true;
         }
 
         /// <summary>
-        /// Light pools at lane crossings, dark runs between them. The pier and the sheds stay dark.
-        /// The gate is lit, so the last approach always means crossing light.
+        /// High ground along the west wall, from the ladder by the start to the north end, passing
+        /// over the pit. Guards can't climb, so it's theirs to watch but never to walk. Its edges
+        /// are high enough to hang from, including over the pit.
+        /// </summary>
+        static void BuildCatwalk(Transform root)
+        {
+            var catwalk = G.Group(root, "PH_Catwalk");
+            Vector3 north = CellPos(CatwalkColumn, CatwalkNorthRow), south = CellPos(CatwalkColumn, CatwalkSouthRow);
+            float length = north.z - south.z + Cell;
+            float y = CatwalkTop - CatwalkThickness * 0.5f;
+            G.Block(catwalk, "PH_CatwalkDeck", new Vector3(north.x, y, (north.z + south.z) * 0.5f), new Vector3(Cell, CatwalkThickness, length));
+
+            // Pillars against the wall wherever there's floor under the catwalk, so guards can walk beneath.
+            float pillarX = north.x - Cell * 0.5f + 0.2f;
+            float pillarHeight = CatwalkTop - CatwalkThickness;
+            for (int r = CatwalkNorthRow; r <= CatwalkSouthRow; r += 3)
+                if (IsFloor(At(CatwalkColumn, r)))
+                    G.Block(catwalk, "PH_CatwalkPillar", new Vector3(pillarX, pillarHeight * 0.5f, CellPos(CatwalkColumn, r).z), new Vector3(0.3f, pillarHeight, 0.3f));
+
+            // Ladder: a climbable plate under the catwalk's east edge at its south end. Face it
+            // and press E to climb (it's within the 4.2 m climb limit).
+            Vector3 foot = CellPos(CatwalkColumn, CatwalkSouthRow) + Vector3.right * (Cell * 0.5f - 0.075f);
+            var ladder = G.Block(catwalk, "PH_Ladder", foot + Vector3.up * CatwalkTop * 0.5f, new Vector3(0.15f, CatwalkTop, 1.2f));
+            for (float h = 0.35f; h < CatwalkTop; h += 0.35f)
+                G.Visual(PrimitiveType.Cube, ladder.transform, "PH_LadderRung",
+                    new Vector3(0.1f, h - CatwalkTop * 0.5f, 0f), new Vector3(0.05f, 0.05f, 1f), G.noseMat);
+        }
+
+        /// <summary>
+        /// Downward lamps at lane crossings leave dark runs between them. The start and the pit side
+        /// stay dark. The elevator is lit, so the exit always means crossing light.
         /// </summary>
         static void BuildLamps(Transform parent)
         {
             var lamps = new GameObject("PH_Lamps").transform;
             lamps.SetParent(parent, false);
-            G.Lamp(lamps, CellPos(5f, 4f, 3.4f), 6f);     // centre lane crossing
-            G.Lamp(lamps, CellPos(8f, 8f, 3.4f), 6f);     // east lane crossing
-            G.Lamp(lamps, CellPos(2f, 10f, 3.4f), 6f);    // west lane, upper
-            G.Lamp(lamps, CellPos(11f, 7f, 3.4f), 5f);    // east service lane
-            G.Lamp(lamps, CellPos(8f, 1.5f, 3.2f), 5f);   // south quay
-            G.Lamp(lamps, CellPos(6.5f, 12.2f, 4f), 7f);  // gate floodlight
+            G.Lamp(lamps, CellPos(11.5f, 3f, 3.4f), 6f);   // north lane, west crossing
+            G.Lamp(lamps, CellPos(16f, 6.5f, 3.4f), 6f);   // middle lane, east crossing
+            G.Lamp(lamps, CellPos(7f, 11f, 3.4f), 6f);     // south lane by the pit corner
+            G.Lamp(lamps, CellPos(3f, 2.5f, 3.4f), 6f);    // north-west floor
+            G.Lamp(lamps, CellPos(20f, 10f, 3.4f), 5f);    // south-east pocket
+            G.Lamp(lamps, CellPos(22f, 6.5f, 4f), 7f);     // elevator floodlight
 
             // Alarm floodlights: dark until the first alert, then on for good. Getting spotted
-            // lights up the dark west lane and the shed lane, so the route you used is gone.
-            G.SpotLamp(lamps, "PH_AlarmLamp", CellPos(2f, 6f, 4.5f), CellPos(2f, 7f), 60f, 9f)
+            // lights the catwalk over the pit and the south lane, so the high route is no longer free.
+            G.SpotLamp(lamps, "PH_AlarmLamp", CellPos(4f, 6.5f, 6f), CellPos(0f, 6.5f, CatwalkTop), 60f, 10f)
                 .gameObject.AddComponent<AlarmLight>();
-            G.SpotLamp(lamps, "PH_AlarmLamp", CellPos(11f, 2.5f, 4.5f), CellPos(11f, 4f), 60f, 9f)
+            G.SpotLamp(lamps, "PH_AlarmLamp", CellPos(14.5f, 11f, 4.5f), CellPos(14.5f, 11f), 60f, 8f)
                 .gameObject.AddComponent<AlarmLight>();
         }
 
-        static void BuildWater(Material waterMat)
+        /// <summary>A trigger far below the pit. Falling in downs you, which restarts the scene.</summary>
+        static void BuildPitHazard()
         {
-            var water = new GameObject("PH_Water").transform;
-            float width = Cols * Cell + 40f, length = Rows * Cell + 40f;
-
-            var surface = G.Visual(PrimitiveType.Cube, water, "PH_WaterSurface",
-                new Vector3(0f, WaterLevel - 0.05f, 0f), new Vector3(width, 0.1f, length), waterMat);
-            surface.GetComponent<Renderer>().shadowCastingMode = ShadowCastingMode.Off;
-
-            // Falling off the deck lands you in this trigger, which downs you and restarts.
-            var hazard = new GameObject("PH_WaterHazard");
-            hazard.transform.SetParent(water, false);
-            hazard.transform.position = new Vector3(0f, WaterLevel - 1f, 0f);
+            var hazard = new GameObject("PH_PitHazard");
+            hazard.transform.position = new Vector3(0f, -12f, 0f);
             var box = hazard.AddComponent<BoxCollider>();
             box.isTrigger = true;
-            box.size = new Vector3(width, 1.6f, length);
-            hazard.AddComponent<WaterHazard>();
+            box.size = new Vector3(Cols * Cell + 20f, 4f, Rows * Cell + 20f);
+            hazard.AddComponent<FallHazard>();
         }
 
         static void BuildGoal()
         {
-            float cMin = float.MaxValue, cMax = float.MinValue;
-            for (int c = 0; c < Cols; c++)
-                if (At(c, Rows - 1) == 'G') { cMin = Mathf.Min(cMin, c); cMax = Mathf.Max(cMax, c); }
+            int cMin = int.MaxValue, cMax = int.MinValue, rMin = int.MaxValue, rMax = int.MinValue;
+            for (int r = 0; r < Rows; r++)
+                for (int c = 0; c < Cols; c++)
+                    if (At(c, r) == 'G')
+                    {
+                        cMin = Mathf.Min(cMin, c); cMax = Mathf.Max(cMax, c);
+                        rMin = Mathf.Min(rMin, r); rMax = Mathf.Max(rMax, r);
+                    }
             if (cMin > cMax) return;
 
             var goal = new GameObject("PH_ExitGoal");
-            goal.transform.position = CellPos((cMin + cMax) * 0.5f, Rows - 1, 1.5f);
+            goal.transform.position = CellPos((cMin + cMax) * 0.5f, (rMin + rMax) * 0.5f, 1.5f);
             var box = goal.AddComponent<BoxCollider>();
             box.isTrigger = true;
-            box.size = new Vector3((cMax - cMin + 1f) * Cell, 3f, Cell);
-            goal.AddComponent<SandboxGoal>();
+            box.size = new Vector3((cMax - cMin + 1) * Cell, 3f, (rMax - rMin + 1) * Cell);
+            var sandboxGoal = goal.AddComponent<SandboxGoal>();
+            sandboxGoal.objective = "Reach the elevator at the east end";
 
-            // Flat strip on the floor so the goal is visible from a distance.
+            // Flat strip on the floor so the exit is visible from a distance.
             var strip = G.Visual(PrimitiveType.Cube, goal.transform, "PH_ExitMarker",
-                new Vector3(0f, -1.48f, 0f), new Vector3(box.size.x - 0.4f, 0.02f, Cell - 0.4f), G.noseMat);
+                new Vector3(0f, -1.48f, 0f), new Vector3(box.size.x - 0.4f, 0.02f, box.size.z - 0.4f), G.noseMat);
             strip.GetComponent<Renderer>().shadowCastingMode = ShadowCastingMode.Off;
         }
 
@@ -291,28 +275,35 @@ namespace StealthProto.EditorTools
         {
             var routes = new GameObject("PH_PatrolRoutes").transform;
 
-            // Lanes guard: a loop around the lower half of the grid. At each corner it stops and
-            // looks down a long lane, including straight at the row-4 shed's open side.
-            var lanes = G.Route(routes, "PH_Route_Lanes", true, 2f,
-                (CellPos(2, 4), 180f),
-                (CellPos(8, 4), 90f),
-                (CellPos(8, 8), 0f),
-                (CellPos(2, 8), 180f));
-            G.BuildGuard("PH_Guard_Lanes", CellPos(2, 4), 90f, lanes, player);
+            // North guard: circles the north-west floor, walks the north lane, then loops the
+            // middle-top block.
+            var north = G.Route(routes, "PH_Route_North", true, 1.5f,
+                (CellPos(1.5f, 1f), 270f),
+                (CellPos(4.5f, 3f), 90f),
+                (CellPos(11.5f, 3f), 90f),
+                (CellPos(16f, 3f), 180f),
+                (CellPos(16f, 6.5f), 270f),
+                (CellPos(11.5f, 6.5f), 0f),
+                (CellPos(11.5f, 3f), 270f),
+                (CellPos(4.5f, 3f), 270f));
+            G.BuildGuard("PH_Guard_North", CellPos(11.5f, 6.5f), 0f, north, player);
 
-            // Spine guard: walks the full centre lane north and south, checking the side lanes.
-            var spine = G.Route(routes, "PH_Route_Spine", false, 2.5f,
-                (CellPos(5, 2), 270f),
-                (CellPos(5, 6), 90f),
-                (CellPos(5, 11), 270f));
-            G.BuildGuard("PH_Guard_Spine", CellPos(5, 11), 180f, spine, player);
+            // East guard: loops the east-top block and swings past the elevator.
+            var east = G.Route(routes, "PH_Route_East", true, 2f,
+                (CellPos(16f, 3f), 90f),
+                (CellPos(19.5f, 3f), 90f),
+                (CellPos(21.5f, 7f), 180f),
+                (CellPos(19.5f, 6.5f), 270f),
+                (CellPos(16f, 6.5f), 0f));
+            G.BuildGuard("PH_Guard_East", CellPos(19.5f, 3f), 90f, east, player);
 
-            // Gate guard: a post under the floodlight, alternating between watching the apron
-            // and watching the east side. Its back is to the shed when it looks east.
-            var gate = G.Route(routes, "PH_Route_Gate", false, 3.5f,
-                (CellPos(6.2f, 12f), 200f),
-                (CellPos(6.8f, 12f), 100f));
-            G.BuildGuard("PH_Guard_Gate", CellPos(6.2f, 12f), 200f, gate, player);
+            // South guard: loops the west-bottom block, checking the pit edge and the south lane.
+            var south = G.Route(routes, "PH_Route_South", true, 2f,
+                (CellPos(11.5f, 6.5f), 270f),
+                (CellPos(7f, 6.5f), 270f),
+                (CellPos(7f, 11f), 180f),
+                (CellPos(11.5f, 11f), 90f));
+            G.BuildGuard("PH_Guard_South", CellPos(7f, 11f), 90f, south, player);
         }
     }
 }

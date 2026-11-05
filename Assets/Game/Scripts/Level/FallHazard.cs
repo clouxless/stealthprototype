@@ -3,12 +3,12 @@ using UnityEngine;
 namespace StealthProto
 {
     /// <summary>
-    /// Trigger volume under the waterline. A player who falls in is downed, which restarts the
+    /// Trigger volume below a pit or ledge. A player who falls into it is downed, which restarts the
     /// scene through PlayerLife. Keeps trying while the player is inside, in case they fell in
     /// during dash i-frames.
     /// </summary>
     [RequireComponent(typeof(BoxCollider))]
-    public class WaterHazard : MonoBehaviour
+    public class FallHazard : MonoBehaviour
     {
         void Reset() => GetComponent<BoxCollider>().isTrigger = true;
         void Awake() => GetComponent<BoxCollider>().isTrigger = true;

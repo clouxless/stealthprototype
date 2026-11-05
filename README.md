@@ -112,28 +112,25 @@ While hanging: the stick shimmies along the edge, E climbs up, Space or C lets g
 
 ## Dock sandbox
 
-**Stealth Prototype > Build Dock Sandbox Scene** builds `PH_DockSandbox`, a night-time quay
-for testing the player and guard AI end to end. It's an original layout made from generic
-stealth building blocks, laid out on a 3 m grid (36 x 42 m):
+**Stealth Prototype > Build Dock Sandbox Scene** builds `PH_DockSandbox`, a test level for
+the player and guard AI, laid out from Cloux's design on a 2 m grid (50 x 28 m):
 
-- **Start:** the dark end of a pier on the west side. Water runs along the west and south;
-  fall in and you're downed.
-- **Cover grid:** low (1.1 m), tall (2.6 m) and stacked (3.9 m) blocks with long, straight
-  lanes between them. Lamps light the lane crossings and leave the runs between them dark.
-  Low then tall blocks form step-ups, so you can climb onto the tops and cross over guards.
-- **Hide sheds:** two dark, roofed sheds with one open side. One sits at the end of a lane a
-  guard looks down. The other sits beside the gate.
-- **Guards:** a lanes guard looping the lower grid, a spine guard walking the centre lane,
-  and a gate guard under a floodlight who alternates between watching the apron and the east.
-- **Alarm lights:** two floodlights over the west lane and the shed lane stay dark until the
-  first alert, then stay on for good.
-- **Cover and ledges:** tall blocks, the stack and shed walls are tall enough to cling to,
-  and their edges are high enough to hang from.
-- **Exit:** the lit gate at the north end. Reaching it shows your time, alerts and takedowns,
-  then restarts.
+- **Start:** the dark south-west corner, next to a ladder.
+- **West catwalk:** the ladder (face it, press E) leads to a catwalk 3.2 m up along the west
+  wall, running south to north over the pit. Guards can't climb, and its edges can be hung from.
+- **Bottomless pit:** a hole in the west floor. Fall in and you're downed.
+- **Yard:** six tall blocks that block sight, with a north, middle and south lane between them.
+  Downward lamps light the lane crossings and leave the runs between them dark.
+- **Guards:** a north guard that circles the north-west floor and loops the middle-top block, an
+  east guard that loops the east block past the elevator, and a south guard that loops the
+  west-bottom block along the pit edge.
+- **Alarm lights:** two floodlights, one on the catwalk over the pit and one on the south lane,
+  stay dark until the first alert, then stay on for good.
+- **Exit:** the lit elevator at the east end. Reaching it shows your time, alerts and
+  takedowns, then restarts.
 
-The layout is a text map at the top of `Editor/DockSandboxBuilder.cs`. Edit it and run the
-menu item again to try a variation.
+The floor plan is a text map at the top of `Editor/DockSandboxBuilder.cs`. Edit it and run
+the menu item again to try a variation.
 
 ## Code map
 
@@ -152,7 +149,7 @@ menu item again to try a variation.
 | `Scripts/AI/GuardBrain.cs` | State machine, tells, hearing, radio, search, shooting |
 | `Scripts/AI/LastKnownMarker.cs` | Marker where hunting guards will search |
 | `Scripts/AI/VisionConeMesh.cs` | Vision drawn on the surfaces it covers |
-| `Scripts/Level/SandboxGoal.cs`, `WaterHazard.cs` | Exit trigger with run stats, water hazard |
+| `Scripts/Level/SandboxGoal.cs`, `FallHazard.cs` | Exit trigger with run stats, fall hazard |
 | `Editor/GrayboxBuilder.cs` | Builds the test scene from code |
 | `Editor/DockSandboxBuilder.cs` | Builds the dock sandbox from a text map |
 | `Editor/PlaceholderAudit.cs` | Placeholder audit and release-build block |
