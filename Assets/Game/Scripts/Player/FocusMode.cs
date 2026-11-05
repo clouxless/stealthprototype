@@ -10,8 +10,8 @@ namespace StealthProto
     ///   tier 1 (from the start): loud, nearby sounds
     ///   tier 2 (after detailTime): every sound in range, so footstep rhythm shows
     ///   tier 3 (after identifyTime): which guard made it and their state
-    /// Focus only shows sound: still guards, lights and sightlines stay hidden, and sounds off
-    /// screen get no marker (the zoom-out is what widens what you can hear).
+    /// Focus only shows sound: still guards, lights and sightlines stay hidden. Sounds off screen
+    /// get no marker, but their ripples still sweep in across the screen edge.
     /// Moving, attacking, aiming, dashing or interacting breaks it. Cues linger, then fade.
     /// Drawn with placeholder IMGUI ([PH]).
     /// </summary>
@@ -23,7 +23,7 @@ namespace StealthProto
         public float activateTime = 3f;
         [Tooltip("Seconds the camera takes to pull out, starting once the screen is fully black.")]
         public float zoomTime = 2f;
-        public float detailTime = 1.5f;
+        public float detailTime = 0.75f;
         public float identifyTime = 3f;
         public float lingerTime = 1.2f;
         [Tooltip("How long one ripple lasts on screen.")]
@@ -176,24 +176,25 @@ namespace StealthProto
             Color c = KindColor(s.kind);
             c.a = (1f - k) * linger;
             Vector3 sp = cam.WorldToScreenPoint(s.position);
-            bool onScreen = sp.z > 0f && sp.x >= 0f && sp.x <= Screen.width && sp.y >= 0f && sp.y <= Screen.height;
+            if (sp.z <= 0f) return; // behind the camera (never happens top-down)
 
-            if (onScreen)
+            // Pixel size of the sound's radius at its position, so a ripple matches its reach.
+            // Drawn even when the source is off screen, so you see its ripple sweep in from the edge.
+            Vector3 edge = cam.WorldToScreenPoint(s.position + cam.transform.right * (s.radius * rippleScale));
+            float maxPx = Mathf.Abs(edge.x - sp.x);
+            float px = Mathf.Lerp(maxPx * 0.15f, maxPx, Mathf.Sqrt(k));
+            var rect = new Rect(sp.x - px, Screen.height - sp.y - px, px * 2f, px * 2f);
+            if (!rect.Overlaps(new Rect(0, 0, Screen.width, Screen.height))) return;
+            GUI.color = c;
+            GUI.DrawTexture(rect, ringTex);
+
+            bool onScreen = sp.x >= 0f && sp.x <= Screen.width && sp.y >= 0f && sp.y <= Screen.height;
+            if (onScreen && tier >= 3 && s.source != null)
             {
-                // Pixel size of the sound's radius at its position, so a ripple matches its reach.
-                Vector3 edge = cam.WorldToScreenPoint(s.position + cam.transform.right * (s.radius * rippleScale));
-                float maxPx = Mathf.Abs(edge.x - sp.x);
-                float px = Mathf.Lerp(maxPx * 0.15f, maxPx, Mathf.Sqrt(k));
-                GUI.color = c;
-                GUI.DrawTexture(new Rect(sp.x - px, Screen.height - sp.y - px, px * 2f, px * 2f), ringTex);
-
-                if (tier >= 3 && s.source != null)
-                {
-                    var guard = s.source.GetComponent<GuardBrain>();
-                    string who = guard != null ? $"{s.source.name}  {guard.State}" : s.source.name;
-                    labelStyle.normal.textColor = c;
-                    GUI.Label(new Rect(sp.x - 120, Screen.height - sp.y + 6, 240, 20), who, labelStyle);
-                }
+                var guard = s.source.GetComponent<GuardBrain>();
+                string who = guard != null ? $"{s.source.name}  {guard.State}" : s.source.name;
+                labelStyle.normal.textColor = c;
+                GUI.Label(new Rect(sp.x - 120, Screen.height - sp.y + 6, 240, 20), who, labelStyle);
             }
         }
 

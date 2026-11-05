@@ -76,8 +76,8 @@ While hanging: the stick shimmies along the edge, E climbs up, Space or C lets g
   first alert, guards stay wary (they spot you faster) and the red alarm floods stay on.
 - **Focus.** Hold Q to listen. Over about 3 seconds the world fades to pitch black, leaving
   only you and sounds drawn as ripples. Once it is fully black, the camera pulls out. Hold longer for more: loud
-  nearby sounds, then every sound (from 1.5 s), then which guard made it and their state
-  (from 3 s). Sounds off screen get no marker. Only sound shows. Critical sounds (gunshots,
+  nearby sounds, then every sound (from 0.75 s), then which guard made it and their state
+  (from 3 s). Ripples from sounds off screen sweep in across the screen edge. Only sound shows. Critical sounds (gunshots,
   shouts) always draw a ring, focus or not.
 - **Crawling.** Prone is slow and the quietest way to move. Lying right behind a low crate hides you
   and you fit under tables and through the vent in the inner wall. You can't stand up
