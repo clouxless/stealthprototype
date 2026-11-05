@@ -129,7 +129,8 @@ the player and guard AI, laid out from Cloux's design on a 2 m grid (50 x 28 m):
   Downward lamps light the lane crossings and leave the runs between them dark.
 - **Guards:** a north guard that circles the north-west floor and loops the middle-top block, an
   east guard that loops the east block past the elevator, and a south guard that loops the
-  west-bottom block along the pit edge.
+  west-bottom block along the pit edge, plus a post guard standing in the lane between the two
+  south-east blocks, facing north.
 - **Alarm lights:** two floodlights, one on the catwalk over the pit and one on the south lane,
   stay dark until the first alert, then stay on for good.
 - **Exit:** the lit elevator at the east end. Reaching it shows your time, alerts and

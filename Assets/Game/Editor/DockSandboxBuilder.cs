@@ -389,6 +389,13 @@ namespace StealthProto.EditorTools
                 (CellPos(7f, 11f), 180f),
                 (CellPos(11.5f, 11f), 90f));
             G.BuildGuard("PH_Guard_South", CellPos(7f, 11f), 90f, south, player);
+
+            // Post guard: stands in the lane between the two south-east blocks, facing north up
+            // into the middle lane. A one-point route: he holds the post (with his usual head sweep)
+            // and returns to it after a search.
+            var post = G.Route(routes, "PH_Route_Post", true, 4f,
+                (CellPos(16f, 9.3f), 0f));
+            G.BuildGuard("PH_Guard_Post", CellPos(16f, 9.3f), 0f, post, player);
         }
     }
 }
