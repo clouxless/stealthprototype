@@ -27,6 +27,8 @@ namespace StealthProto
         public float fieldOfView = 38f;
         public float followSharpness = 10f;
         public Vector3 targetOffset = new Vector3(0f, 1f, 0f);
+        [Tooltip("How quickly the view slides out when peeking around a corner from cover.")]
+        public float peekSharpness = 4f;
 
         [Header("First person")]
         public float firstPersonFov = 70f;
@@ -53,12 +55,16 @@ namespace StealthProto
         Vector3 followPosition;
         float fpYaw, fpPitch;
         float trauma;
+        Vector3 peekTarget, peekCurrent;
         readonly HashSet<Renderer> cutHidden = new HashSet<Renderer>();
         readonly HashSet<Renderer> cutThisFrame = new HashSet<Renderer>();
         static readonly RaycastHit[] CutHits = new RaycastHit[16];
         static readonly Collider[] OverheadHits = new Collider[32];
 
         public bool IsFirstPerson { get; private set; }
+
+        /// <summary>Slide the top-down view by this world offset (cover peeking). Zero to recentre.</summary>
+        public void SetPeekOffset(Vector3 offset) => peekTarget = offset;
 
         public static void Shake(float amount)
         {
@@ -182,7 +188,8 @@ namespace StealthProto
 
         void TopDown(float dt)
         {
-            Vector3 desired = target.position + targetOffset;
+            if (dt > 0f) peekCurrent = Vector3.Lerp(peekCurrent, peekTarget, 1f - Mathf.Exp(-peekSharpness * dt));
+            Vector3 desired = target.position + targetOffset + peekCurrent;
             // dt is 0 during hit-stop: hold position rather than snapping.
             if (dt > 0f) followPosition = Vector3.Lerp(followPosition, desired, 1f - Mathf.Exp(-followSharpness * dt));
             transform.SetPositionAndRotation(followPosition, Quaternion.Euler(0f, yaw, 0f));

@@ -40,6 +40,8 @@ namespace StealthProto
             if (context != null) context.enabled = false;
             var focus = GetComponent<FocusMode>();
             if (focus != null) focus.enabled = false;
+            var cover = GetComponent<PlayerCover>();
+            if (cover != null) cover.enabled = false;
             Invoke(nameof(Restart), restartDelay);
         }
 
