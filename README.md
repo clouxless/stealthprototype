@@ -29,7 +29,8 @@ The repo holds only our code and docs. Unity generates the project settings, so:
    and let it restart.
 5. Check **Window > Package Manager** has **Input System** and **AI Navigation**
    installed. Install either one if it's missing.
-6. Run **Stealth Prototype > Build Graybox Test Scene**, then press **Play**.
+6. Run **Stealth Prototype > Build Graybox Test Scene** (or **Build Dock Sandbox Scene**),
+   then press **Play**.
 7. Commit the template's files (`Assets/`, `Packages/`, `ProjectSettings/`, and all
    `.meta` files) so the project opens the same everywhere.
 
@@ -109,6 +110,31 @@ While hanging: the stick shimmies along the edge, E climbs up, Space or C lets g
   guard's route, a better angle than walking round the wall past the floor guard.
 - Two tables to crawl under. No closet yet (it was optional).
 
+## Dock sandbox
+
+**Stealth Prototype > Build Dock Sandbox Scene** builds `PH_DockSandbox`, a night-time quay
+for testing the player and guard AI end to end. It's an original layout made from generic
+stealth building blocks, laid out on a 3 m grid (36 x 42 m):
+
+- **Start:** the dark end of a pier on the west side. Water runs along the west and south;
+  fall in and you're downed.
+- **Cover grid:** low (1.1 m), tall (2.6 m) and stacked (3.9 m) blocks with long, straight
+  lanes between them. Lamps light the lane crossings and leave the runs between them dark.
+  Low then tall blocks form step-ups, so you can climb onto the tops and cross over guards.
+- **Hide sheds:** two dark, roofed sheds with one open side. One sits at the end of a lane a
+  guard looks down. The other sits beside the gate.
+- **Guards:** a lanes guard looping the lower grid, a spine guard walking the centre lane,
+  and a gate guard under a floodlight who alternates between watching the apron and the east.
+- **Alarm lights:** two floodlights over the west lane and the shed lane stay dark until the
+  first alert, then stay on for good.
+- **Cover and ledges:** tall blocks, the stack and shed walls are tall enough to cling to,
+  and their edges are high enough to hang from.
+- **Exit:** the lit gate at the north end. Reaching it shows your time, alerts and takedowns,
+  then restarts.
+
+The layout is a text map at the top of `Editor/DockSandboxBuilder.cs`. Edit it and run the
+menu item again to try a variation.
+
 ## Code map
 
 | Path | What |
@@ -126,5 +152,7 @@ While hanging: the stick shimmies along the edge, E climbs up, Space or C lets g
 | `Scripts/AI/GuardBrain.cs` | State machine, tells, hearing, radio, search, shooting |
 | `Scripts/AI/LastKnownMarker.cs` | Marker where hunting guards will search |
 | `Scripts/AI/VisionConeMesh.cs` | Vision drawn on the surfaces it covers |
+| `Scripts/Level/SandboxGoal.cs`, `WaterHazard.cs` | Exit trigger with run stats, water hazard |
 | `Editor/GrayboxBuilder.cs` | Builds the test scene from code |
+| `Editor/DockSandboxBuilder.cs` | Builds the dock sandbox from a text map |
 | `Editor/PlaceholderAudit.cs` | Placeholder audit and release-build block |
