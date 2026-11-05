@@ -89,8 +89,9 @@ namespace StealthProto
 
         [Header("Footsteps (heard only through Focus)")]
         public float footstepRadius = 9f;
-        public float walkStepInterval = 0.55f;
-        public float runStepInterval = 0.3f;
+        [Tooltip("Seconds between footstep sounds. Guard footsteps are ambient (only Focus shows them), so this sets the ripple rhythm.")]
+        public float walkStepInterval = 1.1f;
+        public float runStepInterval = 0.6f;
 
         [Header("State colours")]
         // The world renders in black and white except reds and ambers (see LookSetup), so these

@@ -28,6 +28,8 @@ namespace StealthProto
         public float lingerTime = 1.2f;
         [Tooltip("How long one ripple lasts on screen.")]
         public float rippleLife = 1.2f;
+        [Tooltip("How far a ripple spreads, as a multiple of the sound's actual radius.")]
+        public float rippleScale = 2f;
 
         [Header("Range")]
         public float hearingRange = 30f;
@@ -179,7 +181,7 @@ namespace StealthProto
             if (onScreen)
             {
                 // Pixel size of the sound's radius at its position, so a ripple matches its reach.
-                Vector3 edge = cam.WorldToScreenPoint(s.position + cam.transform.right * s.radius);
+                Vector3 edge = cam.WorldToScreenPoint(s.position + cam.transform.right * (s.radius * rippleScale));
                 float maxPx = Mathf.Abs(edge.x - sp.x);
                 float px = Mathf.Lerp(maxPx * 0.15f, maxPx, Mathf.Sqrt(k));
                 GUI.color = c;
