@@ -38,6 +38,8 @@ namespace StealthProto
             if (combat != null) combat.enabled = false;
             var context = GetComponent<PlayerContextActions>();
             if (context != null) context.enabled = false;
+            var focus = GetComponent<FocusMode>();
+            if (focus != null) focus.enabled = false;
             Invoke(nameof(Restart), restartDelay);
         }
 

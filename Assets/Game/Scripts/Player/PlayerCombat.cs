@@ -167,7 +167,7 @@ namespace StealthProto
                 HitStop.Do(meleeHitStop);
                 CameraRig.Shake(0.15f);
             }
-            NoiseSystem.Emit(transform.position, hitAny ? 5f : 1.5f, 0.4f);
+            NoiseSystem.Emit(transform.position, hitAny ? 5f : 1.5f, 0.4f, null, SoundKind.Impact, gameObject);
 
             yield return new WaitForSeconds(meleeRecovery * 0.5f);
             motor.AttackLock = false;
@@ -196,7 +196,7 @@ namespace StealthProto
             Vector3 tracerStart = firstPerson ? origin + dir * 0.6f - Vector3.up * 0.15f : origin;
             FX.Line(tracerStart, end, new Color(1f, 0.9f, 0.4f, 0.9f), 0.04f, 0.06f);
             CameraRig.Shake(0.08f);
-            NoiseSystem.Emit(transform.position, gunNoiseRadius, 1f);
+            NoiseSystem.Emit(transform.position, gunNoiseRadius, 1f, null, SoundKind.Gunshot, gameObject);
         }
     }
 }

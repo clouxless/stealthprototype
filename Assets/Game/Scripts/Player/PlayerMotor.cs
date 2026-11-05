@@ -52,6 +52,8 @@ namespace StealthProto
         public bool MovementLocked { get; set; }
         /// <summary>Locks movement input during attack swings.</summary>
         public bool AttackLock { get; set; }
+        /// <summary>Locks movement input while Focus is held.</summary>
+        public bool FocusLock { get; set; }
         /// <summary>Another component (climb, takedown) is moving the player. The motor does nothing.</summary>
         public bool ExternalControl
         {
@@ -96,7 +98,7 @@ namespace StealthProto
             if (dt <= 0f || externalControl) return;
 
             Vector3 wish = Vector3.zero;
-            if (!MovementLocked && !AttackLock)
+            if (!MovementLocked && !AttackLock && !FocusLock)
             {
                 wish = CameraRelative(input.Move);
                 if (wish.sqrMagnitude > 1f) wish.Normalize();
@@ -114,7 +116,7 @@ namespace StealthProto
                 dashCooldownTimer = dashDuration + dashCooldown;
                 if (health != null) health.Invulnerable = true;
                 transform.rotation = Quaternion.LookRotation(dashDirection);
-                NoiseSystem.Emit(transform.position, dashNoiseRadius, 0.5f);
+                NoiseSystem.Emit(transform.position, dashNoiseRadius, 0.5f, null, SoundKind.Movement, gameObject);
             }
 
             Vector3 horizontal;
@@ -156,7 +158,8 @@ namespace StealthProto
             if (!IsSneaking && !IsDashing && Speed > sneakSpeed + 0.5f && footstepTimer <= 0f)
             {
                 footstepTimer = footstepInterval;
-                NoiseSystem.Emit(transform.position, footstepNoiseRadius * Mathf.Clamp01(Speed / runSpeed), 0.4f);
+                NoiseSystem.Emit(transform.position, footstepNoiseRadius * Mathf.Clamp01(Speed / runSpeed), 0.4f,
+                    null, SoundKind.Footstep, gameObject);
             }
         }
     }

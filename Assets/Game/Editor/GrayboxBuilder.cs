@@ -359,6 +359,7 @@ namespace StealthProto.EditorTools
             p.AddComponent<PlayerCombat>();
             p.AddComponent<PlayerLife>();
             p.AddComponent<PlayerContextActions>();
+            p.AddComponent<FocusMode>();
 
             var tint = p.AddComponent<PlayerShadowTint>();
             tint.renderers = Mannequin(p.transform, playerMat);

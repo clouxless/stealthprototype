@@ -187,7 +187,7 @@ namespace StealthProto
                 if (noiseTimer <= 0f)
                 {
                     noiseTimer = struggleNoiseInterval;
-                    NoiseSystem.Emit(transform.position, struggleNoiseRadius, 0.3f);
+                    NoiseSystem.Emit(transform.position, struggleNoiseRadius, 0.3f, null, SoundKind.Struggle, gameObject);
                     CameraRig.Shake(0.05f);
                 }
                 yield return null;
@@ -198,7 +198,7 @@ namespace StealthProto
             guard.CompleteTakedown(gameObject);
             HitStop.Do(0.1f);
             CameraRig.Shake(0.2f);
-            NoiseSystem.Emit(transform.position, takedownNoiseRadius, 0.3f);
+            NoiseSystem.Emit(transform.position, takedownNoiseRadius, 0.3f, null, SoundKind.Impact, gameObject);
 
             yield return new WaitForSeconds(0.15f);
             motor.ExternalControl = false;
@@ -283,7 +283,7 @@ namespace StealthProto
             yield return Move(raised, l.standPoint, overTime);
 
             controller.enabled = true;
-            NoiseSystem.Emit(transform.position, climbNoiseRadius, 0.3f);
+            NoiseSystem.Emit(transform.position, climbNoiseRadius, 0.3f, null, SoundKind.Movement, gameObject);
             motor.ExternalControl = false;
             Busy = false;
         }

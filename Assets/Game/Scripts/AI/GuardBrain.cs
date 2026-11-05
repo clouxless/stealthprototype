@@ -87,6 +87,11 @@ namespace StealthProto
         public float fireCooldown = 1.1f;
         public float gunNoiseRadius = 15f;
 
+        [Header("Footsteps (heard only through Focus)")]
+        public float footstepRadius = 9f;
+        public float walkStepInterval = 0.55f;
+        public float runStepInterval = 0.3f;
+
         [Header("State colours")]
         public Color patrolColor = new Color(1f, 0.93f, 0.78f);
         public Color suspiciousColor = new Color(1f, 0.7f, 0.15f);
@@ -151,6 +156,7 @@ namespace StealthProto
         float flashBaseIntensity;
         float sweepTimer;
         bool wasSweeping;
+        float stepTimer;
         SuspiciousPhase suspiciousPhase;
         Vector3 investigatePoint;
         Vector3 lastKnown;
@@ -337,6 +343,18 @@ namespace StealthProto
 
             UpdateHead(dt);
             UpdateVisuals(dt);
+            UpdateFootsteps(dt);
+        }
+
+        void UpdateFootsteps(float dt)
+        {
+            if (!AgentReady) return;
+            float speed = agent.velocity.magnitude;
+            if (speed < 0.3f) return;
+            stepTimer -= dt;
+            if (stepTimer > 0f) return;
+            stepTimer = speed > walkSpeed + 0.5f ? runStepInterval : walkStepInterval;
+            NoiseSystem.Ambient(transform.position, footstepRadius, speed > walkSpeed + 0.5f ? 0.4f : 0.25f, SoundKind.Footstep, gameObject);
         }
 
         void UpdateAwareness(float dt)

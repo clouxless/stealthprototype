@@ -86,9 +86,10 @@ namespace StealthProto
                     "Move WASD / left stick    Sneak (silent) Shift / LB\n" +
                     "Dash Space / A            Melee LMB / X\n" +
                     "Context E / Y: takedown (behind an unalerted guard), clamber, climb\n" +
+                    "Focus (hold, can't move) Q / L3: see sounds\n" +
                     "Aim RMB / LT, fire LMB / RT\n" +
                     "First-person look V / R3  (can't move, fire along view)\n" +
-                    "Zoom mouse wheel / d-pad   F1 vision cones   F2 noise rings   R restart";
+                    "Zoom mouse wheel / d-pad   F1 vision cones   F2 all noise rings   R restart";
                 GUI.Label(new Rect(12, Screen.height - 140, 640, 130), help, label);
             }
 
