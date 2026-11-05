@@ -4,9 +4,9 @@ using UnityEngine;
 namespace StealthProto
 {
     /// <summary>
-    /// Focus. Hold Q (gamepad L3) to listen: you can't move, the camera pulls out and the world
-    /// fades to pitch black over activateTime, leaving only you and the sounds from NoiseSystem,
-    /// drawn as ripples. The longer you hold, the more you get:
+    /// Focus. Hold Q (gamepad L3) to listen: you can't move, the world fades to pitch black over
+    /// activateTime, leaving only you and the sounds from NoiseSystem, drawn as ripples. Once it is
+    /// fully black the camera pulls out over zoomTime. The longer you hold, the more you get:
     ///   tier 1 (from the start): loud, nearby sounds
     ///   tier 2 (after detailTime): every sound in range, so footstep rhythm shows
     ///   tier 3 (after identifyTime): which guard made it and their state
@@ -21,6 +21,8 @@ namespace StealthProto
         [Header("Timing")]
         [Tooltip("Seconds of holding until the screen is fully black and the camera fully pulled out.")]
         public float activateTime = 3f;
+        [Tooltip("Seconds the camera takes to pull out, starting once the screen is fully black.")]
+        public float zoomTime = 2f;
         public float detailTime = 1.5f;
         public float identifyTime = 3f;
         public float lingerTime = 1.2f;
@@ -81,7 +83,7 @@ namespace StealthProto
 
         void Update()
         {
-            if (rig != null) rig.ExtraDistance = zoomOut * Activation();
+            if (rig != null) rig.ExtraDistance = zoomOut * Phase(activateTime, zoomTime);
             sounds.RemoveAll(s => Time.time - s.time > rippleLife + lingerTime + 0.5f);
 
             bool held = input.FocusHeld;
@@ -109,10 +111,13 @@ namespace StealthProto
         }
 
         /// <summary>0..1: how far the blackout and zoom have gone, fading back out after release.</summary>
-        float Activation()
+        float Activation() => Phase(0f, activateTime);
+
+        /// <summary>0..1 progress of a stage that starts after `start` seconds of holding and lasts `length`.</summary>
+        float Phase(float start, float length)
         {
             float hold = IsFocusing ? HoldTime : holdAtRelease;
-            float a = Mathf.SmoothStep(0f, 1f, Mathf.Clamp01(hold / Mathf.Max(0.01f, activateTime)));
+            float a = Mathf.SmoothStep(0f, 1f, Mathf.Clamp01((hold - start) / Mathf.Max(0.01f, length)));
             if (!IsFocusing) a *= Mathf.Clamp01(1f - (Time.time - releasedAt) / lingerTime);
             return a;
         }
