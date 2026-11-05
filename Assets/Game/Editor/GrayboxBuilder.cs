@@ -57,6 +57,7 @@ namespace StealthProto.EditorTools
             BuildGuards(player.transform);
 
             new GameObject("PH_DebugHUD").AddComponent<DebugHUD>();
+            new GameObject("PH_LastKnownMarker").AddComponent<LastKnownMarker>();
 
             EditorSceneManager.SaveScene(scene, ScenePath);
             AddToBuildSettings(ScenePath);

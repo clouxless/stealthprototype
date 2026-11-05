@@ -103,18 +103,21 @@ namespace StealthProto
             if (cam == null || (rig != null && rig.IsFirstPerson)) return;
             foreach (var g in GuardBrain.All)
             {
-                string text = g.State switch
-                {
-                    GuardState.Suspicious => "?",
-                    GuardState.Search => "?",
-                    GuardState.Alert => "!",
-                    _ => null
-                };
-                if (text == null) continue;
-                Vector3 sp = cam.WorldToScreenPoint(g.transform.position + Vector3.up * 2.4f);
+                // Tells are big; the ongoing state is a small reminder.
+                var tell = g.CurrentTell;
+                string text;
+                int size;
+                if (tell == GuardBrain.Tell.Exclamation) { text = "!"; size = 44; }
+                else if (tell == GuardBrain.Tell.Question) { text = "?"; size = 40; }
+                else if (g.State == GuardState.Alert) { text = "!"; size = 22; }
+                else if (g.State == GuardState.Suspicious || g.State == GuardState.Search) { text = "?"; size = 22; }
+                else continue;
+
+                Vector3 sp = cam.WorldToScreenPoint(g.transform.position + Vector3.up * 2.3f);
                 if (sp.z <= 0f) continue;
+                marker.fontSize = size;
                 marker.normal.textColor = g.CurrentColor;
-                GUI.Label(new Rect(sp.x - 20, Screen.height - sp.y - 20, 40, 40), text, marker);
+                GUI.Label(new Rect(sp.x - 30, Screen.height - sp.y - 30, 60, 60), text, marker);
             }
         }
 

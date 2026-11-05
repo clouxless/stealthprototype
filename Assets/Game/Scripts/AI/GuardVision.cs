@@ -37,6 +37,8 @@ namespace StealthProto
         Health targetHealth;
         PlayerMotor targetMotor;
 
+        /// <summary>Set by the brain while searching: the guard checks higher ground too.</summary>
+        public bool LookUp { get; set; }
         /// <summary>Widened while alert.</summary>
         public float AngleMultiplier { get; set; } = 1f;
         /// <summary>0..1 how well the target is seen this frame.</summary>
@@ -92,7 +94,7 @@ namespace StealthProto
             flatTo.y = 0f;
             float vertical = Mathf.Atan2(toTarget.y, flatTo.magnitude) * Mathf.Rad2Deg;
             bool inCone = Vector3.Angle(flatForward, flatTo) <= EffectiveHalfAngle
-                          && vertical <= lookUpLimit && vertical >= -lookDownLimit;
+                          && (LookUp || vertical <= lookUpLimit) && vertical >= -lookDownLimit;
 
             // Outside the cone the guard can only *sense* someone close who isn't sneaking.
             // A sneaking player behind a guard is never sensed: that's what makes takedowns possible.
