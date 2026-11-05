@@ -62,11 +62,7 @@ namespace StealthProto
             GUILayout.BeginArea(new Rect(12, 12, 300, 400), GUI.skin.box);
             GUILayout.Label("[PH] DEBUG HUD", label);
             if (health != null) GUILayout.Label($"HP  {health.Current} / {health.maxHealth}", label);
-            if (exposure != null)
-            {
-                GUILayout.Label($"Light  {(exposure.IsHidden ? "HIDDEN" : "EXPOSED")}  ({exposure.Exposure:0.00})", label);
-                Bar(exposure.Exposure, exposure.IsHidden ? new Color(0.3f, 0.5f, 1f) : new Color(1f, 0.85f, 0.4f));
-            }
+            if (exposure != null) GUILayout.Label($"Light tier  {exposure.Tier.ToString().ToUpper()}  (shown on the character)", label);
             if (player != null)
             {
                 string mode = rig != null && rig.IsFirstPerson ? "FIRST PERSON" : player.IsSneaking ? "SNEAKING" : "TOP-DOWN";

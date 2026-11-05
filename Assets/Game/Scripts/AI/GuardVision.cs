@@ -4,8 +4,9 @@ namespace StealthProto
 {
     /// <summary>
     /// 3D vision: a horizontal cone with separate look-up and look-down limits (so perches above
-    /// a guard are safe up close), line-of-sight against three body points, and light level.
-    /// A target in deep shadow is nearly invisible beyond a few metres.
+    /// a guard are safe up close), line-of-sight against three body points, and the target's
+    /// light tier. Each tier has one fixed sight distance, the same for every guard.
+    /// Inside that distance the target is seen; beyond it, not at all.
     /// </summary>
     public class GuardVision : MonoBehaviour
     {
@@ -13,6 +14,7 @@ namespace StealthProto
         public Transform target;
 
         [Header("Cone")]
+        [Tooltip("Cone length. Also the sight distance for a Lit target.")]
         public float viewDistance = 13f;
         public float halfAngle = 35f;
         [Tooltip("Guards rarely look up. Targets steeper than this above the eye are unseen.")]
@@ -23,12 +25,11 @@ namespace StealthProto
         [Tooltip("How strongly that out-of-cone sense registers (0..1). Sneaking targets are never sensed this way.")]
         [Range(0f, 1f)] public float peripheralStrength = 0.3f;
 
-        [Header("Light")]
-        [Tooltip("Inside this range light level doesn't matter.")]
+        [Header("Light tiers: fixed sight distances")]
+        public float darkSightDistance = 2.5f;
+        public float dimSightDistance = 6.5f;
+        [Tooltip("Within this distance a seen target registers at full speed; it slows toward the tier's limit.")]
         public float closeRange = 2.5f;
-        [Tooltip("Up to this range a target in shadow is partially visible.")]
-        public float darkSightDistance = 6f;
-        [Range(0f, 1f)] public float nearDarkVisibility = 0.55f;
 
         static readonly Vector3[] BodyPoints = { new Vector3(0f, 0.35f, 0f), new Vector3(0f, 1.1f, 0f), new Vector3(0f, 1.65f, 0f) };
 
@@ -44,6 +45,13 @@ namespace StealthProto
         public float NormalizedDistance { get; private set; } = 1f;
         public Vector3 LastSeenPosition { get; private set; }
         public float EffectiveHalfAngle => halfAngle * AngleMultiplier;
+
+        public float SightDistance(LightTier tier) => tier switch
+        {
+            LightTier.Lit => viewDistance,
+            LightTier.Dim => Mathf.Min(dimSightDistance, viewDistance),
+            _ => Mathf.Min(darkSightDistance, viewDistance)
+        };
 
         void Start()
         {
@@ -102,12 +110,12 @@ namespace StealthProto
             if (visibleParts == 0) return 0f;
             float partFactor = visibleParts / (float)BodyPoints.Length;
 
-            float exposure = targetExposure != null ? targetExposure.Exposure : 1f;
-            float darkFloor = distance <= closeRange ? 1f : distance <= darkSightDistance ? nearDarkVisibility : 0f;
-            float lightFactor = Mathf.Lerp(darkFloor, 1f, exposure);
+            LightTier tier = targetExposure != null ? targetExposure.Tier : LightTier.Lit;
+            float sight = SightDistance(tier);
+            if (distance > sight) return 0f;
 
-            float distanceFactor = 1f - Mathf.InverseLerp(closeRange, viewDistance, distance) * 0.6f;
-            return Mathf.Clamp01(partFactor * lightFactor * distanceFactor * senseFactor);
+            float distanceFactor = 1f - Mathf.InverseLerp(closeRange, sight, distance) * 0.6f;
+            return Mathf.Clamp01(partFactor * distanceFactor * senseFactor);
         }
     }
 }

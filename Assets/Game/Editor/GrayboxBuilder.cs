@@ -17,11 +17,11 @@ namespace StealthProto.EditorTools
     /// </summary>
     public static class GrayboxBuilder
     {
-        const string Root = "Assets/_Placeholder";
+        internal const string Root = "Assets/_Placeholder";
         const string ScenePath = Root + "/Scenes/PH_GrayboxTest.unity";
 
-        static Material gridMat, playerMat, guardMat, noseMat, coneMat, lampMat;
-        static readonly Dictionary<Vector3, Mesh> MeshCache = new Dictionary<Vector3, Mesh>();
+        internal static Material gridMat, playerMat, guardMat, noseMat, coneMat, lampMat;
+        internal static readonly Dictionary<Vector3, Mesh> MeshCache = new Dictionary<Vector3, Mesh>();
 
         [MenuItem("Stealth Prototype/Build Graybox Test Scene", priority = 0)]
         public static void Build()
@@ -66,7 +66,7 @@ namespace StealthProto.EditorTools
 
         // ---------------------------------------------------------------- materials
 
-        static void CreateMaterials()
+        internal static void CreateMaterials()
         {
             var magenta = new Color(1f, 0f, 1f);
             var grid = MakeTexture("PH_Grid", 64, (x, y) =>
@@ -115,7 +115,7 @@ namespace StealthProto.EditorTools
             return AssetDatabase.LoadAssetAtPath<Texture2D>(path);
         }
 
-        static Material MakeLitMaterial(string name, Texture2D tex, Color color)
+        internal static Material MakeLitMaterial(string name, Texture2D tex, Color color)
         {
             string path = $"{Root}/Materials/{name}.mat";
             var mat = AssetDatabase.LoadAssetAtPath<Material>(path);
@@ -133,7 +133,7 @@ namespace StealthProto.EditorTools
 
         // ---------------------------------------------------------------- lighting
 
-        static void SetupLighting()
+        internal static void SetupLighting()
         {
             RenderSettings.skybox = null;
             RenderSettings.ambientMode = AmbientMode.Flat;
@@ -170,22 +170,34 @@ namespace StealthProto.EditorTools
             Lamp(lamps, new Vector3(-5f, 3.2f, -12f), 5f);
         }
 
-        static void Lamp(Transform parent, Vector3 position, float range)
+        /// <summary>
+        /// Ceiling lamp: a downward spot with a crisp stepped pool (Lit core, Dim ring) so the floor
+        /// shows exactly which light tier you'd be in. range is the light's reach.
+        /// </summary>
+        internal static Light Lamp(Transform parent, Vector3 position, float range)
+            => SpotLamp(parent, "PH_Lamp", position, position + Vector3.down, 80f, range);
+
+        /// <summary>A stealth spot light aimed at a point, with a visible fixture and hard shadows.</summary>
+        internal static Light SpotLamp(Transform parent, string name, Vector3 position, Vector3 aimAt, float spotAngle, float range, float intensity = 14f)
         {
-            var go = new GameObject("PH_Lamp");
+            var go = new GameObject(name);
             go.transform.SetParent(parent, false);
-            go.transform.position = position;
+            Vector3 dir = (aimAt - position).normalized;
+            go.transform.SetPositionAndRotation(position, Quaternion.LookRotation(dir, Mathf.Abs(dir.y) > 0.95f ? Vector3.forward : Vector3.up));
             var light = go.AddComponent<Light>();
-            light.type = LightType.Point;
+            light.type = LightType.Spot;
+            light.spotAngle = spotAngle;
+            light.innerSpotAngle = spotAngle - 2f;
             light.range = range;
-            light.intensity = 9f;
-            light.color = new Color(1f, 0.85f, 0.6f);
-            light.shadows = LightShadows.Soft;
+            light.intensity = intensity;
+            light.color = new Color(1f, 0.86f, 0.62f);
+            light.shadows = LightShadows.Hard; // crisp pool edges
             go.AddComponent<StealthLight>();
 
-            // Small visible bulb, no collider so it never blocks its own light.
-            var bulb = Visual(PrimitiveType.Cube, go.transform, "PH_LampBulb", Vector3.up * 0.2f, new Vector3(0.4f, 0.15f, 0.4f), lampMat);
+            // Small visible fixture, no collider so it never blocks its own light.
+            var bulb = Visual(PrimitiveType.Cube, go.transform, "PH_LampBulb", Vector3.back * 0.15f, new Vector3(0.4f, 0.4f, 0.15f), lampMat);
             bulb.GetComponent<Renderer>().shadowCastingMode = ShadowCastingMode.Off;
+            return light;
         }
 
         // ---------------------------------------------------------------- level
@@ -236,14 +248,14 @@ namespace StealthProto.EditorTools
             Block(crates, "PH_CrateTall", new Vector3(6f, 1.3f, 9f), new Vector3(2.5f, 2.6f, 2.5f));
         }
 
-        static Transform Group(Transform parent, string name)
+        internal static Transform Group(Transform parent, string name)
         {
             var t = new GameObject(name).transform;
             t.SetParent(parent, false);
             return t;
         }
 
-        static GameObject Block(Transform parent, string name, Vector3 center, Vector3 size, Quaternion? rotation = null)
+        internal static GameObject Block(Transform parent, string name, Vector3 center, Vector3 size, Quaternion? rotation = null)
         {
             var go = new GameObject(name);
             go.transform.SetParent(parent, false);
@@ -255,7 +267,7 @@ namespace StealthProto.EditorTools
         }
 
         /// <summary>A ramp whose top surface runs from bottom to top.</summary>
-        static void Ramp(Transform parent, string name, Vector3 bottom, Vector3 top, float width)
+        internal static void Ramp(Transform parent, string name, Vector3 bottom, Vector3 top, float width)
         {
             const float thickness = 0.3f;
             Vector3 dir = top - bottom;
@@ -312,7 +324,7 @@ namespace StealthProto.EditorTools
             return mesh;
         }
 
-        static GameObject Visual(PrimitiveType type, Transform parent, string name, Vector3 localPos, Vector3 localScale, Material mat)
+        internal static GameObject Visual(PrimitiveType type, Transform parent, string name, Vector3 localPos, Vector3 localScale, Material mat)
         {
             var go = GameObject.CreatePrimitive(type);
             go.name = name;
@@ -326,7 +338,7 @@ namespace StealthProto.EditorTools
 
         // ---------------------------------------------------------------- characters
 
-        static GameObject BuildPlayer(Vector3 position)
+        internal static GameObject BuildPlayer(Vector3 position)
         {
             var p = new GameObject("PH_Player") { tag = "Player" };
             p.transform.position = position;
@@ -352,7 +364,7 @@ namespace StealthProto.EditorTools
             return p;
         }
 
-        static void BuildCamera(GameObject player)
+        internal static void BuildCamera(GameObject player)
         {
             var rigGO = new GameObject("CameraRig");
             var camGO = new GameObject("Main Camera") { tag = "MainCamera" };
@@ -400,7 +412,7 @@ namespace StealthProto.EditorTools
             BuildGuard("PH_Guard_Platform", new Vector3(8f, 1.5f, -5f), 270f, platformRoute, player);
         }
 
-        static PatrolRoute Route(Transform parent, string name, bool loop, float wait, params (Vector3 pos, float yaw)[] points)
+        internal static PatrolRoute Route(Transform parent, string name, bool loop, float wait, params (Vector3 pos, float yaw)[] points)
         {
             var go = new GameObject(name);
             go.transform.SetParent(parent, false);
@@ -416,7 +428,7 @@ namespace StealthProto.EditorTools
             return route;
         }
 
-        static void BuildGuard(string name, Vector3 position, float yaw, PatrolRoute route, Transform player)
+        internal static void BuildGuard(string name, Vector3 position, float yaw, PatrolRoute route, Transform player)
         {
             var g = new GameObject(name);
             g.transform.SetPositionAndRotation(position, Quaternion.Euler(0f, yaw, 0f));
@@ -452,10 +464,10 @@ namespace StealthProto.EditorTools
             light.type = LightType.Spot;
             light.range = 14f;
             light.spotAngle = 70f;
-            light.innerSpotAngle = 40f;
+            light.innerSpotAngle = 68f;
             light.intensity = 30f;
             light.color = new Color(1f, 0.93f, 0.78f);
-            light.shadows = LightShadows.Soft;
+            light.shadows = LightShadows.Hard;
             var stealthLight = flashGO.AddComponent<StealthLight>();
             stealthLight.weight = 1.5f;
             stealthLight.ignoreRoot = g.transform;
@@ -508,7 +520,7 @@ namespace StealthProto.EditorTools
 
         // ---------------------------------------------------------------- utils
 
-        static void EnsureFolder(string path)
+        internal static void EnsureFolder(string path)
         {
             if (AssetDatabase.IsValidFolder(path)) return;
             string parent = Path.GetDirectoryName(path)?.Replace('\\', '/');
@@ -516,7 +528,7 @@ namespace StealthProto.EditorTools
             AssetDatabase.CreateFolder(parent, Path.GetFileName(path));
         }
 
-        static void AddToBuildSettings(string path)
+        internal static void AddToBuildSettings(string path)
         {
             var scenes = new List<EditorBuildSettingsScene>(EditorBuildSettings.scenes);
             if (scenes.Exists(s => s.path == path)) return;
