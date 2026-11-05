@@ -587,7 +587,6 @@ namespace StealthProto.EditorTools
             light.color = new Color(1f, 0.93f, 0.78f);
             light.shadows = LightShadows.Hard;
             var stealthLight = flashGO.AddComponent<StealthLight>();
-            stealthLight.weight = 1.5f;
             stealthLight.ignoreRoot = g.transform;
 
             var vision = g.AddComponent<GuardVision>();
