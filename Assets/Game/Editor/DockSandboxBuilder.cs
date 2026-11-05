@@ -382,29 +382,42 @@ namespace StealthProto.EditorTools
         {
             var routes = new GameObject("PH_PatrolRoutes").transform;
 
-            // North guard: circles the north-west floor, walks the north lane, then loops the
-            // middle-top block.
-            var north = G.Route(routes, "PH_Route_North", true, 1.5f,
-                (CellPos(1.5f, 1f), 270f),
-                (CellPos(4.5f, 3f), 90f),
-                (CellPos(11.5f, 3f), 90f),
-                (CellPos(16f, 3f), 180f),
-                (CellPos(16f, 6.5f), 270f),
-                (CellPos(11.5f, 6.5f), 0f),
-                (CellPos(11.5f, 3f), 270f),
-                (CellPos(4.5f, 3f), 270f));
-            G.BuildGuard("PH_Guard_North", CellPos(11.5f, 6.5f), 0f, north, player);
+            // No straight back-and-forth patrols (no sudden 180s): every route is a loop, and every
+            // turn at a waypoint is 90 degrees or less. Wait-0 points just round off corners.
 
-            // East guard: loops the east-top block and swings past the elevator.
-            var east = G.Route(routes, "PH_Route_East", true, 2f,
-                (CellPos(16f, 3f), 90f),
-                (CellPos(19.5f, 3f), 90f),
-                (CellPos(21.5f, 7f), 180f),
-                (CellPos(19.5f, 6.5f), 270f),
-                (CellPos(16f, 6.5f), 0f));
-            G.BuildGuard("PH_Guard_East", CellPos(19.5f, 3f), 90f, east, player);
+            // North guard: one big clockwise loop. Holds a post in the north-west pocket looking east
+            // down the north corridor, walks the north lane east, comes down beside the top-right
+            // block, back west along the middle lane, looks over the pit, and up the west lane home.
+            var north = G.RouteTimed(routes, "PH_Route_North", 1.5f,
+                (CellPos(1f, 0.9f), 90f, 2f),       // pocket post: looks down the north corridor
+                (CellPos(2.2f, 0.9f), 90f, 0f),
+                (CellPos(2.9f, 2f), 180f, 0f),
+                (CellPos(4.5f, 2.7f), 90f, 0f),
+                (CellPos(11.5f, 2.7f), 90f, 1.5f),  // looks on east along the north lane
+                (CellPos(16f, 3f), 180f, 1.5f),     // looks south down the lane between the blocks
+                (CellPos(16f, 6.5f), 270f, 1.5f),   // looks west along the middle lane
+                (CellPos(11.5f, 6.5f), 270f, 0f),
+                (CellPos(7.3f, 6.5f), 270f, 1.5f),  // looks west over the pit at the catwalk
+                (CellPos(7.3f, 3.3f), 270f, 0f),
+                (CellPos(2.5f, 3.3f), 270f, 0f),
+                (CellPos(1f, 2.4f), 0f, 0f));
+            G.BuildGuard("PH_Guard_North", CellPos(1f, 0.9f), 90f, north, player);
 
-            // South guard: loops the west-bottom block, checking the pit edge and the south lane.
+            // East guard: a clockwise loop round the top-right block, past the elevator mouth
+            // (glancing in) and back up the lane beside the block.
+            var east = G.RouteTimed(routes, "PH_Route_East", 2f,
+                (CellPos(16.3f, 2.7f), 90f, 0f),
+                (CellPos(20.5f, 2.7f), 90f, 2f),    // looks east into the corner
+                (CellPos(21.8f, 4.3f), 180f, 0f),
+                (CellPos(21.8f, 6f), 90f, 2f),      // looks east into the elevator
+                (CellPos(21.6f, 7.2f), 180f, 0f),
+                (CellPos(19.5f, 7.2f), 270f, 0f),
+                (CellPos(16.4f, 6.8f), 0f, 2f),     // looks north up the lane it is about to take
+                (CellPos(16.4f, 4.5f), 0f, 0f));
+            G.BuildGuard("PH_Guard_East", CellPos(16.3f, 2.7f), 90f, east, player);
+
+            // South guard: a clockwise loop round the west-bottom block (all 90-degree turns),
+            // checking the pit edge and the south lane.
             var south = G.Route(routes, "PH_Route_South", true, 2f,
                 (CellPos(11.5f, 6.5f), 270f),
                 (CellPos(7f, 6.5f), 270f),
