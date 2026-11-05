@@ -22,11 +22,13 @@ namespace StealthProto.EditorTools
 
         // Each cell is 2 x 2 m. Row 0 is north. Columns run west to east.
         // X nothing (walled off)   . floor   O bottomless pit   G elevator (exit)
-        // L low block (1.1 m: hides legs, not head)   T tall block (2.6 m: blocks sight, climbable)
+        // L low block (1.1 m: hides legs, not head)   T solid block (floor to ceiling height: blocks sight,
+        //   too tall to climb, good for cover)
+        // Floor grates are listed separately (Grates below), because they run under blocks.
         static readonly string[] Map =
         {
             "........XXXXXXXXXXXXXXXXX", //  0
-            "....TT..XXXXXXXXXXXXXXXXX", //  1
+            "...TTTTTXXXXXXXXXXXXXXXXX", //  1  grate B runs under this block
             "....TT...............TTXX", //  2
             ".......................XX", //  3  north lane
             "OOOOOOO.TTT..TTT.TTT...XX", //  4
@@ -35,10 +37,10 @@ namespace StealthProto.EditorTools
             "OOOOOOO................GG", //  7
             "OOOOOOO.TTT..TTT.TTT...XX", //  8
             "OOOOOOO.TTT..TTT.TTT.XXXX", //  9
-            "........TTT..TTT.TTT.XXXX", // 10
-            "..TT...............L.XXXX", // 11  south lane
-            "..TT....XXXXXXXXXXXXXXXXX", // 12
-            "........XXXXXXXXXXXXXXXXX", // 13
+            "..TTT...TTT..TTT.TTT.XXXX", // 10  grate A runs under the start block
+            "..TTT..............T.XXXX", // 11  south lane
+            "..TTT...XXXXXXXXXXXXXXXXX", // 12
+            "..TTT...XXXXXXXXXXXXXXXXX", // 13
         };
 
         const float Cell = 2f;
@@ -47,7 +49,20 @@ namespace StealthProto.EditorTools
         const float WallThickness = 0.5f;
         const float CoverInset = 0.1f;
 
+        // Floor grates: crawlways under the floor. Each runs in a straight line between two cells
+        // (inclusive), with an open hatch at both end cells to drop in and climb out. The trench is
+        // 0.9 m wide and 0.75 m high: prone only. Lateral shifts the trench off the cell centre
+        // (+ is east for a north-south run, south for an east-west run) so guards can still walk
+        // past the open hatches.
+        const float GrateWidth = 0.9f, GrateDepth = 0.8f, GrateCap = 0.05f;
+        static readonly (Vector2Int from, Vector2Int to, float lateral)[] Grates =
+        {
+            (new Vector2Int(1, 10), new Vector2Int(5, 10), -0.45f), // A: from the start, under the start block, along the pit edge
+            (new Vector2Int(7, 0), new Vector2Int(7, 9), -0.45f),   // B: down the pit-side lane, under the north block
+        };
+
         // West catwalk: column 0, from the north wall to the ladder at its south end.
+        // A ladder at each end.
         const int CatwalkColumn = 0, CatwalkNorthRow = 0, CatwalkSouthRow = 12;
         const float CatwalkTop = 3.2f, CatwalkThickness = 0.3f;
 
@@ -85,6 +100,7 @@ namespace StealthProto.EditorTools
             BuildFloor(level.transform);
             BuildWalls(level.transform);
             BuildBlocks(level.transform);
+            BuildGrates(level.transform);
             BuildCatwalk(level.transform);
             var surface = level.AddComponent<NavMeshSurface>();
             surface.collectObjects = CollectObjects.Children;
@@ -117,7 +133,7 @@ namespace StealthProto.EditorTools
             var floor = G.Group(root, "PH_Floor");
             for (int r = 0; r < Rows; r++)
                 for (int c = 0; c < Cols; c++)
-                    if (IsFloor(At(c, r)))
+                    if (IsFloor(At(c, r)) && !GrateAt(c, r, out _, out _, out _))
                         // One block per cell keeps the number of lights touching each block low.
                         G.Block(floor, "PH_FloorTile", CellPos(c, r, -DeckThickness * 0.5f), new Vector3(Cell, DeckThickness, Cell));
         }
@@ -155,7 +171,7 @@ namespace StealthProto.EditorTools
                 for (int c = 0; c < Cols; c++)
                 {
                     char ch = At(c, r);
-                    float height = ch == 'T' ? 2.6f : ch == 'L' ? 1.1f : 0f;
+                    float height = ch == 'T' ? WallHeight : ch == 'L' ? 1.1f : 0f;
                     if (height <= 0f || used[c, r]) continue;
 
                     int w = 1;
@@ -168,7 +184,7 @@ namespace StealthProto.EditorTools
 
                     var center = CellPos(c + (w - 1) * 0.5f, r + (h - 1) * 0.5f, height * 0.5f);
                     var size = new Vector3(w * Cell - CoverInset * 2f, height, h * Cell - CoverInset * 2f);
-                    G.Block(blocks, ch == 'T' ? "PH_BlockTall" : "PH_BlockLow", center, size);
+                    G.Block(blocks, ch == 'T' ? "PH_BlockSolid" : "PH_BlockLow", center, size);
                 }
         }
 
@@ -178,6 +194,69 @@ namespace StealthProto.EditorTools
             for (int x = c; x < c + w; x++)
                 if (At(x, r) != ch || used[x, r]) return false;
             return true;
+        }
+
+        /// <summary>True if (c, r) is on a grate run. alongX: the run goes east-west. isEnd: an open hatch.</summary>
+        static bool GrateAt(int c, int r, out bool alongX, out float lateral, out bool isEnd)
+        {
+            foreach (var (from, to, lat) in Grates)
+            {
+                alongX = from.y == to.y;
+                lateral = lat;
+                int a = alongX ? Mathf.Min(from.x, to.x) : Mathf.Min(from.y, to.y);
+                int b = alongX ? Mathf.Max(from.x, to.x) : Mathf.Max(from.y, to.y);
+                int along = alongX ? c : r, across = alongX ? r : c, line = alongX ? from.y : from.x;
+                if (across != line || along < a || along > b) continue;
+                isEnd = along == a || along == b;
+                return true;
+            }
+            alongX = false; lateral = 0f; isEnd = false;
+            return false;
+        }
+
+        /// <summary>
+        /// Grate cells replace their floor tile with a trench: solid floor either side, a trench
+        /// floor 0.8 m down, and a thin grate on top that guards walk over and can't see through.
+        /// End cells have no grate, so they're open hatches you walk into and drop down. Go prone
+        /// (C) to crawl, and clamber out of the far hatch. Blocks sit on top as normal.
+        /// </summary>
+        static void BuildGrates(Transform root)
+        {
+            var grates = G.Group(root, "PH_Grates");
+            float half = Cell * 0.5f;
+            for (int r = 0; r < Rows; r++)
+                for (int c = 0; c < Cols; c++)
+                {
+                    if (!GrateAt(c, r, out bool alongX, out float lateral, out bool isEnd)) continue;
+                    Vector3 basePos = CellPos(c, r);
+                    // Grid +r is world -Z, so a positive lateral on an east-west run is south.
+                    Vector3 across = alongX ? Vector3.back : Vector3.right;
+                    float t0 = lateral - GrateWidth * 0.5f, t1 = lateral + GrateWidth * 0.5f;
+
+                    Vector3 Size(float acrossSize, float height) =>
+                        alongX ? new Vector3(Cell, height, acrossSize) : new Vector3(acrossSize, height, Cell);
+                    void Piece(string name, float a0, float a1, float y0, float y1)
+                    {
+                        if (a1 - a0 < 0.01f) return;
+                        G.Block(grates, name, basePos + across * ((a0 + a1) * 0.5f) + Vector3.up * ((y0 + y1) * 0.5f), Size(a1 - a0, y1 - y0));
+                    }
+
+                    Piece("PH_FloorTile", -half, t0, -DeckThickness, 0f);
+                    Piece("PH_FloorTile", t1, half, -DeckThickness, 0f);
+                    Piece("PH_GrateTrenchFloor", t0, t1, -DeckThickness, -GrateDepth);
+                    if (isEnd) continue;
+
+                    Piece("PH_Grate", t0, t1, -GrateCap, 0f);
+                    // Bars so the grate reads as a grate from above.
+                    for (float u = -half + 0.2f; u < half; u += 0.25f)
+                    {
+                        Vector3 along = alongX ? Vector3.right : Vector3.forward;
+                        var bar = G.Visual(PrimitiveType.Cube, grates, "PH_GrateBar",
+                            basePos + across * lateral + along * u + Vector3.up * 0.005f,
+                            alongX ? new Vector3(0.04f, 0.01f, GrateWidth) : new Vector3(GrateWidth, 0.01f, 0.04f), G.noseMat);
+                        bar.GetComponent<Renderer>().shadowCastingMode = ShadowCastingMode.Off;
+                    }
+                }
         }
 
         /// <summary>
@@ -200,10 +279,16 @@ namespace StealthProto.EditorTools
                 if (IsFloor(At(CatwalkColumn, r)))
                     G.Block(catwalk, "PH_CatwalkPillar", new Vector3(pillarX, pillarHeight * 0.5f, CellPos(CatwalkColumn, r).z), new Vector3(0.3f, pillarHeight, 0.3f));
 
-            // Ladder: a climbable plate under the catwalk's east edge at its south end. Face it
-            // and press E to climb (it's within the 4.2 m climb limit).
-            Vector3 foot = CellPos(CatwalkColumn, CatwalkSouthRow) + Vector3.right * (Cell * 0.5f - 0.075f);
-            var ladder = G.Block(catwalk, "PH_Ladder", foot + Vector3.up * CatwalkTop * 0.5f, new Vector3(0.15f, CatwalkTop, 1.2f));
+            // Ladders: climbable plates under the catwalk's east edge at both ends. Face one and
+            // press E to climb (it's within the 4.2 m climb limit).
+            Ladder(catwalk, CatwalkSouthRow);
+            Ladder(catwalk, CatwalkNorthRow);
+        }
+
+        static void Ladder(Transform parent, int row)
+        {
+            Vector3 foot = CellPos(CatwalkColumn, row) + Vector3.right * (Cell * 0.5f - 0.075f);
+            var ladder = G.Block(parent, "PH_Ladder", foot + Vector3.up * CatwalkTop * 0.5f, new Vector3(0.15f, CatwalkTop, 1.2f));
             for (float h = 0.35f; h < CatwalkTop; h += 0.35f)
                 G.Visual(PrimitiveType.Cube, ladder.transform, "PH_LadderRung",
                     new Vector3(0.1f, h - CatwalkTop * 0.5f, 0f), new Vector3(0.05f, 0.05f, 1f), G.noseMat);

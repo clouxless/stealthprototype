@@ -115,11 +115,17 @@ While hanging: the stick shimmies along the edge, E climbs up, Space or C lets g
 **Stealth Prototype > Build Dock Sandbox Scene** builds `PH_DockSandbox`, a test level for
 the player and guard AI, laid out from Cloux's design on a 2 m grid (50 x 28 m):
 
-- **Start:** the dark south-west corner, next to a ladder.
-- **West catwalk:** the ladder (face it, press E) leads to a catwalk 3.2 m up along the west
-  wall, running south to north over the pit. Guards can't climb, and its edges can be hung from.
+- **Start:** the dark south-west corner, boxed in by a solid block. Two ways out: the ladder
+  or the floor grate.
+- **West catwalk:** ladders (face one, press E) at both ends lead to a catwalk 3.2 m up along
+  the west wall, running south to north over the pit. Guards can't climb, and its edges can be
+  hung from.
+- **Floor grates:** two crawlways under the floor, one from the start under the start block,
+  one down the pit-side lane under the north block. Walk into the open hatch at either end,
+  go prone (C) and crawl; guards walk over the grate and can't see through it. Clamber out of
+  the far hatch.
 - **Bottomless pit:** a hole in the west floor. Fall in and you're downed.
-- **Yard:** six tall blocks that block sight, with a north, middle and south lane between them.
+- **Yard:** six solid blocks, floor to ceiling, that block sight, with a north, middle and south lane between them.
   Downward lamps light the lane crossings and leave the runs between them dark.
 - **Guards:** a north guard that circles the north-west floor and loops the middle-top block, an
   east guard that loops the east block past the elevator, and a south guard that loops the
