@@ -56,6 +56,7 @@ namespace StealthProto.EditorTools
 
             var player = BuildPlayer(new Vector3(-17f, 0f, -12f));
             BuildCamera(player);
+            LookSetup.Apply(Camera.main);
             BuildGuards(player.transform);
 
             new GameObject("PH_DebugHUD").AddComponent<DebugHUD>();
@@ -91,6 +92,12 @@ namespace StealthProto.EditorTools
             lampMat.SetColor("_EmissionColor", new Color(1f, 0.85f, 0.5f) * 2f);
 
             playerSilhouetteMat = MakeSilhouetteMaterial("PH_SilhouettePlayer", new Color(0.35f, 0.95f, 1f, 0.5f));
+            // You always see yourself behind walls; guards only with the x-ray testing toggle (F4).
+            if (playerSilhouetteMat != null)
+            {
+                playerSilhouetteMat.SetFloat("_AlwaysOn", 1f);
+                EditorUtility.SetDirty(playerSilhouetteMat);
+            }
             guardSilhouetteMat = MakeSilhouetteMaterial("PH_SilhouetteGuard", new Color(1f, 0.6f, 0.2f, 0.55f));
 
             string conePath = Root + "/Materials/PH_VisionCone.mat";
@@ -587,6 +594,11 @@ namespace StealthProto.EditorTools
             light.intensity = 30f;
             light.color = new Color(1f, 0.93f, 0.78f);
             light.shadows = LightShadows.Hard;
+            // The flashlight still lights the player for the light tiers, but it isn't drawn: the
+            // vision cone is the visual for where a guard is looking.
+            light.cullingMask = 0;
+            light.renderingLayerMask = 0;
+            light.shadows = LightShadows.None;
             var stealthLight = flashGO.AddComponent<StealthLight>();
             stealthLight.ignoreRoot = g.transform;
 

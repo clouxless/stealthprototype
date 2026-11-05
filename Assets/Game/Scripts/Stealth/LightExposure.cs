@@ -24,6 +24,14 @@ namespace StealthProto
         public Vector3? SampleOverride { get; set; }
 
         float timer;
+        float flashUntil;
+
+        /// <summary>Muzzle flash: counts as Lit for a moment, wherever you are.</summary>
+        public void Flash(float seconds)
+        {
+            flashUntil = Mathf.Max(flashUntil, Time.time + seconds);
+            Tier = LightTier.Lit;
+        }
 
         void Update()
         {
@@ -42,7 +50,7 @@ namespace StealthProto
                     return; // nothing below (mid-air): keep the last tier
                 SamplePoint = hit.point + hit.normal * 0.05f;
             }
-            Tier = StealthLight.BrightestAt(SamplePoint, transform);
+            Tier = Time.time < flashUntil ? LightTier.Lit : StealthLight.BrightestAt(SamplePoint, transform);
         }
     }
 }

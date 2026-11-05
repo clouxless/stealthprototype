@@ -143,6 +143,19 @@ the player and guard AI, laid out from Cloux's design on a 2 m grid (50 x 28 m):
 The floor plan is a text map at the top of `Editor/DockSandboxBuilder.cs`. Edit it and run
 the menu item again to try a variation.
 
+## Look and testing toggles
+
+- **Black and white:** the world renders in greyscale through a global URP volume
+  (`Assets/Game/Rendering/BlackAndWhite.asset`, saturation -100). The debug HUD keeps its colours.
+- **Flashlights aren't drawn.** They still light you for the light tiers; the vision cones (F1)
+  show where guards are looking.
+- **Long sight:** guards see a Lit player dead ahead (within 12 degrees) out to 26 m, shown as a
+  faint spike in front of each vision cone. Off-centre, the normal 13 m cone applies.
+- **Gunfire gives you away:** your muzzle flash counts as Lit for 1.5 s, and guards who hear a
+  shot or get hit go alert at the shot and look up for 6 s, so shooting from the catwalk gets
+  you shot back.
+- **X-ray (F4):** shows guards through walls. Off by default. You always see yourself.
+
 ## Code map
 
 | Path | What |

@@ -30,6 +30,12 @@ namespace StealthProto
         [Tooltip("Within this distance a seen target registers at full speed; it slows toward the tier's limit.")]
         public float closeRange = 2.5f;
 
+        [Header("Long sight: lit targets dead ahead")]
+        [Tooltip("A Lit target straight ahead is seen out to this distance, well past the normal cone.")]
+        public float litFarDistance = 26f;
+        [Tooltip("How far off dead ahead the long sight reaches, in degrees either side.")]
+        public float litFarHalfAngle = 12f;
+
         static readonly Vector3[] BodyPoints = { new Vector3(0f, 0.35f, 0f), new Vector3(0f, 1.1f, 0f), new Vector3(0f, 1.65f, 0f) };
 
         LightExposure targetExposure;
@@ -58,6 +64,13 @@ namespace StealthProto
         public float EffectiveHalfAngle => halfAngle * AngleMultiplier;
         /// <summary>Centre of the target's body (lower when prone).</summary>
         public Vector3 TargetCenter => target.position + Vector3.up * (targetMotor != null ? targetMotor.CenterHeight : 1.1f);
+
+        /// <summary>Furthest anything can be seen: the long sight for lit targets, or the cone.</summary>
+        public float MaxRange => Mathf.Max(viewDistance, litFarDistance);
+
+        /// <summary>Sight distance at an angle off dead ahead: the long sight's spike, else the cone.</summary>
+        public float RangeAtAngle(float degreesOffAhead) =>
+            Mathf.Abs(degreesOffAhead) <= litFarHalfAngle ? MaxRange : viewDistance;
 
         public float SightDistance(LightTier tier) => tier switch
         {
@@ -97,14 +110,16 @@ namespace StealthProto
             Vector3 toTarget = TargetCenter - eyePos;
             float distance = toTarget.magnitude;
             NormalizedDistance = Mathf.Clamp01(distance / viewDistance);
-            if (distance > viewDistance) return 0f;
+            if (distance > MaxRange) return 0f;
 
             Vector3 flatForward = eye.forward;
             flatForward.y = 0f;
             Vector3 flatTo = toTarget;
             flatTo.y = 0f;
             if (!CanSeeLayer(HeightLayers.LayerOf(target.position.y))) return 0f;
-            bool inCone = Vector3.Angle(flatForward, flatTo) <= EffectiveHalfAngle;
+            float offAhead = Vector3.Angle(flatForward, flatTo);
+            bool inCone = offAhead <= EffectiveHalfAngle;
+            if (distance > viewDistance && offAhead > litFarHalfAngle) return 0f;
 
             // Outside the cone the guard can only *sense* someone close who isn't sneaking.
             // A sneaking player behind a guard is never sensed: that's what makes takedowns possible.
@@ -126,6 +141,8 @@ namespace StealthProto
 
             LightTier tier = targetExposure != null ? targetExposure.Tier : LightTier.Lit;
             float sight = SightDistance(tier);
+            // Long sight: standing in light dead ahead of a guard is visible from much further away.
+            if (tier == LightTier.Lit && offAhead <= litFarHalfAngle) sight = MaxRange;
             if (distance > sight) return 0f;
 
             float distanceFactor = 1f - Mathf.InverseLerp(closeRange, sight, distance) * 0.6f;

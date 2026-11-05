@@ -116,6 +116,7 @@ namespace StealthProto.EditorTools
             player.AddComponent<PlayerGrateCrawl>();
             player.transform.rotation = Quaternion.Euler(0f, 0f, 0f);
             G.BuildCamera(player);
+            LookSetup.Apply(Camera.main);
             BuildGuards(player.transform);
 
             new GameObject("PH_DebugHUD").AddComponent<DebugHUD>();

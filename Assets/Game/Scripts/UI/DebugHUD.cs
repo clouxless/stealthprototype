@@ -7,7 +7,7 @@ namespace StealthProto
     /// <summary>
     /// Placeholder debug HUD drawn with IMGUI. Everything is labelled [PH] so it is never
     /// mistaken for final UI (see ASSETS.md).
-    /// F1 vision cones, F2 noise rings, F3 help, R restart.
+    /// F1 vision cones, F2 noise rings, F3 help, F4 x-ray (guards through walls), R restart.
     /// </summary>
     public class DebugHUD : MonoBehaviour
     {
@@ -20,10 +20,14 @@ namespace StealthProto
         CameraRig rig;
         Camera cam;
         bool showHelp = true;
+        /// <summary>Testing aid: draw guards through walls. Off by default.</summary>
+        public static bool XRay;
+        static readonly int XRayId = Shader.PropertyToID("_PH_XRay");
         GUIStyle label, marker, prompt;
 
         void Start()
         {
+            Shader.SetGlobalFloat(XRayId, XRay ? 1f : 0f);
             if (player == null) player = FindAnyObjectByType<PlayerMotor>();
             if (player != null)
             {
@@ -43,6 +47,11 @@ namespace StealthProto
             if (kb.f1Key.wasPressedThisFrame) VisionConeMesh.Visible = !VisionConeMesh.Visible;
             if (kb.f2Key.wasPressedThisFrame) NoiseSystem.ShowNoise = !NoiseSystem.ShowNoise;
             if (kb.f3Key.wasPressedThisFrame) showHelp = !showHelp;
+            if (kb.f4Key.wasPressedThisFrame)
+            {
+                XRay = !XRay;
+                Shader.SetGlobalFloat(XRayId, XRay ? 1f : 0f);
+            }
             if (kb.rKey.wasPressedThisFrame)
             {
                 Time.timeScale = 1f;
@@ -96,7 +105,7 @@ namespace StealthProto
                     "Focus (hold, can't move) Q / L3: see sounds    Prone C / B\n" +
                     "Aim RMB / LT, fire LMB / RT\n" +
                     "First-person look V / R3  (can't move, fire along view)\n" +
-                    "Zoom mouse wheel / d-pad   F1 vision cones   F2 all noise rings   R restart";
+                    "Zoom mouse wheel / d-pad   F1 vision cones   F2 all noise rings   F4 x-ray   R restart";
                 GUI.Label(new Rect(324, Screen.height - 176, 720, 166), help, label);
             }
 

@@ -49,7 +49,7 @@ namespace StealthProto
 
         void Allocate()
         {
-            rows = Mathf.Max(2, Mathf.CeilToInt(vision.viewDistance / rowStep) + 1);
+            rows = Mathf.Max(2, Mathf.CeilToInt(vision.MaxRange / rowStep) + 1);
             int count = (segments + 1) * rows;
             vertices = new Vector3[count];
             colors = new Color[count];
@@ -66,7 +66,7 @@ namespace StealthProto
             if (timer > 0f) return;
             timer = updateInterval;
 
-            if (vertices == null || rows != Mathf.Max(2, Mathf.CeilToInt(vision.viewDistance / rowStep) + 1)) Allocate();
+            if (vertices == null || rows != Mathf.Max(2, Mathf.CeilToInt(vision.MaxRange / rowStep) + 1)) Allocate();
             Rebuild();
         }
 
@@ -79,7 +79,7 @@ namespace StealthProto
             forward.Normalize();
 
             float half = vision.EffectiveHalfAngle;
-            float range = vision.viewDistance;
+            float maxRange = vision.MaxRange;
             Transform self = vision.transform;
             Transform target = vision.target;
 
@@ -91,6 +91,8 @@ namespace StealthProto
             {
                 float angle = Mathf.Lerp(-half, half, i / (float)segments);
                 Vector3 dir = Quaternion.Euler(0f, angle, 0f) * forward;
+                // The narrow spike dead ahead is the long sight: only lit targets are seen out there.
+                float range = vision.RangeAtAngle(angle);
                 for (int j = 0; j < rows; j++)
                 {
                     int v = i * rows + j;
@@ -110,7 +112,8 @@ namespace StealthProto
                     valid[v] = ok;
                     vertices[v] = transform.InverseTransformPoint(new Vector3(column.x, y + heightOffset, column.z));
                     Color c = baseColor;
-                    c.a = ok ? Mathf.Lerp(alpha, alpha * 0.3f, dist / range) : 0f;
+                    float fade = dist > vision.viewDistance ? 0.5f : 1f; // the long-sight spike is fainter
+                    c.a = ok ? Mathf.Lerp(alpha, alpha * 0.3f, dist / maxRange) * fade : 0f;
                     colors[v] = c;
                 }
             }

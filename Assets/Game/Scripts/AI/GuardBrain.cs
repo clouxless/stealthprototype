@@ -147,6 +147,10 @@ namespace StealthProto
         float lostTimer;
         float lastSeenTime = -999f;
         float staggerTimer;
+        /// <summary>Gunfire or a hit tells the guard where you are, high ground included: look up for a while.</summary>
+        float lookUpTimer;
+        [Tooltip("Seconds a guard keeps checking higher layers after gunfire, a hit, or seeing you up there.")]
+        public float lookUpAfterGunfire = 6f;
         float hitFlashTimer;
         float fireTimer;
         float windupTimer;
@@ -323,7 +327,8 @@ namespace StealthProto
             if (dt <= 0f) return;
 
             vision.AngleMultiplier = State == GuardState.Alert ? 1.35f : 1f;
-            vision.LookUp = IsSearching;
+            if (lookUpTimer > 0f) lookUpTimer -= dt;
+            vision.LookUp = IsSearching || lookUpTimer > 0f;
             vision.Tick();
             UpdateAwareness(dt);
 
@@ -544,6 +549,8 @@ namespace StealthProto
             {
                 lostTimer = 0f;
                 lastKnown = t.position;
+                // Keep tracking a target on high ground while it stays in sight.
+                if (vision.LookUp) lookUpTimer = Mathf.Max(lookUpTimer, 1.5f);
             }
 
             // "!" tell: freeze and face the player before doing anything.
@@ -702,19 +709,23 @@ namespace StealthProto
         public void HearNoise(Vector3 position, float loudness)
         {
             if (IsGrabbed) return;
+            if (State == GuardState.Down) return;
+            // A gunshot (loudness 1) gives the shooter away, including on high ground.
+            bool gunfire = loudness >= 1f;
+            if (gunfire) lookUpTimer = lookUpAfterGunfire;
             switch (State)
             {
-                case GuardState.Down:
-                    return;
                 case GuardState.Alert:
                     if (alertTellTimer <= 0f && loudness >= 0.9f && Time.time - lastSeenTime > 0.5f)
                         lastKnown = position;
                     return;
                 case GuardState.Search:
+                    if (gunfire) { EnterAlert(position, true, secondhandTellTime); return; }
                     // Same response every time: restart the short pattern at the noise.
                     EnterSearch(position);
                     return;
                 default:
+                    if (gunfire) { EnterAlert(position, true, secondhandTellTime); return; }
                     Awareness = Mathf.Max(Awareness, suspiciousThreshold + 0.1f + 0.3f * loudness);
                     EnterSuspicious(position);
                     return;
@@ -731,6 +742,7 @@ namespace StealthProto
             SetStopped(true);
             if (AgentReady) agent.Move(info.direction * 0.4f);
             Vector3 source = info.source != null ? info.source.transform.position : transform.position;
+            lookUpTimer = lookUpAfterGunfire;
             EnterAlert(source, true, secondhandTellTime);
         }
 
