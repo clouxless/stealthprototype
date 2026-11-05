@@ -150,8 +150,9 @@ the menu item again to try a variation.
   the only colour in the world is suspicious (amber) and alert (red) guards: their cones,
   bodies, the last-known marker and their shots. Keep everything else neutral or it'll show
   through. The debug HUD keeps its colours.
-- **Flashlights aren't drawn.** They still light you for the light tiers; the vision cones (F1)
-  show where guards are looking.
+- **Flashlights are drawn crisp and flat**, in the same draped style as the vision cones: bright
+  where the beam makes you Lit, faint where it makes you Dim, nothing in its shadows. Tinted
+  amber or red with the guard's state.
 - **Long sight:** guards see a Lit player dead ahead (within 12 degrees) out to 26 m, shown as a
   faint spike in front of each vision cone. Off-centre, the normal 13 m cone applies.
 - **Gunfire gives you away:** your muzzle flash counts as Lit for 1.5 s, and guards who hear a

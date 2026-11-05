@@ -595,8 +595,8 @@ namespace StealthProto.EditorTools
             light.intensity = 30f;
             light.color = Color.white;
             light.shadows = LightShadows.Hard;
-            // The flashlight still lights the player for the light tiers, but it isn't drawn: the
-            // vision cone is the visual for where a guard is looking.
+            // The real light isn't drawn (it would be soft). Its pool is drawn instead as a crisp,
+            // flat overlay showing exactly where it makes you Lit or Dim (LightFootprintMesh below).
             light.cullingMask = 0;
             light.renderingLayerMask = 0;
             light.shadows = LightShadows.None;
@@ -623,6 +623,12 @@ namespace StealthProto.EditorTools
             var coneMesh = cone.AddComponent<VisionConeMesh>();
             coneMesh.vision = vision;
             coneMesh.brain = brain;
+
+            var footprint = new GameObject("PH_FlashlightFootprint");
+            footprint.transform.SetParent(g.transform, false);
+            footprint.AddComponent<MeshFilter>();
+            footprint.AddComponent<MeshRenderer>().sharedMaterial = coneMat;
+            footprint.AddComponent<LightFootprintMesh>().source = stealthLight;
         }
 
         /// <summary>
