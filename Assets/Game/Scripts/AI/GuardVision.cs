@@ -19,10 +19,6 @@ namespace StealthProto
         public float halfAngle = 35f;
         [Tooltip("How many height layers below its own a guard can see.")]
         public int layersDown = 1;
-        [Tooltip("Outside the cone, within this radius, the guard can sense a target that isn't sneaking.")]
-        public float peripheralRadius = 1.5f;
-        [Tooltip("How strongly that out-of-cone sense registers (0..1). Sneaking targets are never sensed this way.")]
-        [Range(0f, 1f)] public float peripheralStrength = 0.3f;
 
         [Header("Light tiers: fixed sight distances")]
         public float darkSightDistance = 2.5f;
@@ -121,15 +117,9 @@ namespace StealthProto
             bool inCone = offAhead <= EffectiveHalfAngle;
             if (distance > viewDistance && offAhead > litFarHalfAngle) return 0f;
 
-            // Outside the cone the guard can only *sense* someone close who isn't sneaking.
-            // A sneaking player behind a guard is never sensed: that's what makes takedowns possible.
-            float senseFactor = 1f;
-            if (!inCone)
-            {
-                bool sneaking = targetMotor != null && targetMotor.IsQuiet;
-                if (distance > peripheralRadius || sneaking) return 0f;
-                senseFactor = peripheralStrength;
-            }
+            // Outside the cone a guard sees nothing: walking up behind one is always safe, which
+            // is what makes takedowns possible. (The long Lit spike is inside the cone.)
+            if (!inCone) return 0f;
 
             // Line of sight to the body (prone bodies are long and low: low cover hides them).
             Vector3[] points = targetMotor != null ? targetMotor.VisibilityPoints : BodyPoints;
@@ -139,14 +129,15 @@ namespace StealthProto
             if (visibleParts == 0) return 0f;
             float partFactor = visibleParts / (float)points.Length;
 
-            LightTier tier = targetExposure != null ? targetExposure.Tier : LightTier.Lit;
+            // SeenTier, not Tier: a crawling player counts as one tier darker than the floor.
+            LightTier tier = targetExposure != null ? targetExposure.SeenTier : LightTier.Lit;
             float sight = SightDistance(tier);
             // Long sight: standing in light dead ahead of a guard is visible from much further away.
             if (tier == LightTier.Lit && offAhead <= litFarHalfAngle) sight = MaxRange;
             if (distance > sight) return 0f;
 
             float distanceFactor = 1f - Mathf.InverseLerp(closeRange, sight, distance) * 0.6f;
-            return Mathf.Clamp01(partFactor * distanceFactor * senseFactor);
+            return Mathf.Clamp01(partFactor * distanceFactor);
         }
     }
 }

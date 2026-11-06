@@ -9,14 +9,13 @@ namespace StealthProto
     /// </summary>
     public class PlayerInputReader : MonoBehaviour
     {
-        InputAction move, lookMouse, lookStick, aimStick, pointer, sneak, dash, melee, fire, aim, firstPerson, interact, zoomWheel, zoomPad, focus, prone;
+        InputAction move, lookMouse, lookStick, aimStick, pointer, dash, melee, fire, aim, firstPerson, interact, zoomWheel, zoomPad, focus, prone;
 
         public Vector2 Move => move.ReadValue<Vector2>();
         public Vector2 LookMouse => lookMouse.ReadValue<Vector2>();
         public Vector2 LookStick => lookStick.ReadValue<Vector2>();
         public Vector2 AimStick => aimStick.ReadValue<Vector2>();
         public Vector2 PointerPosition => pointer.ReadValue<Vector2>();
-        public bool SneakHeld => sneak.IsPressed();
         public bool AimHeld => aim.IsPressed();
         public bool DashPressed => dash.WasPressedThisFrame();
         public bool MeleePressed => melee.WasPressedThisFrame();
@@ -50,8 +49,6 @@ namespace StealthProto
             aimStick = new InputAction("AimStick", InputActionType.Value, "<Gamepad>/rightStick");
             pointer = new InputAction("Pointer", InputActionType.Value, "<Pointer>/position");
 
-            sneak = new InputAction("Sneak", InputActionType.Button, "<Keyboard>/leftShift");
-            sneak.AddBinding("<Gamepad>/leftShoulder");
             dash = new InputAction("Dash", InputActionType.Button, "<Keyboard>/space");
             dash.AddBinding("<Gamepad>/buttonSouth");
             melee = new InputAction("Melee", InputActionType.Button, "<Mouse>/leftButton");
@@ -74,7 +71,7 @@ namespace StealthProto
             zoomPad.AddCompositeBinding("1DAxis").With("Positive", "<Gamepad>/dpad/up").With("Negative", "<Gamepad>/dpad/down");
         }
 
-        InputAction[] AllActions => new[] { move, lookMouse, lookStick, aimStick, pointer, sneak, dash, melee, fire, aim, firstPerson, interact, zoomWheel, zoomPad, focus, prone };
+        InputAction[] AllActions => new[] { move, lookMouse, lookStick, aimStick, pointer, dash, melee, fire, aim, firstPerson, interact, zoomWheel, zoomPad, focus, prone };
 
         void OnEnable()
         {

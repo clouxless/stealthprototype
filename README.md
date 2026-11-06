@@ -46,13 +46,12 @@ and turn on **Lighting > Additional Lights > Cast Shadows**.
 | Action | Keyboard + mouse | Gamepad |
 | --- | --- | --- |
 | Move | WASD | Left stick |
-| Sneak (slow, silent) | Hold Shift | Hold LB |
 | Dash (i-frames, a little noisy) | Space | A |
 | Melee | LMB | X |
 | Context: takedown (hold), clamber, climb, hang off an edge | E | Y |
 | Cover: push into a tall wall; knock while in cover | Move into wall; LMB | Left stick; X |
 | Focus (hold; you can't move) | Q | L3 |
-| Prone (crawl) | C | B |
+| Crawl (toggle) | C | B |
 | Aim / fire | Hold RMB, LMB to fire | Hold LT, RT to fire |
 | First-person look (can't move, fire along view) | V | R3 |
 | Zoom camera | Mouse wheel | D-pad up / down |
@@ -79,9 +78,21 @@ While hanging: the stick shimmies along the edge, E climbs up, Space or C lets g
   nearby sounds, then every sound (from 0.75 s), then which guard made it and their state
   (from 3 s). Ripples from sounds off screen sweep in across the screen edge. Only sound shows. Critical sounds (gunshots,
   shouts) always draw a ring, focus or not.
-- **Crawling.** Prone is slow and the quietest way to move. Lying right behind a low crate hides you
-  and you fit under tables and through the vent in the inner wall. You can't stand up
-  where there's no head room.
+- **Walking is the sneaking.** There's one walking speed and no sneak button. Walking is
+  silent, and a guard never notices you outside his vision cone, so walking up behind one
+  for a takedown always works. Guards find you by sight, or by noise you choose to make:
+  dashing, fighting, knocking, shooting.
+- **Crawling is the extra-sneaky option.** Press C to toggle it. It's slow (1 m/s) and does
+  exactly three things, and nothing else:
+  1. **One tier darker.** Guards see you as if your light tier were one darker: a Lit floor
+     counts as Dim, and a Dim floor counts as Dark. Dark stays Dark. Your character's tint and
+     the HUD show the tier guards get.
+  2. **Low profile.** Low cover (crates, ledges, waist-high walls) hides you completely, and
+     when part of you is hidden you're spotted more slowly.
+  3. **Small spaces.** You fit under tables and through vents and floor grates, and you can't
+     stand up where there's no head room.
+
+  Crawling does not change hearing (walking is already silent) or how wide a guard's cone is.
 - **Height layers.** Floor, platform (from 0.75 m) and catwalk (from 2.75 m). Guards see
   their own layer and one below; they only look up while searching. Vision cones are drawn
   on the surfaces they cover, so you can see whether a cone reaches the catwalk. Geometry
@@ -168,7 +179,7 @@ the menu item again to try a variation.
 
 | Path | What |
 | --- | --- |
-| `Scripts/Player/PlayerMotor.cs` | Movement, sneak, dash, prone, footstep noise |
+| `Scripts/Player/PlayerMotor.cs` | Movement, dash, crawling |
 | `Scripts/Player/PlayerContextActions.cs` | E: takedown, clamber, climb, ledge hang |
 | `Scripts/Player/PlayerCover.cs` | Cover cling, peek, knock |
 | `Scripts/Player/FocusMode.cs` | Focus (sound ripples) |
