@@ -40,7 +40,7 @@ namespace StealthProto
         void LateUpdate()
         {
             if (exposure == null || renderers == null) return;
-            current = Color.Lerp(current, TierColor(exposure.Tier), 1f - Mathf.Exp(-snapSpeed * Time.deltaTime));
+            current = Color.Lerp(current, TierColor(exposure.SeenTier), 1f - Mathf.Exp(-snapSpeed * Time.deltaTime));
             Color c = current;
             if (health != null && health.Invulnerable) c = Color.Lerp(c, Color.white, 0.5f);
             foreach (var r in renderers)

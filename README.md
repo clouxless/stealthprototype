@@ -29,9 +29,14 @@ The repo holds only our code and docs. Unity generates the project settings, so:
    and let it restart.
 5. Check **Window > Package Manager** has **Input System** and **AI Navigation**
    installed. Install either one if it's missing.
-6. Run **Stealth Prototype > Build Graybox Test Scene**, then press **Play**.
+6. Run **Stealth Prototype > Build Graybox Test Scene** (or **Build Dock Sandbox Scene**),
+   then press **Play**.
 7. Commit the template's files (`Assets/`, `Packages/`, `ProjectSettings/`, and all
    `.meta` files) so the project opens the same everywhere.
+
+If everything renders **solid magenta**, no URP asset is active (this happens when the
+project wasn't made from the Universal 3D template). Both scene builders fix this
+automatically, and **Stealth Prototype > Set Up URP** does it on its own.
 
 If point lights don't cast shadows, open the URP asset in `Assets/Settings` (the PC one)
 and turn on **Lighting > Additional Lights > Cast Shadows**.
@@ -41,13 +46,12 @@ and turn on **Lighting > Additional Lights > Cast Shadows**.
 | Action | Keyboard + mouse | Gamepad |
 | --- | --- | --- |
 | Move | WASD | Left stick |
-| Sneak (slow, silent) | Hold Shift | Hold LB |
 | Dash (i-frames, a little noisy) | Space | A |
 | Melee | LMB | X |
 | Context: takedown (hold), clamber, climb, hang off an edge | E | Y |
 | Cover: push into a tall wall; knock while in cover | Move into wall; LMB | Left stick; X |
 | Focus (hold; you can't move) | Q | L3 |
-| Prone (crawl) | C | B |
+| Crawl (toggle) | C | B |
 | Aim / fire | Hold RMB, LMB to fire | Hold LT, RT to fire |
 | First-person look (can't move, fire along view) | V | R3 |
 | Zoom camera | Mouse wheel | D-pad up / down |
@@ -69,13 +73,26 @@ While hanging: the stick shimmies along the edge, E climbs up, Space or C lets g
   known position, then one step further along your heading. Break line of sight or lure
   them with noise and the hunt ends quickly. The lasting cost is the room: after the
   first alert, guards stay wary (they spot you faster) and the red alarm floods stay on.
-- **Focus.** Hold Q to listen. The screen dims and sounds show as ripples. Hold longer for
-  more: loud nearby sounds, then every sound with edge arrows for off-screen ones, then
-  which guard made it and their state. Only sound shows. Critical sounds (gunshots,
+- **Focus.** Hold Q to listen. Over about 3 seconds the world fades to pitch black, leaving
+  only you and sounds drawn as ripples. Once it is fully black, the camera pulls out. Hold longer for more: loud
+  nearby sounds, then every sound (from 0.75 s), then which guard made it and their state
+  (from 3 s). Ripples from sounds off screen sweep in across the screen edge. Only sound shows. Critical sounds (gunshots,
   shouts) always draw a ring, focus or not.
-- **Crawling.** Prone is slow and the quietest way to move. Lying right behind a low crate hides you
-  and you fit under tables and through the vent in the inner wall. You can't stand up
-  where there's no head room.
+- **Walking is the sneaking.** There's one walking speed and no sneak button. Walking is
+  silent, and a guard never notices you outside his vision cone, so walking up behind one
+  for a takedown always works. Guards find you by sight, or by noise you choose to make:
+  dashing, fighting, knocking, shooting.
+- **Crawling is the extra-sneaky option.** Press C to toggle it. It's slow (1 m/s) and does
+  exactly three things, and nothing else:
+  1. **One tier darker.** Guards see you as if your light tier were one darker: a Lit floor
+     counts as Dim, and a Dim floor counts as Dark. Dark stays Dark. Your character's tint and
+     the HUD show the tier guards get.
+  2. **Low profile.** Low cover (crates, ledges, waist-high walls) hides you completely, and
+     when part of you is hidden you're spotted more slowly.
+  3. **Small spaces.** You fit under tables and through vents and floor grates, and you can't
+     stand up where there's no head room.
+
+  Crawling does not change hearing (walking is already silent) or how wide a guard's cone is.
 - **Height layers.** Floor, platform (from 0.75 m) and catwalk (from 2.75 m). Guards see
   their own layer and one below; they only look up while searching. Vision cones are drawn
   on the surfaces they cover, so you can see whether a cone reaches the catwalk. Geometry
@@ -111,11 +128,58 @@ While hanging: the stick shimmies along the edge, E climbs up, Space or C lets g
   route is a loop, and dead ends like the perch are rounded off.
 - Two tables to crawl under. No closet yet (it was optional).
 
+## Dock sandbox
+
+**Stealth Prototype > Build Dock Sandbox Scene** builds `PH_DockSandbox`, a test level for
+the player and guard AI, laid out from Cloux's design on a 2 m grid (50 x 28 m):
+
+- **Start:** the dark south-west corner, boxed in by a solid block. Two ways out: the ladder
+  or the floor grate right in front of you.
+- **West catwalk:** ladders (face one, press E) at both ends lead to a catwalk 3.2 m up along
+  the west wall, running south to north over the pit. Guards can't climb, and its edges can be
+  hung from.
+- **Floor grates (Arkham-style):** two crawlspaces under the floor, one from the start under
+  the start block, one down the pit-side lane under the north block. Stand on a grate and press
+  E to drop in, push the stick to crawl along it, and press E again to climb out wherever there's
+  room to stand. Inside you're silent, and guards walk over you without seeing you.
+- **Bottomless pit:** a hole in the west floor. Fall in and you're downed.
+- **Yard:** six solid blocks, floor to ceiling, that block sight, with a north, middle and south lane between them.
+  Downward lamps light the lane crossings and leave the runs between them dark.
+- **Guards:** all loops, with no sudden about-faces. A north guard holds a post in the
+  north-west pocket, then walks one big loop: east along the north lane, back west along the
+  middle lane, a look over the pit, and up the west lane home. An east guard loops the top-right
+  block past the elevator, and a south guard loops the west-bottom block along the pit edge.
+  A post guard stands in the lane between the two south-east blocks, facing north.
+- **Alarm lights:** two floodlights, one on the catwalk over the pit and one on the south lane,
+  stay dark until the first alert, then stay on for good.
+- **Exit:** the lit elevator at the east end. Reaching it shows your time, alerts and
+  takedowns, then restarts.
+
+The floor plan is a text map at the top of `Editor/DockSandboxBuilder.cs`. Edit it and run
+the menu item again to try a variation.
+
+## Look and testing toggles
+
+- **Black and white, except guard state:** a global URP volume
+  (`Assets/Game/Rendering/BlackAndWhite.asset`) greys out every hue except red through amber, so
+  the only colour in the world is suspicious (amber) and alert (red) guards: their cones,
+  bodies, the last-known marker and their shots. Keep everything else neutral or it'll show
+  through. The debug HUD keeps its colours.
+- **Flashlights are drawn crisp and flat**, in the same draped style as the vision cones: bright
+  where the beam makes you Lit, faint where it makes you Dim, nothing in its shadows. Tinted
+  amber or red with the guard's state.
+- **Long sight:** guards see a Lit player dead ahead (within 12 degrees) out to 26 m, shown as a
+  faint spike in front of each vision cone. Off-centre, the normal 13 m cone applies.
+- **Gunfire gives you away:** your muzzle flash counts as Lit for 1.5 s, and guards who hear a
+  shot or get hit go alert at the shot and look up for 6 s, so shooting from the catwalk gets
+  you shot back.
+- **X-ray (F4):** shows guards through walls. Off by default. You always see yourself.
+
 ## Code map
 
 | Path | What |
 | --- | --- |
-| `Scripts/Player/PlayerMotor.cs` | Movement, sneak, dash, prone, footstep noise |
+| `Scripts/Player/PlayerMotor.cs` | Movement, dash, crawling |
 | `Scripts/Player/PlayerContextActions.cs` | E: takedown, clamber, climb, ledge hang |
 | `Scripts/Player/PlayerCover.cs` | Cover cling, peek, knock |
 | `Scripts/Player/FocusMode.cs` | Focus (sound ripples) |
@@ -128,5 +192,8 @@ While hanging: the stick shimmies along the edge, E climbs up, Space or C lets g
 | `Scripts/AI/GuardBrain.cs` | State machine, tells, hearing, radio, search, shooting |
 | `Scripts/AI/LastKnownMarker.cs` | Marker where hunting guards will search |
 | `Scripts/AI/VisionConeMesh.cs` | Vision drawn on the surfaces it covers |
+| `Scripts/Level/SandboxGoal.cs`, `FallHazard.cs` | Exit trigger with run stats, fall hazard |
+| `Scripts/Level/GrateRun.cs`, `Scripts/Player/PlayerGrateCrawl.cs` | Floor grates: enter, crawl, exit |
 | `Editor/GrayboxBuilder.cs` | Builds the test scene from code |
+| `Editor/DockSandboxBuilder.cs` | Builds the dock sandbox from a text map |
 | `Editor/PlaceholderAudit.cs` | Placeholder audit and release-build block |

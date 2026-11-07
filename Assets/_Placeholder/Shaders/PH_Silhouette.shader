@@ -5,6 +5,7 @@ Shader "StealthProto/PH_Silhouette"
     Properties
     {
         _Color ("Color", Color) = (1, 0.6, 0.2, 0.55)
+        [Toggle] _AlwaysOn ("Always on (ignore the x-ray toggle)", Float) = 0
     }
     SubShader
     {
@@ -25,7 +26,11 @@ Shader "StealthProto/PH_Silhouette"
 
             CBUFFER_START(UnityPerMaterial)
                 half4 _Color;
+                float _AlwaysOn;
             CBUFFER_END
+
+            // Global testing toggle (DebugHUD, F4): 1 shows guards through walls. Unset = 0 = off.
+            float _PH_XRay;
 
             struct Attributes { float4 positionOS : POSITION; };
             struct Varyings { float4 positionCS : SV_POSITION; };
@@ -39,7 +44,10 @@ Shader "StealthProto/PH_Silhouette"
 
             half4 frag(Varyings input) : SV_Target
             {
-                return _Color;
+                half4 c = _Color;
+                c.a *= max(_AlwaysOn, _PH_XRay);
+                clip(c.a - 0.001);
+                return c;
             }
             ENDHLSL
         }

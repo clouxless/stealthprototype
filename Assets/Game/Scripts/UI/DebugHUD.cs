@@ -7,7 +7,7 @@ namespace StealthProto
     /// <summary>
     /// Placeholder debug HUD drawn with IMGUI. Everything is labelled [PH] so it is never
     /// mistaken for final UI (see ASSETS.md).
-    /// F1 vision cones, F2 noise rings, F3 help, R restart.
+    /// F1 vision cones, F2 noise rings, F3 help, F4 x-ray (guards through walls), R restart.
     /// </summary>
     public class DebugHUD : MonoBehaviour
     {
@@ -20,10 +20,14 @@ namespace StealthProto
         CameraRig rig;
         Camera cam;
         bool showHelp = true;
+        /// <summary>Testing aid: draw guards through walls. Off by default.</summary>
+        public static bool XRay;
+        static readonly int XRayId = Shader.PropertyToID("_PH_XRay");
         GUIStyle label, marker, prompt;
 
         void Start()
         {
+            Shader.SetGlobalFloat(XRayId, XRay ? 1f : 0f);
             if (player == null) player = FindAnyObjectByType<PlayerMotor>();
             if (player != null)
             {
@@ -43,6 +47,11 @@ namespace StealthProto
             if (kb.f1Key.wasPressedThisFrame) VisionConeMesh.Visible = !VisionConeMesh.Visible;
             if (kb.f2Key.wasPressedThisFrame) NoiseSystem.ShowNoise = !NoiseSystem.ShowNoise;
             if (kb.f3Key.wasPressedThisFrame) showHelp = !showHelp;
+            if (kb.f4Key.wasPressedThisFrame)
+            {
+                XRay = !XRay;
+                Shader.SetGlobalFloat(XRayId, XRay ? 1f : 0f);
+            }
             if (kb.rKey.wasPressedThisFrame)
             {
                 Time.timeScale = 1f;
@@ -64,13 +73,19 @@ namespace StealthProto
             GUILayout.BeginArea(new Rect(12, 12, 300, 400), GUI.skin.box);
             GUILayout.Label("[PH] DEBUG HUD", label);
             if (health != null) GUILayout.Label($"HP  {health.Current} / {health.maxHealth}", label);
-            if (exposure != null) GUILayout.Label($"Light tier  {exposure.Tier.ToString().ToUpper()}  (shown on the character)", label);
+            if (exposure != null)
+            {
+                string seen = exposure.SeenTier.ToString().ToUpper();
+                GUILayout.Label(exposure.SeenTier != exposure.Tier
+                    ? $"Light tier  {seen}  (floor {exposure.Tier.ToString().ToUpper()}, crawling: one darker)"
+                    : $"Light tier  {seen}  (shown on the character)", label);
+            }
             if (player != null)
             {
                 string mode = rig != null && rig.IsFirstPerson ? "FIRST PERSON"
                     : context != null && context.Hanging ? "HANGING"
                     : cover != null && cover.InCover ? "COVER"
-                    : player.IsProne ? "PRONE" : player.IsSneaking ? "SNEAKING" : "TOP-DOWN";
+                    : player.IsProne ? "CRAWLING" : "TOP-DOWN";
                 GUILayout.Label($"Mode  {mode}", label);
             }
             GUILayout.Space(6);
@@ -88,15 +103,15 @@ namespace StealthProto
             {
                 const string help =
                     "[PH] CONTROLS (F3 hide)\n" +
-                    "Move WASD / left stick    Sneak (silent) Shift / LB\n" +
+                    "Move WASD / left stick (silent)    Crawl C / B\n" +
                     "Dash Space / A            Melee LMB / X\n" +
                     "Context E / Y: takedown (behind an unalerted guard), clamber, climb, hang off edges\n" +
                     "Cover: push into a wall. Slide to an end to peek, LMB / X knock, push away to leave\n" +
                     "Hanging: stick shimmies, E climbs up, Space / C lets go (grip runs out)\n" +
-                    "Focus (hold, can't move) Q / L3: see sounds    Prone C / B\n" +
+                    "Focus (hold, can't move) Q / L3: see sounds\n" +
                     "Aim RMB / LT, fire LMB / RT\n" +
                     "First-person look V / R3  (can't move, fire along view)\n" +
-                    "Zoom mouse wheel / d-pad   F1 vision cones   F2 all noise rings   R restart";
+                    "Zoom mouse wheel / d-pad   F1 vision cones   F2 all noise rings   F4 x-ray   R restart";
                 GUI.Label(new Rect(324, Screen.height - 176, 720, 166), help, label); // beside the 300-wide status panel
             }
 

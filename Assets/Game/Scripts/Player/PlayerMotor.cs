@@ -4,14 +4,16 @@ namespace StealthProto
 {
     /// <summary>
     /// Snappy top-down movement: high acceleration, near-instant turning, a short dash with
-    /// i-frames, and a slow silent sneak. Running makes footstep noise guards can hear.
+    /// i-frames, and crawling (prone). There is one walking speed and no sneak button: walking
+    /// is silent, and guards only notice you by sight. The dash is the noisy move.
+    /// Crawling's detection rules live in LightExposure.SeenTier and the prone VisibilityPoints.
     /// </summary>
     [RequireComponent(typeof(CharacterController), typeof(PlayerInputReader))]
     public class PlayerMotor : MonoBehaviour
     {
         [Header("Speeds (m/s)")]
-        public float runSpeed = 5f;
-        public float sneakSpeed = 2.3f;
+        [Tooltip("The one walking speed. Walking is silent.")]
+        public float moveSpeed = 4.5f;
         public float aimSpeed = 2.6f;
         public float acceleration = 70f;
         public float deceleration = 80f;
@@ -30,8 +32,6 @@ namespace StealthProto
         public float dashCooldown = 0.6f;
 
         [Header("Noise")]
-        public float footstepNoiseRadius = 6f;
-        public float footstepInterval = 0.32f;
         public float dashNoiseRadius = 6f;
 
         [Header("Misc")]
@@ -49,14 +49,10 @@ namespace StealthProto
         float verticalVelocity;
         float dashTimer;
         float dashCooldownTimer;
-        float footstepTimer;
         Vector3? facingOverride;
 
         public bool IsDashing => dashTimer > 0f;
-        public bool IsSneaking { get; private set; }
         public bool IsProne { get; private set; }
-        /// <summary>Sneaking or prone: guards can't sense you outside their cone.</summary>
-        public bool IsQuiet => IsSneaking || IsProne;
         /// <summary>Height of the body's centre above the feet (aim point for guards).</summary>
         public float CenterHeight => IsProne ? 0.25f : 1.1f;
         /// <summary>Local-space points guards test line of sight against.</summary>
@@ -155,8 +151,7 @@ namespace StealthProto
             }
 
             if (input.ProneToggled && !IsDashing && controller.isGrounded) SetProne(!IsProne);
-            IsSneaking = input.SneakHeld && !IsDashing && !IsProne;
-            float maxSpeed = IsProne ? proneSpeed : input.AimHeld ? aimSpeed : IsSneaking ? sneakSpeed : runSpeed;
+            float maxSpeed = IsProne ? proneSpeed : input.AimHeld ? aimSpeed : moveSpeed;
 
             // Dash
             dashCooldownTimer -= dt;
@@ -202,15 +197,6 @@ namespace StealthProto
             if (face.sqrMagnitude > 0.0001f)
             {
                 transform.rotation = Quaternion.RotateTowards(transform.rotation, Quaternion.LookRotation(face), turnSpeed * dt);
-            }
-
-            // Footsteps: sneaking is silent, running is not.
-            footstepTimer -= dt;
-            if (!IsQuiet && !IsDashing && Speed > sneakSpeed + 0.5f && footstepTimer <= 0f)
-            {
-                footstepTimer = footstepInterval;
-                NoiseSystem.Emit(transform.position, footstepNoiseRadius * Mathf.Clamp01(Speed / runSpeed), 0.4f,
-                    null, SoundKind.Footstep, gameObject);
             }
         }
     }

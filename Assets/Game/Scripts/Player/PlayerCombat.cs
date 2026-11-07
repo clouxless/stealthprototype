@@ -25,6 +25,8 @@ namespace StealthProto
         public float fireRange = 35f;
         public float fireCooldown = 0.28f;
         public float gunNoiseRadius = 18f;
+        [Tooltip("Seconds the muzzle flash counts as standing in light.")]
+        public float muzzleFlashTime = 1.5f;
 
         [Header("References")]
         public Camera aimCamera;
@@ -197,6 +199,9 @@ namespace StealthProto
             FX.Line(tracerStart, end, new Color(1f, 0.9f, 0.4f, 0.9f), 0.04f, 0.06f);
             CameraRig.Shake(0.08f);
             NoiseSystem.Emit(transform.position, gunNoiseRadius, 1f, null, SoundKind.Gunshot, gameObject);
+            // The muzzle flash lights you up, so guards who look your way can see where the shot came from.
+            var exposure = GetComponent<LightExposure>();
+            if (exposure != null) exposure.Flash(muzzleFlashTime);
         }
     }
 }
