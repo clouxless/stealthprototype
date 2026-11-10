@@ -25,7 +25,7 @@ namespace StealthProto
         public float coverSpeed = 1.6f;
         [Tooltip("The camera swings when the wall ends within this many metres of you (you stop short of the very edge).")]
         public float swingZone = 1f;
-        public float knockRadius = 10f;
+        public float knockRadius = 16f;
         [Range(0f, 1f)] public float knockLoudness = 0.5f;
         public float knockCooldown = 0.8f;
         [Tooltip("Wall probe heights. All must hit for a wall to count as cover (no clinging to crates).")]
@@ -56,6 +56,7 @@ namespace StealthProto
         CharacterController controller;
         PlayerContextActions context;
         NoisePreview preview;
+        FocusMode focus;
         CameraRig rig;
         Vector3 wallNormal;
         float knockTimer;
@@ -76,6 +77,7 @@ namespace StealthProto
             input = GetComponent<PlayerInputReader>();
             controller = GetComponent<CharacterController>();
             context = GetComponent<PlayerContextActions>();
+            focus = GetComponent<FocusMode>();
             preview = GetComponent<NoisePreview>();
             if (preview == null) preview = gameObject.AddComponent<NoisePreview>();
         }
@@ -211,7 +213,9 @@ namespace StealthProto
             }
 
             // The rig's yaw doesn't change when the camera swings, so this stays the top-down frame.
-            Vector3 wish = motor.CameraRelative(input.Move);
+            // While focusing you stay put (moving breaks focus).
+            bool focusing = focus != null && focus.IsFocusing;
+            Vector3 wish = focusing ? Vector3.zero : motor.CameraRelative(input.Move);
             wish.y = 0f;
             if (wish.sqrMagnitude > 1f) wish.Normalize();
             Vector3 tangent = Vector3.Cross(Vector3.up, wallNormal);
@@ -255,7 +259,7 @@ namespace StealthProto
             if (rig != null) rig.SetCoverView(Swinging, transform.position, wallNormal, tangent * swingSide);
 
             // Knock: hold melee to line it up, release to knock.
-            if (input.MeleePressed && knockTimer <= 0f) PreviewingKnock = true;
+            if (input.MeleePressed && knockTimer <= 0f && !focusing) PreviewingKnock = true;
             if (PreviewingKnock)
             {
                 preview.Show(transform.position, knockRadius);
