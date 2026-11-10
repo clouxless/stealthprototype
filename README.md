@@ -81,7 +81,8 @@ While hanging: the stick shimmies along the edge, E climbs up, Space or C lets g
   nearby sounds, then every sound (from 0.75 s), then which guard made it and their state
   (from 3 s). Ripples are slow, soft rings with fainter rings trailing them, like water, and
   each source makes at most one every 1.2 s. As focus deepens the ripples shrink, from the
-  sound's full radius down to a fifth of it at full focus, so it gets easier to pinpoint who
+  sound's full radius down to a fifth of it after 9 s of holding (slower than the camera's
+  pull-out, which ends at 5 s), so it gets easier to pinpoint who
   made them (`FocusMode.ripple*` to tune). Ripples from sounds
   off screen drift in across the screen edge. Only sound shows. Critical sounds (gunshots,
   shouts) always draw a ring, focus or not.

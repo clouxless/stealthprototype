@@ -33,6 +33,8 @@ namespace StealthProto
         public float rippleScale = 1f;
         [Tooltip("Ripple size at full focus, as a multiple of the sound's radius. Ripples shrink toward this as focus deepens (while the camera pulls out), so sources are easier to pinpoint.")]
         public float rippleScaleFocused = 0.2f;
+        [Tooltip("Seconds of holding for ripples to shrink all the way to rippleScaleFocused. Longer than the blackout and pull-out (activateTime + zoomTime), so full focus keeps paying off after the camera settles.")]
+        public float rippleShrinkTime = 9f;
         [Tooltip("At most one new ripple per source this often (footsteps otherwise ping constantly). Critical sounds always show.")]
         public float rippleMinInterval = 1.2f;
         [Tooltip("Peak opacity of a ripple.")]
@@ -201,8 +203,8 @@ namespace StealthProto
 
             // Pixel size of the sound's radius at its position, so a ripple matches its reach.
             // Drawn even when the source is off screen, so you see its ripple drift in from the edge.
-            // Deeper focus, tighter ripples: they shrink over the whole blackout and pull-out.
-            float scale = Mathf.Lerp(rippleScale, rippleScaleFocused, Phase(0f, activateTime + zoomTime));
+            // Deeper focus, tighter ripples: they keep shrinking for a while after the camera settles.
+            float scale = Mathf.Lerp(rippleScale, rippleScaleFocused, Phase(0f, rippleShrinkTime));
             Vector3 edge = cam.WorldToScreenPoint(s.position + cam.transform.right * (s.radius * scale));
             float maxPx = Mathf.Abs(edge.x - sp.x);
             Color baseColor = Color.Lerp(KindColor(s.kind), Color.white, 0.25f);
