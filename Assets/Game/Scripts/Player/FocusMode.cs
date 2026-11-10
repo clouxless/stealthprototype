@@ -31,6 +31,8 @@ namespace StealthProto
         public float rippleLife = 2.6f;
         [Tooltip("How far a ripple spreads, as a multiple of the sound's actual radius.")]
         public float rippleScale = 1f;
+        [Tooltip("Ripple size at full focus, as a multiple of the sound's radius. Ripples shrink toward this as focus deepens (while the camera pulls out), so sources are easier to pinpoint.")]
+        public float rippleScaleFocused = 0.2f;
         [Tooltip("At most one new ripple per source this often (footsteps otherwise ping constantly). Critical sounds always show.")]
         public float rippleMinInterval = 1.2f;
         [Tooltip("Peak opacity of a ripple.")]
@@ -199,7 +201,9 @@ namespace StealthProto
 
             // Pixel size of the sound's radius at its position, so a ripple matches its reach.
             // Drawn even when the source is off screen, so you see its ripple drift in from the edge.
-            Vector3 edge = cam.WorldToScreenPoint(s.position + cam.transform.right * (s.radius * rippleScale));
+            // Deeper focus, tighter ripples: they shrink over the whole blackout and pull-out.
+            float scale = Mathf.Lerp(rippleScale, rippleScaleFocused, Phase(0f, activateTime + zoomTime));
+            Vector3 edge = cam.WorldToScreenPoint(s.position + cam.transform.right * (s.radius * scale));
             float maxPx = Mathf.Abs(edge.x - sp.x);
             Color baseColor = Color.Lerp(KindColor(s.kind), Color.white, 0.25f);
 
@@ -210,7 +214,7 @@ namespace StealthProto
                 float rk = k - ring * 0.18f;
                 if (rk <= 0f || rk >= 1f) continue;
                 float spread = 1f - Mathf.Pow(1f - rk, 3f);
-                float px = Mathf.Lerp(maxPx * 0.05f, maxPx, spread);
+                float px = Mathf.Max(6f, Mathf.Lerp(maxPx * 0.05f, maxPx, spread));
                 var rect = new Rect(sp.x - px, Screen.height - sp.y - px, px * 2f, px * 2f);
                 if (!rect.Overlaps(new Rect(0, 0, Screen.width, Screen.height))) continue;
                 float envelope = Mathf.SmoothStep(0f, 1f, rk / 0.12f) * (1f - Mathf.SmoothStep(0f, 1f, Mathf.InverseLerp(0.3f, 1f, rk)));
