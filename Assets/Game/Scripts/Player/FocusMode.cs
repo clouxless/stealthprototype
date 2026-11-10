@@ -27,10 +27,16 @@ namespace StealthProto
         public float detailTime = 0.75f;
         public float identifyTime = 3f;
         public float lingerTime = 1.2f;
-        [Tooltip("How long one ripple lasts on screen.")]
-        public float rippleLife = 1.2f;
+        [Tooltip("How long one ripple lasts on screen. Long and slow reads as calm water, short as sonar.")]
+        public float rippleLife = 2.6f;
         [Tooltip("How far a ripple spreads, as a multiple of the sound's actual radius.")]
-        public float rippleScale = 2f;
+        public float rippleScale = 1f;
+        [Tooltip("At most one new ripple per source this often (footsteps otherwise ping constantly). Critical sounds always show.")]
+        public float rippleMinInterval = 1.2f;
+        [Tooltip("Peak opacity of a ripple.")]
+        [Range(0f, 1f)] public float rippleOpacity = 0.45f;
+        [Tooltip("Trailing rings behind each ripple, like water.")]
+        [Range(0, 3)] public int rippleTrails = 2;
 
         [Header("Range")]
         public float hearingRange = 30f;
@@ -48,9 +54,11 @@ namespace StealthProto
 
         PlayerInputReader input;
         PlayerMotor motor;
+        PlayerCover cover;
         Camera cam;
         CameraRig rig;
         readonly List<SoundEvent> sounds = new List<SoundEvent>();
+        readonly Dictionary<GameObject, float> lastRipple = new Dictionary<GameObject, float>();
         bool latchedOff; // broken focus needs a fresh press
         float releasedAt = -999f;
         float holdAtRelease;
@@ -61,6 +69,7 @@ namespace StealthProto
         {
             input = GetComponent<PlayerInputReader>();
             motor = GetComponent<PlayerMotor>();
+            cover = GetComponent<PlayerCover>();
         }
 
         void Start()
@@ -84,6 +93,12 @@ namespace StealthProto
             // Same rule as guards: you only pick up sounds from the space you're in. A sealed room
             // next door is silent, and so is everything outside while you're in a vent or grate.
             if (e.source != gameObject && !SoundGrid.Connected(e.space, SoundGrid.SpaceAt(transform.position))) return;
+            // Calm, not sonar: one ripple per source at a time, except critical sounds.
+            if (e.source != null && e.loudness < NoiseSystem.CriticalLoudness)
+            {
+                if (lastRipple.TryGetValue(e.source, out float last) && e.time - last < rippleMinInterval) return;
+                lastRipple[e.source] = e.time;
+            }
             sounds.Add(e);
         }
 
@@ -97,7 +112,9 @@ namespace StealthProto
 
             bool breaking = input.Move.sqrMagnitude > 0.12f || input.DashPressed || input.MeleePressed
                             || input.FirePressed || input.AimHeld || input.InteractPressed;
-            bool blocked = motor.ExternalControl || motor.IsDashing || (rig != null && rig.IsFirstPerson);
+            // Cover takes over movement (ExternalControl) but you can still focus from it.
+            bool inCover = cover != null && cover.InCover;
+            bool blocked = (motor.ExternalControl && !inCover) || motor.IsDashing || (rig != null && rig.IsFirstPerson);
 
             if (IsFocusing)
             {
@@ -177,27 +194,40 @@ namespace StealthProto
 
         void DrawRipple(SoundEvent s, float k, float linger, int tier)
         {
-            Color c = KindColor(s.kind);
-            c.a = (1f - k) * linger;
             Vector3 sp = cam.WorldToScreenPoint(s.position);
             if (sp.z <= 0f) return; // behind the camera (never happens top-down)
 
             // Pixel size of the sound's radius at its position, so a ripple matches its reach.
-            // Drawn even when the source is off screen, so you see its ripple sweep in from the edge.
+            // Drawn even when the source is off screen, so you see its ripple drift in from the edge.
             Vector3 edge = cam.WorldToScreenPoint(s.position + cam.transform.right * (s.radius * rippleScale));
             float maxPx = Mathf.Abs(edge.x - sp.x);
-            float px = Mathf.Lerp(maxPx * 0.15f, maxPx, Mathf.Sqrt(k));
-            var rect = new Rect(sp.x - px, Screen.height - sp.y - px, px * 2f, px * 2f);
-            if (!rect.Overlaps(new Rect(0, 0, Screen.width, Screen.height))) return;
-            GUI.color = c;
-            GUI.DrawTexture(rect, ringTex);
+            Color baseColor = Color.Lerp(KindColor(s.kind), Color.white, 0.25f);
+
+            // A main ring and fainter trailing rings, each easing out (fast at first, settling
+            // slowly) and fading in and out softly, like a ripple on still water.
+            for (int ring = 0; ring <= rippleTrails; ring++)
+            {
+                float rk = k - ring * 0.18f;
+                if (rk <= 0f || rk >= 1f) continue;
+                float spread = 1f - Mathf.Pow(1f - rk, 3f);
+                float px = Mathf.Lerp(maxPx * 0.05f, maxPx, spread);
+                var rect = new Rect(sp.x - px, Screen.height - sp.y - px, px * 2f, px * 2f);
+                if (!rect.Overlaps(new Rect(0, 0, Screen.width, Screen.height))) continue;
+                float envelope = Mathf.SmoothStep(0f, 1f, rk / 0.12f) * (1f - Mathf.SmoothStep(0f, 1f, Mathf.InverseLerp(0.3f, 1f, rk)));
+                Color c = baseColor;
+                c.a = rippleOpacity * envelope * linger * (ring == 0 ? 1f : 0.45f / ring);
+                GUI.color = c;
+                GUI.DrawTexture(rect, ringTex);
+            }
 
             bool onScreen = sp.x >= 0f && sp.x <= Screen.width && sp.y >= 0f && sp.y <= Screen.height;
             if (onScreen && tier >= 3 && s.source != null)
             {
                 var guard = s.source.GetComponent<GuardBrain>();
                 string who = guard != null ? $"{s.source.name}  {guard.State}" : s.source.name;
-                labelStyle.normal.textColor = c;
+                Color lc = baseColor;
+                lc.a = linger * (1f - Mathf.SmoothStep(0f, 1f, k));
+                labelStyle.normal.textColor = lc;
                 GUI.Label(new Rect(sp.x - 120, Screen.height - sp.y + 6, 240, 20), who, labelStyle);
             }
         }
@@ -269,7 +299,8 @@ namespace StealthProto
                 for (int x = 0; x < size; x++)
                 {
                     float r = Mathf.Sqrt((x - half) * (x - half) + (y - half) * (y - half)) / half;
-                    float a = Mathf.Clamp01(1f - Mathf.Abs(r - 0.9f) / 0.08f);
+                    float d = (r - 0.92f) / 0.035f;
+                    float a = Mathf.Exp(-d * d); // thin, soft-edged line
                     px[y * size + x] = new Color(1f, 1f, 1f, a);
                 }
             }

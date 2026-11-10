@@ -69,15 +69,19 @@ While hanging: the stick shimmies along the edge, E climbs up, Space or C lets g
   lights the floor you stand on. Your character's tint shows the tier; there's no meter.
 - **Guards don't roll dice.** Patrols, pauses, head sweeps and searches are the same every
   time. A "?" shows before a guard turns suspicious and a "!" before an alert. Shots have
-  a visible wind-up and always hit unless you break line of sight first.
+  a short visible wind-up (0.3 s) and always hit unless you break line of sight first. Once the
+  "!" freeze ends, an alerted guard who can see you within 20 m fires about every 0.8 s, so
+  being seen in the open is deadly fast.
 - **Short hunts.** When a guard loses you, a marker shows where they'll search: your last
   known position, then one step further along your heading. Break line of sight or lure
   them with noise and the hunt ends quickly. The lasting cost is the room: after the
   first alert, guards stay wary (they spot you faster) and the red alarm floods stay on.
-- **Focus.** Hold Q to listen. Over about 3 seconds the world fades to pitch black, leaving
+- **Focus.** Hold Q to listen, also while clinging to a wall. Over about 3 seconds the world fades to pitch black, leaving
   only you and sounds drawn as ripples. Once it is fully black, the camera pulls out. Hold longer for more: loud
   nearby sounds, then every sound (from 0.75 s), then which guard made it and their state
-  (from 3 s). Ripples from sounds off screen sweep in across the screen edge. Only sound shows. Critical sounds (gunshots,
+  (from 3 s). Ripples are slow, soft rings with fainter rings trailing them, like water, and
+  each source makes at most one every 1.2 s (`FocusMode.ripple*` to tune). Ripples from sounds
+  off screen drift in across the screen edge. Only sound shows. Critical sounds (gunshots,
   shouts) always draw a ring, focus or not.
 - **Walking is the sneaking.** There's one walking speed and no sneak button. Walking is
   silent, and a guard never notices you outside his vision cone, so walking up behind one
@@ -104,10 +108,11 @@ While hanging: the stick shimmies along the edge, E climbs up, Space or C lets g
   last metre and short of the very edge, the camera swings low to look along the wall and round
   the corner, MGS1-style (`CameraRig.coverSwing`: 1 is the full swing, 0 stays top-down). Cover
   is for seeing and luring, not hiding: guards still see you there.
-- **Knocking (luring).** In cover, hold LMB (X) to show the knock's reach on the floor: a 10 m
+- **Knocking (luring).** In cover, hold LMB (X) to show the knock's reach on the floor: a 16 m
   circle with any sealed-off spaces cut out. Release to knock; let go of Shift first to cancel.
-  Every guard who hears it walks to it by the shortest path, does the same look-around and goes
-  back. In a vent or a floor grate the same hold-and-release works without Shift (moving
+  Every guard who hears it stops and turns to it with a "?" for a second (`hearNoticeTime`),
+  then walks to it by the shortest path, does the same look-around and goes back. A second
+  knock while he's investigating gets the same pause before he heads to the new spot. In a vent or a floor grate the same hold-and-release works without Shift (moving
   cancels it).
 - **How noise travels.** Every noise is a straight-line circle of its radius. A guard inside
   the circle hears it if there's any open way round from the noise to him, however long. Only a
