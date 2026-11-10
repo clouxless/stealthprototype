@@ -49,7 +49,8 @@ and turn on **Lighting > Additional Lights > Cast Shadows**.
 | Dash (i-frames, a little noisy) | Space | A |
 | Melee | LMB | X |
 | Context: takedown (hold), clamber, climb, hang off an edge | E | Y |
-| Cover: push into a tall wall; knock while in cover | Move into wall; LMB | Left stick; X |
+| Cover: cling to a tall wall (hold), slide along it | Hold Shift | Hold LB |
+| Knock (in cover, a vent or a grate): hold to see its reach, release to knock | Hold LMB, release | Hold X, release |
 | Focus (hold; you can't move) | Q | L3 |
 | Crawl (toggle) | C | B |
 | Aim / fire | Hold RMB, LMB to fire | Hold LT, RT to fire |
@@ -97,9 +98,26 @@ While hanging: the stick shimmies along the edge, E climbs up, Space or C lets g
   their own layer and one below; they only look up while searching. Vision cones are drawn
   on the surfaces they cover, so you can see whether a cone reaches the catwalk. Geometry
   above you fades out, and characters behind walls show as silhouettes.
-- **Cover.** Push into a tall wall to press against it, then slide along it. At the end,
-  keep pushing to peek: the view slides round the corner. LMB knocks on the wall, a noise
-  that draws guards to it. Cover is for seeing, not hiding: guards still see you there.
+- **Cover.** Hold Shift (LB) next to a tall wall, or walk into one while holding it, to press
+  your back to it. Let go to step off. The stick slides you along the wall (left and right stay
+  as they are on screen top-down, even when the camera swings). Near the end of the wall, in the
+  last metre and short of the very edge, the camera swings low to look along the wall and round
+  the corner, MGS1-style (`CameraRig.coverSwing`: 1 is the full swing, 0 stays top-down). Cover
+  is for seeing and luring, not hiding: guards still see you there.
+- **Knocking (luring).** In cover, hold LMB (X) to show the knock's reach on the floor: a 10 m
+  circle with any sealed-off spaces cut out. Release to knock; let go of Shift first to cancel.
+  Every guard who hears it walks to it by the shortest path, does the same look-around and goes
+  back. In a vent or a floor grate the same hold-and-release works without Shift (moving
+  cancels it).
+- **How noise travels.** Every noise is a straight-line circle of its radius. A guard inside
+  the circle hears it if there's any open way round from the noise to him, however long. Only a
+  fully sealed space doesn't hear it. Open doorways and open air (the catwalk and the floor
+  below it) connect spaces; closed doors, vents and grates don't. Vents and grates are one-way:
+  outside noise never gets in or travels through, but a knock inside a vent comes out at both of
+  its openings (full range from each), and a knock in a floor grate is heard in the space above.
+  The noise rings (F2) and the knock preview stop at walls that seal the noise in. Focus follows
+  the same rule, so it only shows sounds from the space you're in (and none from outside while
+  you're in a vent or grate). See `SoundGrid` and `SoundDuct`.
 - **Ledge hang.** At a drop (the catwalk edge, the beam), walk to the edge and press E to
   hang. Shimmy along, climb back up with E, or let go. Your grip lasts 6 s. While hanging,
   the floor below you sets your light tier (switchable to the ledge on
@@ -143,13 +161,20 @@ the player and guard AI, laid out from Cloux's design on a 2 m grid (50 x 28 m):
   E to drop in, push the stick to crawl along it, and press E again to climb out wherever there's
   room to stand. Inside you're silent, and guards walk over you without seeing you.
 - **Bottomless pit:** a hole in the west floor. Fall in and you're downed.
-- **Yard:** six solid blocks, floor to ceiling, that block sight, with a north, middle and south lane between them.
+- **Yard:** solid blocks, floor to ceiling, that block sight, with a north, middle and south lane between them. Two of the middle ones are roofed rooms (below).
   Downward lamps light the lane crossings and leave the runs between them dark.
 - **Guards:** all loops, with no sudden about-faces. A north guard holds a post in the
   north-west pocket, then walks one big loop: east along the north lane, back west along the
   middle lane, a look over the pit, and up the west lane home. An east guard loops the top-right
   block past the elevator, and a south guard loops the west-bottom block along the pit edge.
   A post guard stands in the lane between the two south-east blocks, facing north.
+- **Rooms for testing noise.** Two of the middle blocks are now roofed rooms, each with a guard
+  inside. The **sealed room** (the west one) has a closed door: knock on its walls from outside
+  and its guard never hears it. A crawl vent runs through its west wall from the lane: knock
+  inside the vent and the noise comes out at both ends, so the guard inside comes to the vent's
+  inner mouth. The **open room** (the east one) has an open doorway on its south side: knock on
+  its north wall from the north lane, and its guard hears it through the doorway and walks out
+  and round to you.
 - **Alarm lights:** two floodlights, one on the catwalk over the pit and one on the south lane,
   stay dark until the first alert, then stay on for good.
 - **Exit:** the lit elevator at the east end. Reaching it shows your time, alerts and
@@ -181,10 +206,15 @@ the menu item again to try a variation.
 | --- | --- |
 | `Scripts/Player/PlayerMotor.cs` | Movement, dash, crawling |
 | `Scripts/Player/PlayerContextActions.cs` | E: takedown, clamber, climb, ledge hang |
-| `Scripts/Player/PlayerCover.cs` | Cover cling, peek, knock |
+| `Scripts/Player/PlayerCover.cs` | Cover cling, corner view, knock (also in vents and grates) |
+| `Scripts/Player/NoisePreview.cs` | The knock's reach drawn on the floor before you knock |
+| `Scripts/Core/NoiseSystem.cs` | Hearing: circle plus same-space rule, feed for Focus |
+| `Scripts/Core/SoundGrid.cs` | Which spaces sound can reach (air cells flooded into spaces) |
+| `Scripts/Core/SoundDuct.cs` | Vents and grates: one-way for noise |
+| `Scripts/Core/NoiseShape.cs`, `NoiseRingFX.cs` | Noise rings and preview, cut at sealing walls |
 | `Scripts/Player/FocusMode.cs` | Focus (sound ripples) |
 | `Scripts/Player/PlayerCombat.cs` | Melee, aiming, gun |
-| `Scripts/Camera/CameraRig.cs` | Top-down follow, first-person look, shake |
+| `Scripts/Camera/CameraRig.cs` | Top-down follow, cover corner view, first-person look, shake |
 | `Scripts/Stealth/StealthLight.cs`, `LightExposure.cs` | Light tiers from the floor under the player |
 | `Scripts/Stealth/HeightLayers.cs` | Named height layers |
 | `Scripts/Level/AlarmLight.cs` | Lights that switch on for good after the first alert |

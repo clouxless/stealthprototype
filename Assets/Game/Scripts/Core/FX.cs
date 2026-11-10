@@ -63,12 +63,12 @@ namespace StealthProto
             Object.Destroy(lr.gameObject, duration);
         }
 
-        public static void NoiseRing(Vector3 position, float radius, float loudness)
+        /// <summary>An expanding ring for a noise, clipped to the noise's SoundGrid space.</summary>
+        public static void NoiseRing(Vector3 position, float radius, float loudness, int space = SoundGrid.Unknown)
         {
-            var go = new GameObject("PH_FX_NoiseRing");
-            go.transform.position = position;
+            var go = new GameObject("PH_FX_NoiseRing"); // stays at the world origin: the ring mesh is in world space
             var ring = go.AddComponent<NoiseRingFX>();
-            ring.Init(radius, new Color(0.6f, 0.9f, 1f, Mathf.Lerp(0.15f, 0.5f, loudness)));
+            ring.Init(position, radius, space, new Color(0.6f, 0.9f, 1f, Mathf.Lerp(0.15f, 0.5f, loudness)));
         }
     }
 }

@@ -342,6 +342,14 @@ namespace StealthProto.EditorTools
             Block(vent, "PH_VentSide", new Vector3(x - 0.55f, height * 0.5f, zc), new Vector3(0.1f, height, length));
             Block(vent, "PH_VentSide", new Vector3(x + 0.55f, height * 0.5f, zc), new Vector3(0.1f, height, length));
             Block(vent, "PH_VentTop", new Vector3(x, height + 0.05f, zc), new Vector3(1.2f, 0.1f, length));
+
+            // One-way for noise: outside noise doesn't travel through, a knock inside comes out at both ends.
+            var duct = new GameObject("PH_VentSoundDuct").AddComponent<SoundDuct>();
+            duct.transform.SetParent(vent, false);
+            duct.transform.position = new Vector3(x, height * 0.5f, zc);
+            duct.kind = SoundDuct.DuctKind.Vent;
+            duct.size = new Vector3(1f, height, length);
+            duct.openings = new[] { new Vector3(x, 0f, z0 - 0.6f), new Vector3(x, 0f, z1 + 0.6f) };
         }
 
         /// <summary>A table: a top at height with four thin legs. Underside clearance is height - 0.1.</summary>
@@ -466,6 +474,7 @@ namespace StealthProto.EditorTools
             p.AddComponent<PlayerCombat>();
             p.AddComponent<PlayerLife>();
             p.AddComponent<PlayerContextActions>();
+            p.AddComponent<NoisePreview>();
             p.AddComponent<PlayerCover>();
             p.AddComponent<FocusMode>();
 

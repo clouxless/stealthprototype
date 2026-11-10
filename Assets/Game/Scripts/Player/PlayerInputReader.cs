@@ -9,7 +9,7 @@ namespace StealthProto
     /// </summary>
     public class PlayerInputReader : MonoBehaviour
     {
-        InputAction move, lookMouse, lookStick, aimStick, pointer, dash, melee, fire, aim, firstPerson, interact, zoomWheel, zoomPad, focus, prone;
+        InputAction move, lookMouse, lookStick, aimStick, pointer, dash, melee, fire, aim, firstPerson, interact, zoomWheel, zoomPad, focus, prone, cover;
 
         public Vector2 Move => move.ReadValue<Vector2>();
         public Vector2 LookMouse => lookMouse.ReadValue<Vector2>();
@@ -19,6 +19,10 @@ namespace StealthProto
         public bool AimHeld => aim.IsPressed();
         public bool DashPressed => dash.WasPressedThisFrame();
         public bool MeleePressed => melee.WasPressedThisFrame();
+        public bool MeleeHeld => melee.IsPressed();
+        public bool MeleeReleased => melee.WasReleasedThisFrame();
+        /// <summary>Cover cling: held. Let go to step off the wall.</summary>
+        public bool CoverHeld => cover.IsPressed();
         public bool FirePressed => fire.WasPressedThisFrame();
         public bool FirstPersonToggled => firstPerson.WasPressedThisFrame();
         /// <summary>Context action: takedown or climb, whichever is prompted.</summary>
@@ -63,6 +67,9 @@ namespace StealthProto
             interact.AddBinding("<Gamepad>/buttonNorth");
             prone = new InputAction("Prone", InputActionType.Button, "<Keyboard>/c");
             prone.AddBinding("<Gamepad>/buttonEast");
+            cover = new InputAction("Cover", InputActionType.Button, "<Keyboard>/leftShift");
+            cover.AddBinding("<Keyboard>/rightShift");
+            cover.AddBinding("<Gamepad>/leftShoulder");
             focus = new InputAction("Focus", InputActionType.Button, "<Keyboard>/q");
             focus.AddBinding("<Gamepad>/leftStickPress");
             zoomWheel = new InputAction("ZoomWheel", InputActionType.Value);
@@ -71,7 +78,7 @@ namespace StealthProto
             zoomPad.AddCompositeBinding("1DAxis").With("Positive", "<Gamepad>/dpad/up").With("Negative", "<Gamepad>/dpad/down");
         }
 
-        InputAction[] AllActions => new[] { move, lookMouse, lookStick, aimStick, pointer, dash, melee, fire, aim, firstPerson, interact, zoomWheel, zoomPad, focus, prone };
+        InputAction[] AllActions => new[] { move, lookMouse, lookStick, aimStick, pointer, dash, melee, fire, aim, firstPerson, interact, zoomWheel, zoomPad, focus, prone, cover };
 
         void OnEnable()
         {

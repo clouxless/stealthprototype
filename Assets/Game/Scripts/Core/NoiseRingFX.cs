@@ -2,23 +2,28 @@ using UnityEngine;
 
 namespace StealthProto
 {
-    /// <summary>Expanding, fading placeholder ring showing a noise radius.</summary>
+    /// <summary>
+    /// Expanding, fading placeholder ring showing a noise radius. It stops at walls that seal the
+    /// noise in: only the parts of the circle in the noise's own space are drawn.
+    /// </summary>
     public class NoiseRingFX : MonoBehaviour
     {
-        const int Segments = 40;
         const float Duration = 0.45f;
-        LineRenderer lr;
+        const float Width = 0.08f;
+        MeshFilter mf;
+        Vector3 centre;
         float radius;
+        int space;
         float age;
         Color color;
 
-        public void Init(float r, Color c)
+        public void Init(Vector3 c, float r, int s, Color col)
         {
+            centre = c;
             radius = r;
-            color = c;
-            lr = FX.CreateLine(transform, "PH_FX_NoiseRingLine", c, 0.05f);
-            lr.loop = true;
-            lr.positionCount = Segments;
+            space = s;
+            color = col;
+            mf = NoiseShape.CreateRenderer(transform, "PH_FX_NoiseRingMesh");
             Refresh(0f);
         }
 
@@ -34,18 +39,19 @@ namespace StealthProto
             Refresh(k);
         }
 
+        void OnDestroy()
+        {
+            if (mf != null && mf.sharedMesh != null) Destroy(mf.sharedMesh);
+        }
+
         void Refresh(float k)
         {
             float r = Mathf.Lerp(0.2f, radius, Mathf.Sqrt(k));
-            Vector3 p = transform.position;
-            for (int i = 0; i < Segments; i++)
-            {
-                float a = i / (float)Segments * Mathf.PI * 2f;
-                lr.SetPosition(i, p + new Vector3(Mathf.Cos(a) * r, 0f, Mathf.Sin(a) * r));
-            }
             Color c = color;
             c.a *= 1f - k;
-            lr.startColor = lr.endColor = c;
+            NoiseShape.Begin();
+            NoiseShape.Ring(centre, r, Width, space, c, Mathf.Clamp(Mathf.CeilToInt(r * 6f), 16, 96));
+            NoiseShape.End(mf.sharedMesh);
         }
     }
 }

@@ -23,7 +23,7 @@ namespace StealthProto.EditorTools
         // Each cell is 2 x 2 m. Row 0 is north. Columns run west to east.
         // X nothing (walled off)   . floor   O bottomless pit   G elevator (exit)
         // L low block (1.1 m: hides legs, not head)   T solid block (floor to ceiling height: blocks sight,
-        //   too tall to climb, good for cover)
+        //   too tall to climb, good for cover)   H a roofed room (listed in Rooms below)
         // Floor grates are listed separately (Grates below), because they run under blocks.
         static readonly string[] Map =
         {
@@ -31,8 +31,8 @@ namespace StealthProto.EditorTools
             "...TTTTTXXXXXXXXXXXXXXXXX", //  1  grate B runs under this block
             "....TT...............TTXX", //  2
             ".......................XX", //  3  north lane
-            "OOOOOOO.TTT..TTT.TTT...XX", //  4
-            "OOOOOOO.TTT..TTT.TTT...GG", //  5
+            "OOOOOOO.TTT..HHH.HHH...XX", //  4  sealed room, open room (Rooms below)
+            "OOOOOOO.TTT..HHH.HHH...GG", //  5
             "OOOOOOO................GG", //  6  middle lane
             "OOOOOOO................GG", //  7
             "OOOOOOO.TTT..TTT.TTT...XX", //  8
@@ -58,6 +58,20 @@ namespace StealthProto.EditorTools
         {
             (new Vector2Int(1, 10), new Vector2Int(5, 10), -0.45f), // A: from the start, under the start block, along the pit edge
             (new Vector2Int(7, 0), new Vector2Int(7, 9), -0.45f),   // B: down the pit-side lane, under the north block
+        };
+
+        // Roofed rooms for testing how noise travels. Each fills the H cells from min to max, with
+        // its door in the middle of the south wall. A closed door seals the room: no noise gets in
+        // or out. An open doorway connects it to the yard, so a knock on the far side of its wall
+        // is heard inside (the noise goes round). The sealed room has a crawl vent through its west
+        // wall: noise from outside doesn't travel through a vent, but a knock made inside the vent
+        // comes out at both ends.
+        const float RoomWallThickness = 0.3f, RoomRoofThickness = 0.3f, DoorWidth = 1.6f, DoorHeight = 2.2f;
+        const float VentHeight = 0.7f, VentOutside = 1.8f, VentInside = 1f;
+        static readonly (string name, Vector2Int min, Vector2Int max, bool doorOpen, bool vent)[] Rooms =
+        {
+            ("PH_SealedRoom", new Vector2Int(13, 4), new Vector2Int(15, 5), false, true),
+            ("PH_OpenRoom", new Vector2Int(17, 4), new Vector2Int(19, 5), true, false),
         };
 
         // West catwalk: column 0, from the north wall to the ladder at its south end.
@@ -100,6 +114,7 @@ namespace StealthProto.EditorTools
             BuildFloor(level.transform);
             BuildWalls(level.transform);
             BuildBlocks(level.transform);
+            BuildRooms(level.transform);
             BuildGrates(level.transform);
             BuildGrateRuns();
             BuildCatwalk(level.transform);
@@ -199,6 +214,74 @@ namespace StealthProto.EditorTools
             return true;
         }
 
+        /// <summary>
+        /// Roofed rooms (Rooms): four walls, a roof, and a door in the middle of the south wall,
+        /// either a closed door (solid, seals the room) or an open doorway. Optionally a crawl vent
+        /// through the west wall, which is a SoundDuct: one-way for noise.
+        /// </summary>
+        static void BuildRooms(Transform root)
+        {
+            var group = G.Group(root, "PH_Rooms");
+            float t = RoomWallThickness, h = WallHeight;
+            foreach (var room in Rooms)
+            {
+                var parent = G.Group(group, room.name);
+                Vector3 nw = CellPos(room.min.x, room.min.y), se = CellPos(room.max.x, room.max.y);
+                float x0 = nw.x - Cell * 0.5f + CoverInset, x1 = se.x + Cell * 0.5f - CoverInset;
+                float z0 = se.z - Cell * 0.5f + CoverInset, z1 = nw.z + Cell * 0.5f - CoverInset; // z0 is the south side
+                float xc = (x0 + x1) * 0.5f, zc = (z0 + z1) * 0.5f;
+
+                void Wall(string name, float ax, float bx, float az, float bz, float y0, float y1)
+                {
+                    if (bx - ax < 0.01f || bz - az < 0.01f || y1 - y0 < 0.01f) return;
+                    G.Block(parent, name, new Vector3((ax + bx) * 0.5f, (y0 + y1) * 0.5f, (az + bz) * 0.5f), new Vector3(bx - ax, y1 - y0, bz - az));
+                }
+
+                // North wall full width; east wall between north and south walls.
+                Wall("PH_RoomWall", x0, x1, z1 - t, z1, 0f, h);
+                Wall("PH_RoomWall", x1 - t, x1, z0 + t, z1 - t, 0f, h);
+                // South wall with the door in the middle.
+                float d0 = xc - DoorWidth * 0.5f, d1 = xc + DoorWidth * 0.5f;
+                Wall("PH_RoomWall", x0, d0, z0, z0 + t, 0f, h);
+                Wall("PH_RoomWall", d1, x1, z0, z0 + t, 0f, h);
+                Wall("PH_RoomWall", d0, d1, z0, z0 + t, DoorHeight, h);
+                if (!room.doorOpen)
+                    Wall("PH_DoorClosed", d0, d1, z0 + t * 0.25f, z0 + t * 0.75f, 0f, DoorHeight);
+                // West wall, with a hole for the vent.
+                if (room.vent)
+                {
+                    const float ventHalf = 0.6f;
+                    Wall("PH_RoomWall", x0, x0 + t, z0 + t, zc - ventHalf, 0f, h);
+                    Wall("PH_RoomWall", x0, x0 + t, zc + ventHalf, z1 - t, 0f, h);
+                    Wall("PH_RoomWall", x0, x0 + t, zc - ventHalf, zc + ventHalf, VentHeight + 0.1f, h);
+                    BuildVent(parent, x0 - VentOutside, x0 + t + VentInside, zc);
+                }
+                else Wall("PH_RoomWall", x0, x0 + t, z0 + t, z1 - t, 0f, h);
+                // Roof.
+                Wall("PH_RoomRoof", x0, x1, z0, z1, h, h + RoomRoofThickness);
+            }
+        }
+
+        /// <summary>
+        /// A crawl-only vent running east-west from xa to xb, centred on z: 1 m wide inside, 0.7 m
+        /// high. Its inside is a SoundDuct with an opening beyond each end.
+        /// </summary>
+        static void BuildVent(Transform parent, float xa, float xb, float z)
+        {
+            var vent = G.Group(parent, "PH_Vent");
+            float length = xb - xa, xc = (xa + xb) * 0.5f;
+            G.Block(vent, "PH_VentSide", new Vector3(xc, VentHeight * 0.5f, z - 0.55f), new Vector3(length, VentHeight, 0.1f));
+            G.Block(vent, "PH_VentSide", new Vector3(xc, VentHeight * 0.5f, z + 0.55f), new Vector3(length, VentHeight, 0.1f));
+            G.Block(vent, "PH_VentTop", new Vector3(xc, VentHeight + 0.05f, z), new Vector3(length, 0.1f, 1.2f));
+
+            var duct = new GameObject("PH_VentSoundDuct").AddComponent<SoundDuct>();
+            duct.transform.SetParent(vent, false);
+            duct.transform.position = new Vector3(xc, VentHeight * 0.5f, z);
+            duct.kind = SoundDuct.DuctKind.Vent;
+            duct.size = new Vector3(length, VentHeight, 1f);
+            duct.openings = new[] { new Vector3(xa - 0.6f, 0f, z), new Vector3(xb + 0.6f, 0f, z) };
+        }
+
         /// <summary>True if (c, r) is on a grate run. alongX: the run goes east-west. isEnd: an open hatch.</summary>
         static bool GrateAt(int c, int r, out bool alongX, out float lateral, out bool isEnd)
         {
@@ -278,6 +361,15 @@ namespace StealthProto.EditorTools
                 run.start = a - dir * (Cell * 0.5f - endInset);
                 run.end = b + dir * (Cell * 0.5f - endInset);
                 run.surfaceY = 0f;
+
+                // The trench is a SoundDuct: outside noise doesn't get in, and a noise made inside
+                // is heard from the floor above.
+                var duct = go.AddComponent<SoundDuct>();
+                duct.kind = SoundDuct.DuctKind.Grate;
+                duct.surfaceY = 0f;
+                go.transform.position = new Vector3((a.x + b.x) * 0.5f, (-GrateDepth - GrateCap) * 0.5f, (a.z + b.z) * 0.5f);
+                float len = Vector3.Distance(a, b) + Cell, height = GrateDepth - GrateCap;
+                duct.size = alongX ? new Vector3(len, height, GrateWidth) : new Vector3(GrateWidth, height, len);
             }
         }
 
@@ -431,6 +523,14 @@ namespace StealthProto.EditorTools
             var post = G.Route(routes, "PH_Route_Post", true, 4f,
                 (CellPos(16f, 9.3f), 0f));
             G.BuildGuard("PH_Guard_Post", CellPos(16f, 9.3f), 0f, post, player);
+
+            // Room guards, for testing noise. The sealed-room guard faces his closed door and never
+            // hears anything from outside (only a knock from inside the vent reaches him). The
+            // open-room guard hears a knock on the far side of his wall and comes out round it.
+            var sealedPost = G.Route(routes, "PH_Route_SealedRoom", true, 4f, (CellPos(14.5f, 4.4f), 180f));
+            G.BuildGuard("PH_Guard_SealedRoom", CellPos(14.5f, 4.4f), 180f, sealedPost, player);
+            var openPost = G.Route(routes, "PH_Route_OpenRoom", true, 4f, (CellPos(18.4f, 4.4f), 90f));
+            G.BuildGuard("PH_Guard_OpenRoom", CellPos(18.4f, 4.4f), 90f, openPost, player);
         }
     }
 }

@@ -3,25 +3,29 @@ using UnityEngine;
 namespace StealthProto
 {
     /// <summary>
-    /// Cover cling (MGS1-style). Push into a tall wall for a moment to press your back against it.
-    /// While in cover:
-    ///   - move along the wall with the stick; you stop at its end
-    ///   - at an end, keep pushing that way to peek: the view slides around the corner
-    ///   - LMB / gamepad X knocks on the wall, a noise that lures guards to that spot
-    ///   - push away from the wall, dash, or go prone to leave
-    /// The player is still fully visible to guards in cover; it's for seeing, not hiding.
+    /// Cover cling (MGS1-style), on a held button: Shift / gamepad LB.
+    ///   - Hold it next to a tall wall (or walk into one while holding it) to press your back to it.
+    ///     Let go to step off.
+    ///   - The stick slides you along the wall. Left and right are read in the normal top-down frame,
+    ///     so they don't change when the camera swings. You stop at the wall's end.
+    ///   - Near the end of the wall (the last swingZone metres, short of the very edge) the camera
+    ///     swings low to look along the wall and round the corner (CameraRig.coverSwing).
+    ///   - Knock: hold melee to show the knock's noise radius, release to knock. Letting go of Shift
+    ///     first cancels it.
+    ///   - Dash or crawl also leave cover.
+    /// In a vent or floor grate (SoundDuct) the same hold-melee / release knock works without
+    /// Shift; moving cancels it. Its noise comes out at the vent's openings, or above the grate.
+    /// The player is still fully visible to guards in cover; it's for seeing and luring, not hiding.
     /// </summary>
     [RequireComponent(typeof(PlayerMotor), typeof(PlayerInputReader), typeof(CharacterController))]
     public class PlayerCover : MonoBehaviour
     {
-        [Tooltip("Seconds of pushing into a wall before you press against it.")]
-        public float pressTime = 0.25f;
         [Tooltip("How far past the body a wall can be to cling to it.")]
-        public float reach = 0.35f;
+        public float reach = 0.6f;
         public float coverSpeed = 1.6f;
-        [Tooltip("How far the camera slides around a corner while peeking.")]
-        public float peekDistance = 4f;
-        public float knockRadius = 7f;
+        [Tooltip("The camera swings when the wall ends within this many metres of you (you stop short of the very edge).")]
+        public float swingZone = 1f;
+        public float knockRadius = 10f;
         [Range(0f, 1f)] public float knockLoudness = 0.5f;
         public float knockCooldown = 0.8f;
         [Tooltip("Wall probe heights. All must hit for a wall to count as cover (no clinging to crates).")]
@@ -30,19 +34,41 @@ namespace StealthProto
         public bool InCover { get; private set; }
         /// <summary>-1 or +1 when stopped at the left/right end of the wall (relative to the wall tangent), else 0.</summary>
         public int AtEdge { get; private set; }
-        public bool Peeking { get; private set; }
+        /// <summary>True while near an end of the wall, with the camera swung round the corner.</summary>
+        public bool Swinging { get; private set; }
+        /// <summary>True while melee is held to line up a knock.</summary>
+        public bool PreviewingKnock { get; private set; }
         public Vector3 WallNormal => wallNormal;
-        public string Prompt => !InCover ? null : Peeking ? "Peeking  |  LMB knock" : "In cover  |  LMB knock";
+
+        public string Prompt
+        {
+            get
+            {
+                if (PreviewingKnock) return InCover ? "Release LMB: knock  |  let go of Shift: cancel" : "Release LMB: knock  |  move: cancel";
+                if (InCover) return Swinging ? "Corner view  |  hold LMB: knock" : "In cover  |  hold LMB: knock";
+                if (inDuct) return "Hold LMB: knock";
+                return null;
+            }
+        }
 
         PlayerMotor motor;
         PlayerInputReader input;
         CharacterController controller;
         PlayerContextActions context;
+        NoisePreview preview;
         CameraRig rig;
         Vector3 wallNormal;
-        float pressTimer;
         float knockTimer;
         float reenterTimer;
+        int lastMoveSide;
+        bool inDuct;
+
+        static readonly Vector3[] Compass =
+        {
+            Vector3.forward, Vector3.back, Vector3.right, Vector3.left,
+            new Vector3(1f, 0f, 1f).normalized, new Vector3(-1f, 0f, 1f).normalized,
+            new Vector3(1f, 0f, -1f).normalized, new Vector3(-1f, 0f, -1f).normalized
+        };
 
         void Awake()
         {
@@ -50,6 +76,8 @@ namespace StealthProto
             input = GetComponent<PlayerInputReader>();
             controller = GetComponent<CharacterController>();
             context = GetComponent<PlayerContextActions>();
+            preview = GetComponent<NoisePreview>();
+            if (preview == null) preview = gameObject.AddComponent<NoisePreview>();
         }
 
         void Start() => rig = FindAnyObjectByType<CameraRig>();
@@ -57,6 +85,7 @@ namespace StealthProto
         void OnDisable()
         {
             if (InCover) Exit();
+            CancelKnock();
         }
 
         /// <summary>Leave cover because another action (a climb) takes over.</summary>
@@ -72,41 +101,65 @@ namespace StealthProto
             knockTimer -= dt;
             reenterTimer -= dt;
 
-            if (InCover) UpdateCover(dt);
-            else TryEnter(dt);
+            if (InCover)
+            {
+                UpdateCover(dt);
+                return;
+            }
+
+            inDuct = SoundDuct.Find(transform.position) != null;
+            if (inDuct) UpdateDuctKnock();
+            else
+            {
+                if (PreviewingKnock) CancelKnock();
+                TryEnter();
+            }
         }
 
         // ---------------------------------------------------------------- entering
 
-        void TryEnter(float dt)
+        void TryEnter()
         {
+            if (!input.CoverHeld || reenterTimer > 0f) return;
             bool blocked = motor.ExternalControl || motor.IsDashing || motor.IsProne || motor.AttackLock || motor.FocusLock
                            || motor.MovementLocked || !controller.isGrounded || input.AimHeld
-                           || (context != null && context.Busy) || (rig != null && rig.IsFirstPerson) || reenterTimer > 0f;
+                           || (context != null && context.Busy) || (rig != null && rig.IsFirstPerson);
+            if (blocked) return;
+
+            // The wall you're walking into first, then the one you're facing, then the nearest.
             Vector3 wish = motor.CameraRelative(input.Move);
-            if (blocked || wish.sqrMagnitude < 0.25f)
-            {
-                pressTimer = 0f;
-                return;
-            }
             wish.y = 0f;
-            wish.Normalize();
-
-            if (!ProbeWall(transform.position, wish, out Vector3 normal, out float distance) || Vector3.Dot(wish, -normal) < 0.7f)
+            bool found = false;
+            Vector3 bestNormal = default;
+            float bestDistance = float.MaxValue;
+            if (wish.sqrMagnitude > 0.25f && ProbeWall(transform.position, wish.normalized, out bestNormal, out bestDistance))
+                found = true;
+            else if (ProbeWall(transform.position, Flat(transform.forward), out bestNormal, out bestDistance))
+                found = true;
+            else
             {
-                pressTimer = 0f;
-                return;
+                foreach (var dir in Compass)
+                {
+                    if (!ProbeWall(transform.position, dir, out Vector3 n, out float d) || d >= bestDistance) continue;
+                    found = true;
+                    bestNormal = n;
+                    bestDistance = d;
+                }
             }
-
-            pressTimer += dt;
-            if (pressTimer < pressTime) return;
+            if (!found) return;
 
             InCover = true;
-            pressTimer = 0f;
-            wallNormal = normal;
+            wallNormal = bestNormal;
+            lastMoveSide = 0;
             motor.ExternalControl = true;
-            Snap(distance);
+            Snap(bestDistance);
             transform.rotation = Quaternion.LookRotation(wallNormal);
+        }
+
+        static Vector3 Flat(Vector3 v)
+        {
+            v.y = 0f;
+            return v.sqrMagnitude > 0.0001f ? v.normalized : Vector3.forward;
         }
 
         /// <summary>A tall, roughly vertical, non-character wall in direction dir at every probe height.</summary>
@@ -137,27 +190,35 @@ namespace StealthProto
             controller.Move(-wallNormal * gap + Vector3.down * 0.02f); // a nudge down keeps isGrounded true
         }
 
+        /// <summary>Metres from the body's centre to where the wall ends on that side, or infinity if it's beyond the swing zone.</summary>
+        float DistanceToEnd(int side, Vector3 tangent)
+        {
+            const float step = 0.1f;
+            for (float d = step; d <= swingZone + 0.05f; d += step)
+                if (!ProbeWall(transform.position + tangent * (side * d), -wallNormal, out _, out _)) return d;
+            return float.PositiveInfinity;
+        }
+
         // ---------------------------------------------------------------- in cover
 
         void UpdateCover(float dt)
         {
-            Vector3 wish = motor.CameraRelative(input.Move);
-            wish.y = 0f;
-            if (wish.sqrMagnitude > 1f) wish.Normalize();
-
-            bool leave = input.DashPressed || input.ProneToggled || Vector3.Dot(wish, wallNormal) > 0.6f
-                         || (rig != null && rig.IsFirstPerson);
+            bool leave = !input.CoverHeld || input.DashPressed || input.ProneToggled || (rig != null && rig.IsFirstPerson);
             if (leave)
             {
-                Exit();
+                Exit(); // letting go of Shift while lining up a knock cancels it
                 return;
             }
 
+            // The rig's yaw doesn't change when the camera swings, so this stays the top-down frame.
+            Vector3 wish = motor.CameraRelative(input.Move);
+            wish.y = 0f;
+            if (wish.sqrMagnitude > 1f) wish.Normalize();
             Vector3 tangent = Vector3.Cross(Vector3.up, wallNormal);
             float along = Vector3.Dot(wish, tangent);
             int side = along > 0.2f ? 1 : along < -0.2f ? -1 : 0;
+            if (side != 0) lastMoveSide = side;
 
-            Peeking = false;
             if (side != 0)
             {
                 // Is there still wall a little ahead of us on that side?
@@ -167,15 +228,10 @@ namespace StealthProto
                     AtEdge = 0;
                     controller.Move(tangent * (along * coverSpeed * dt) + Vector3.down * (2f * dt));
                 }
-                else
-                {
-                    AtEdge = side;
-                    Peeking = true;
-                }
+                else AtEdge = side;
             }
             else if (AtEdge != 0)
             {
-                // Still at the end we stopped at, just not pushing.
                 Vector3 ahead = transform.position + tangent * (AtEdge * (controller.radius + 0.1f));
                 if (ProbeWall(ahead, -wallNormal, out _, out _)) AtEdge = 0;
             }
@@ -189,31 +245,72 @@ namespace StealthProto
             wallNormal = normal;
             Snap(distance);
             transform.rotation = Quaternion.LookRotation(wallNormal);
+            tangent = Vector3.Cross(Vector3.up, wallNormal);
 
-            if (rig != null) rig.SetPeekOffset(Peeking ? tangent * (AtEdge * peekDistance) : Vector3.zero);
+            // Corner view: swing when the wall ends within the swing zone.
+            bool nearPos = DistanceToEnd(1, tangent) <= swingZone;
+            bool nearNeg = DistanceToEnd(-1, tangent) <= swingZone;
+            int swingSide = nearPos && nearNeg ? (lastMoveSide != 0 ? lastMoveSide : 1) : nearPos ? 1 : nearNeg ? -1 : 0;
+            Swinging = swingSide != 0;
+            if (rig != null) rig.SetCoverView(Swinging, transform.position, wallNormal, tangent * swingSide);
 
-            if (input.MeleePressed && knockTimer <= 0f) Knock();
+            // Knock: hold melee to line it up, release to knock.
+            if (input.MeleePressed && knockTimer <= 0f) PreviewingKnock = true;
+            if (PreviewingKnock)
+            {
+                preview.Show(transform.position, knockRadius);
+                if (!input.MeleeHeld) Knock();
+            }
+        }
+
+        // ---------------------------------------------------------------- in a vent or grate
+
+        void UpdateDuctKnock()
+        {
+            if (input.MeleePressed && knockTimer <= 0f && !motor.IsDashing) PreviewingKnock = true;
+            if (!PreviewingKnock) return;
+            if (input.Move.sqrMagnitude > 0.12f || input.DashPressed)
+            {
+                CancelKnock();
+                return;
+            }
+            preview.Show(transform.position, knockRadius);
+            if (!input.MeleeHeld) Knock();
         }
 
         void Knock()
         {
+            PreviewingKnock = false;
+            preview.Hide();
             knockTimer = knockCooldown;
-            Vector3 point = transform.position + Vector3.up * 1.1f - wallNormal * (controller.radius + 0.02f);
+            Vector3 point = transform.position;
             NoiseSystem.Emit(point, knockRadius, knockLoudness, null, SoundKind.Knock, gameObject);
             // A deliberate sound: always show its reach, even with the F2 noise rings off.
             if (!NoiseSystem.ShowNoise && knockLoudness < NoiseSystem.CriticalLoudness)
-                FX.NoiseRing(new Vector3(point.x, transform.position.y + 0.05f, point.z), knockRadius, knockLoudness);
+            {
+                var origins = new System.Collections.Generic.List<Vector3>();
+                SoundDuct.ResolveOrigins(point, origins);
+                foreach (var o in origins)
+                    FX.NoiseRing(o + Vector3.up * 0.05f, knockRadius, knockLoudness, SoundGrid.SpaceAt(o));
+            }
             CameraRig.Shake(0.04f);
+        }
+
+        void CancelKnock()
+        {
+            PreviewingKnock = false;
+            if (preview != null) preview.Hide();
         }
 
         void Exit()
         {
             InCover = false;
-            Peeking = false;
+            Swinging = false;
             AtEdge = 0;
+            CancelKnock();
             reenterTimer = 0.3f;
             if (motor != null) motor.ExternalControl = false;
-            if (rig != null) rig.SetPeekOffset(Vector3.zero);
+            if (rig != null) rig.SetCoverView(false, transform.position, wallNormal, Vector3.zero);
         }
     }
 }

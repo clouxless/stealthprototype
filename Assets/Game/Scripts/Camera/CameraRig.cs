@@ -27,8 +27,22 @@ namespace StealthProto
         public float fieldOfView = 38f;
         public float followSharpness = 10f;
         public Vector3 targetOffset = new Vector3(0f, 1f, 0f);
-        [Tooltip("How quickly the view slides out when peeking around a corner from cover.")]
-        public float peekSharpness = 4f;
+
+        [Header("Cover corner view (MGS1-style swing)")]
+        [Tooltip("How far the camera swings when you're in cover near the end of a wall. 1 = a full low view along the wall and round the corner, 0 = stay top-down.")]
+        [Range(0f, 1f)] public float coverSwing = 1f;
+        [Tooltip("How quickly the camera swings in and out.")]
+        public float coverSwingSharpness = 5f;
+        [Tooltip("Corner view: camera height above the player's feet.")]
+        public float coverViewHeight = 2.2f;
+        [Tooltip("Corner view: how far out from the wall the camera sits.")]
+        public float coverViewOut = 2f;
+        [Tooltip("Corner view: how far back along the wall, away from the corner.")]
+        public float coverViewBack = 2.5f;
+        [Tooltip("Corner view: how far past you, toward the corner, the camera looks.")]
+        public float coverLookAhead = 4f;
+        [Tooltip("Corner view: how far behind the wall's face the camera looks, i.e. round the corner.")]
+        public float coverLookBehind = 2.5f;
 
         [Header("First person")]
         public float firstPersonFov = 70f;
@@ -55,7 +69,9 @@ namespace StealthProto
         Vector3 followPosition;
         float fpYaw, fpPitch;
         float trauma;
-        Vector3 peekTarget, peekCurrent;
+        bool coverOn;
+        float coverBlend;
+        Vector3 coverPlayer, coverNormal, coverToward;
         readonly HashSet<Renderer> cutHidden = new HashSet<Renderer>();
         readonly HashSet<Renderer> cutThisFrame = new HashSet<Renderer>();
         static readonly RaycastHit[] CutHits = new RaycastHit[16];
@@ -67,8 +83,22 @@ namespace StealthProto
         public float ExtraDistance { get; set; }
         float extraCurrent;
 
-        /// <summary>Slide the top-down view by this world offset (cover peeking). Zero to recentre.</summary>
-        public void SetPeekOffset(Vector3 offset) => peekTarget = offset;
+        /// <summary>
+        /// Cover corner view. While on, the camera swings from top-down to a low view from in front
+        /// of the wall, looking along it toward `toward` (the corner) and round it. Movement input
+        /// stays in the top-down frame (this rig's yaw never changes).
+        /// </summary>
+        public void SetCoverView(bool on, Vector3 player, Vector3 wallNormal, Vector3 toward)
+        {
+            coverOn = on && toward.sqrMagnitude > 0.01f;
+            if (!coverOn) return; // keep the last pose while swinging back out
+            coverPlayer = player;
+            coverNormal = wallNormal;
+            coverToward = toward.normalized;
+        }
+
+        /// <summary>True while the cover corner view is swung in at all.</summary>
+        public bool CoverViewActive => coverBlend * coverSwing > 0.01f;
 
         public static void Shake(float amount)
         {
@@ -192,8 +222,7 @@ namespace StealthProto
 
         void TopDown(float dt)
         {
-            if (dt > 0f) peekCurrent = Vector3.Lerp(peekCurrent, peekTarget, 1f - Mathf.Exp(-peekSharpness * dt));
-            Vector3 desired = target.position + targetOffset + peekCurrent;
+            Vector3 desired = target.position + targetOffset;
             // dt is 0 during hit-stop: hold position rather than snapping.
             if (dt > 0f) followPosition = Vector3.Lerp(followPosition, desired, 1f - Mathf.Exp(-followSharpness * dt));
             transform.SetPositionAndRotation(followPosition, Quaternion.Euler(0f, yaw, 0f));
@@ -203,6 +232,19 @@ namespace StealthProto
             if (dt > 0f) extraCurrent = Mathf.Lerp(extraCurrent, ExtraDistance, 1f - Mathf.Exp(-6f * dt));
             cam.transform.localPosition = tilt * new Vector3(0f, 0f, -(distance + extraCurrent)) + shake;
             cam.transform.localRotation = tilt;
+
+            // Cover corner view: blend from the top-down pose to a low look along the wall.
+            if (dt > 0f) coverBlend = Mathf.MoveTowards(coverBlend, coverOn ? 1f : 0f, coverSwingSharpness * dt * 0.5f);
+            float b = Mathf.SmoothStep(0f, 1f, coverBlend) * coverSwing;
+            if (b > 0.001f)
+            {
+                Vector3 eye = coverPlayer + coverNormal * coverViewOut - coverToward * coverViewBack + Vector3.up * coverViewHeight;
+                Vector3 look = coverPlayer + coverToward * coverLookAhead - coverNormal * coverLookBehind + Vector3.up * 0.6f;
+                Quaternion view = Quaternion.LookRotation(look - eye, Vector3.up);
+                Vector3 topPos = cam.transform.position;
+                Quaternion topRot = cam.transform.rotation;
+                cam.transform.SetPositionAndRotation(Vector3.Lerp(topPos, eye + shake, b), Quaternion.Slerp(topRot, view, b));
+            }
         }
 
         void FirstPerson(float dt)

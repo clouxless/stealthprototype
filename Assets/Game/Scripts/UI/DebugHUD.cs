@@ -106,13 +106,14 @@ namespace StealthProto
                     "Move WASD / left stick (silent)    Crawl C / B\n" +
                     "Dash Space / A            Melee LMB / X\n" +
                     "Context E / Y: takedown (behind an unalerted guard), clamber, climb, hang off edges\n" +
-                    "Cover: push into a wall. Slide to an end to peek, LMB / X knock, push away to leave\n" +
+                    "Cover: hold Shift / LB by a wall, slide along it; near the end the camera looks round the corner\n" +
+                    "Knock (in cover, or in a vent / grate): hold LMB / X to see its reach, release to knock\n" +
                     "Hanging: stick shimmies, E climbs up, Space / C lets go (grip runs out)\n" +
                     "Focus (hold, can't move) Q / L3: see sounds\n" +
                     "Aim RMB / LT, fire LMB / RT\n" +
                     "First-person look V / R3  (can't move, fire along view)\n" +
                     "Zoom mouse wheel / d-pad   F1 vision cones   F2 all noise rings   F4 x-ray   R restart";
-                GUI.Label(new Rect(324, Screen.height - 176, 720, 166), help, label); // beside the 300-wide status panel
+                GUI.Label(new Rect(324, Screen.height - 196, 760, 186), help, label); // beside the 300-wide status panel
             }
 
             if (health != null && health.IsDead)
@@ -147,10 +148,10 @@ namespace StealthProto
         void DrawContextPrompt()
         {
             if (cam == null) return;
-            if (cover != null && cover.InCover && (context == null || context.PromptLabel == null))
+            if (cover != null && cover.Prompt != null && (cover.InCover || cover.PreviewingKnock || context == null || context.PromptLabel == null))
             {
                 Vector3 cp = cam.WorldToScreenPoint(player.transform.position + Vector3.up * 2.3f);
-                if (cp.z > 0f) GUI.Box(new Rect(cp.x - 120, Screen.height - cp.y - 16, 240, 32), $"[PH] {cover.Prompt}", prompt);
+                if (cp.z > 0f) GUI.Box(new Rect(cp.x - 170, Screen.height - cp.y - 16, 340, 32), $"[PH] {cover.Prompt}", prompt);
                 return;
             }
             if (context == null) return;

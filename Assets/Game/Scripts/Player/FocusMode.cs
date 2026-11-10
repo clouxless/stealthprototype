@@ -13,6 +13,7 @@ namespace StealthProto
     /// Focus only shows sound: still guards, lights and sightlines stay hidden. Sounds off screen
     /// get no marker, but their ripples still sweep in across the screen edge.
     /// Moving, attacking, aiming, dashing or interacting breaks it. Cues linger, then fade.
+    /// Like guards, you only pick up sounds from the space you're in (SoundGrid).
     /// Drawn with placeholder IMGUI ([PH]).
     /// </summary>
     [RequireComponent(typeof(PlayerInputReader), typeof(PlayerMotor))]
@@ -80,6 +81,9 @@ namespace StealthProto
         void OnSound(SoundEvent e)
         {
             if (e.source == gameObject && e.kind == SoundKind.Footstep) return; // your own steps aren't news
+            // Same rule as guards: you only pick up sounds from the space you're in. A sealed room
+            // next door is silent, and so is everything outside while you're in a vent or grate.
+            if (e.source != gameObject && !SoundGrid.Connected(e.space, SoundGrid.SpaceAt(transform.position))) return;
             sounds.Add(e);
         }
 
