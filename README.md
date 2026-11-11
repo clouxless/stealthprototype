@@ -29,7 +29,8 @@ The repo holds only our code and docs. Unity generates the project settings, so:
    and let it restart.
 5. Check **Window > Package Manager** has **Input System** and **AI Navigation**
    installed. Install either one if it's missing.
-6. Run **Stealth Prototype > Build Graybox Test Scene** (or **Build Dock Sandbox Scene**),
+6. Run **Stealth Prototype > Build Graybox Test Scene** (or **Build Dock Sandbox Scene**, or
+   **Build Tutorial Gatehouse Scene**),
    then press **Play**.
 7. Commit the template's files (`Assets/`, `Packages/`, `ProjectSettings/`, and all
    `.meta` files) so the project opens the same everywhere.
@@ -191,6 +192,32 @@ the player and guard AI, laid out from Cloux's design on a 2 m grid (50 x 28 m):
 The floor plan is a text map at the top of `Editor/DockSandboxBuilder.cs`. Edit it and run
 the menu item again to try a variation.
 
+## Tutorial: guide wall to the gatehouse
+
+**Stealth Prototype > Build Tutorial Gatehouse Scene** builds `PH_TutorialGatehouse`, the
+first stretch of the tutorial from map A (`design/tutorial-gatehouse/versions/map-A-labeled` in
+the project files). It's geometry and lights only for now: **no guards yet**.
+
+- **Coordinates are the map's:** x is east, z is north (upriver), in metres. Heights are
+  compressed from the real lock: guide wall top 0, ledge +6.4, bridge and pier deck +16.
+- **Guide wall:** 3 m wide, 120 m long, railed, with buttresses under its river side and four
+  mooring dolphins carrying on downstream. You start at its downstream tip.
+- **Lower stairs:** a zig-zag stair (two flights) on the front face of the lower block, east of
+  where the wall lands. It tops out on the **ledge** (22 x 7 m) next to a small hut.
+- **Upper stairs:** a zig-zag stair (three flights) against the upper pier face, with open
+  ledge in front of it. It comes out on the bridge through a gap in the south parapet.
+  Each flight is 1.2 m wide and side by side with the next, so no flight runs over the one below.
+- **Bridge:** a 13 m road from x -40 to 66, over chamber 1 (centre x -17), the pier, and the
+  east bank. Lampposts on both edges. The west end is two Humvees with their headlights down the
+  road; the east end is a wall. Both ends are walled off past the climb limit.
+- **Pier deck:** the gatehouse (15 x 13 m) against the chamber edge, a small box between it and
+  the bridge, open deck to the east and an outbuilding further north.
+- **Goal:** the gatehouse door, on its south face.
+- **Rules here:** one hit point (one shot kills) and a silent dash. Falling into the water
+  restarts the level.
+
+The layout lives in `Editor/TutorialGatehouseBuilder.cs`, one method per area.
+
 ## Look and testing toggles
 
 - **Black and white, except guard state:** a global URP volume
@@ -234,4 +261,5 @@ the menu item again to try a variation.
 | `Scripts/Level/GrateRun.cs`, `Scripts/Player/PlayerGrateCrawl.cs` | Floor grates: enter, crawl, exit |
 | `Editor/GrayboxBuilder.cs` | Builds the test scene from code |
 | `Editor/DockSandboxBuilder.cs` | Builds the dock sandbox from a text map |
+| `Editor/TutorialGatehouseBuilder.cs` | Builds the tutorial's first stretch (map A) |
 | `Editor/PlaceholderAudit.cs` | Placeholder audit and release-build block |
