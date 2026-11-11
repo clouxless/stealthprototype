@@ -14,7 +14,9 @@ namespace StealthProto.EditorTools
     /// gatehouse on the pier deck. Geometry, lamps and the Humvee light wall only: no guards yet.
     ///
     /// Coordinates are the map's, in metres: x = east, z = north (upriver). y is height.
-    /// Heights are compressed from the real lock: wall top 0, ledge +6.4, bridge and deck +16.
+    /// Heights follow the real lowest head, measured from the guide wall top: ledge +6.4 (2 flights),
+    /// bridge and deck +16 (3 more flights), about 15 m of real climb from wall top to bridge. See
+    /// design/tutorial-gatehouse/real-heights.md in the project files for how that was estimated.
     /// Everything it makes is a placeholder (Assets/_Placeholder, PH_*).
     /// </summary>
     public static class TutorialGatehouseBuilder
@@ -24,7 +26,7 @@ namespace StealthProto.EditorTools
         // Elevations (top surfaces).
         const float WallTop = 0f;
         const float LedgeTop = 6.4f;      // 2 flights of 3.2 m
-        const float DeckTop = 16f;        // 2 more flights of 4.8 m
+        const float DeckTop = 16f;        // 3 more flights of 3.2 m
         const float Base = -8f;           // where the concrete meets the water (well under the surface)
         const float WaterY = -5f;         // visual only
         const float HazardY = -12f;       // falling in the water kills you
@@ -39,7 +41,8 @@ namespace StealthProto.EditorTools
         // Lower stairs: x 3..14 on the block's front face. Upper stairs: x 10.5..21.5 on the pier face.
         const float LowerX0 = 3f, UpperX0 = 10.5f;
         const float LowerZ0 = -2f * Lane;          // -3..0
-        const float UpperZ0 = 7f - 2f * Lane;      // 4..7
+        const float UpperLane = 1.4f;              // the upper stair has three lanes
+        const float UpperZ0 = 7f - 3f * UpperLane; // 2.8..7
 
         const float RailHeight = 1.1f;
         const float RailThick = 0.1f;
@@ -281,28 +284,35 @@ namespace StealthProto.EditorTools
         }
 
         /// <summary>
-        /// Upper stairs: a 3 m strip against the upper pier face (x 10.5..21.5, z 4..7), two flights of
-        /// 4.8 m (31 degrees), with 4 m of open ledge in front. Flight 1 (outer lane) climbs east from the ledge,
-        /// flight 2 (inner lane) climbs back west, and the top landing opens north onto the bridge
-        /// through a gap in its south parapet.
+        /// Upper stairs: three flights of 3.2 m, as in the photos, against the upper pier face
+        /// (x 10.5..21.5, z 2.8..7), with 2.8 m of open ledge in front. The three flights sit side by side
+        /// in three 1.4 m lanes, so none runs over another: flight 1 (outer lane) climbs east from the
+        /// ledge, flight 2 (middle) climbs back west, flight 3 (inner, against the wall) climbs east again,
+        /// and the top landing opens north onto the bridge through a gap in its south parapet.
         /// </summary>
         static void BuildUpperStairs(Transform parent)
         {
             float x0 = UpperX0, x1 = UpperX0 + StairLength;
-            float outerZ0 = UpperZ0, mid = UpperZ0 + Lane, innerZ1 = 7f;
+            float zA = UpperZ0, zB = zA + UpperLane, zC = zB + UpperLane, zTop = 7f;
             float fx0 = x0 + LandingDepth, fx1 = x1 - LandingDepth;
-            float yTurn = (LedgeTop + DeckTop) * 0.5f;
+            float rise = (DeckTop - LedgeTop) / 3f;
+            float y1 = LedgeTop + rise, y2 = LedgeTop + 2f * rise;
 
             // Flight 1 starts on the ledge itself.
-            Flight(parent, "PH_Flight_1", fx0, fx1, LedgeTop, yTurn, LedgeTop, outerZ0, mid, outerZ0 + 0.05f);
-            Landing(parent, "PH_Landing_Turn", fx1, x1, outerZ0, innerZ1, yTurn, LedgeTop);
-            Flight(parent, "PH_Flight_2", fx1, fx0, yTurn, DeckTop, LedgeTop, mid, innerZ1, mid);
-            Landing(parent, "PH_Landing_Top", x0, fx0, mid, innerZ1, DeckTop, LedgeTop);
+            Flight(parent, "PH_Flight_1", fx0, fx1, LedgeTop, y1, LedgeTop, zA, zB, zA + 0.05f);
+            Landing(parent, "PH_Landing_Turn1", fx1, x1, zA, zC, y1, LedgeTop);
+            Flight(parent, "PH_Flight_2", fx1, fx0, y1, y2, LedgeTop, zB, zC, zB);
+            Landing(parent, "PH_Landing_Turn2", x0, fx0, zB, zTop, y2, LedgeTop);
+            Flight(parent, "PH_Flight_3", fx0, fx1, y2, DeckTop, LedgeTop, zC, zTop, zC);
+            Landing(parent, "PH_Landing_Top", fx1, x1, zC, zTop, DeckTop, LedgeTop);
 
-            RailZ(parent, outerZ0, innerZ1, x1 - 0.05f, yTurn);
-            RailX(parent, fx1, x1, outerZ0 + 0.05f, yTurn);
-            RailZ(parent, mid, innerZ1, x0 + 0.05f, DeckTop);
-            RailX(parent, x0, fx0, mid, DeckTop);
+            // Rails round the landings' open sides.
+            RailZ(parent, zA, zC, x1 - 0.05f, y1);
+            RailX(parent, fx1, x1, zA + 0.05f, y1);
+            RailZ(parent, zB, zTop, x0 + 0.05f, y2);
+            RailX(parent, x0, fx0, zB, y2);
+            RailZ(parent, zC, zTop, x1 - 0.05f, DeckTop);
+            RailX(parent, fx1, x1, zC, DeckTop);
         }
 
         /// <summary>
@@ -323,8 +333,8 @@ namespace StealthProto.EditorTools
 
             // Parapets. South: all along, with a gap at the top of the upper stairs.
             float pz = z0 + ParapetThick * 0.5f;
-            RailX(parent, -40f, UpperX0, pz, DeckTop, ParapetThick);
-            RailX(parent, UpperX0 + LandingDepth, 66f, pz, DeckTop, ParapetThick);
+            RailX(parent, -40f, UpperX0 + StairLength - LandingDepth, pz, DeckTop, ParapetThick);
+            RailX(parent, UpperX0 + StairLength, 66f, pz, DeckTop, ParapetThick);
             // North: only where there's no pier deck beyond.
             float nz = z1 - ParapetThick * 0.5f;
             RailX(parent, -40f, 0f, nz, DeckTop, ParapetThick);

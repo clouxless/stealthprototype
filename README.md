@@ -198,18 +198,19 @@ the menu item again to try a variation.
 first stretch of the tutorial from map A (`design/tutorial-gatehouse/versions/map-A-labeled` in
 the project files). It's geometry and lights only for now: **no guards yet**.
 
-- **Coordinates are the map's:** x is east, z is north (upriver), in metres. Heights are
-  compressed from the real lock: guide wall top 0, ledge +6.4, bridge and pier deck +16.
+- **Coordinates are the map's:** x is east, z is north (upriver), in metres. Heights follow
+  the real lowest lock head, measured from the guide wall top: ledge +6.4 m, bridge and pier
+  deck +16 m, all in flights of 3.2 m.
 - **Guide wall:** 3 m wide, 120 m long, railed, with buttresses under its river side and four
   mooring dolphins carrying on downstream. You start at its downstream tip.
 - **Lower stairs:** a scissor stair (two flights) on the front face of the lower block, east of
   where the wall lands. Step east off the end of the wall onto it. It tops out on the **ledge**
   (22 x 7 m) next to a small hut.
-- **Upper stairs:** another scissor stair (two flights) against the upper pier face, with 4 m of
-  open ledge in front of it. It comes out on the bridge through a gap in the south parapet.
-- **How the stairs are built:** two 1.5 m lanes side by side, 11 m long, with a 1.5 m landing at
-  each end to turn round on. Every flight is solid down to the floor below it (so there's no gap
-  to fall through), and no flight runs over another (so the camera always sees you).
+- **Upper stairs:** three flights against the upper pier face, side by side in three 1.4 m lanes,
+  with 2.8 m of open ledge in front. It comes out on the bridge through a gap in the south parapet.
+- **How the stairs are built:** each flight is 8 m long and rises 3.2 m (22 degrees), with a
+  1.5 m landing at each end to turn round on. Every flight is solid down to the floor below it (so
+  there's no gap to fall through), and no flight runs over another (so the camera always sees you).
 - **Bridge:** a 13 m road from x -40 to 66, over chamber 1 (centre x -17), the pier, and the
   east bank. Lampposts on both edges. The west end is two Humvees with their headlights down the
   road; the east end is a wall. Both ends are walled off past the climb limit.
