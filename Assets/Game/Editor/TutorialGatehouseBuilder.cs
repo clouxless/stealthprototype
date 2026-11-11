@@ -24,16 +24,22 @@ namespace StealthProto.EditorTools
         // Elevations (top surfaces).
         const float WallTop = 0f;
         const float LedgeTop = 6.4f;      // 2 flights of 3.2 m
-        const float DeckTop = 16f;        // 3 more flights of 3.2 m
+        const float DeckTop = 16f;        // 2 more flights of 4.8 m
         const float Base = -8f;           // where the concrete meets the water (well under the surface)
         const float WaterY = -5f;         // visual only
         const float HazardY = -12f;       // falling in the water kills you
 
-        // Stairs: two side-by-side lanes (scissor), so a flight never runs over the one below it.
-        const float Lane = 1.2f;          // flight width
-        const float LaneGap = 0.1f;
-        const float LandingDepth = 1f;    // landing at each end of a flight
-        const float Rise = 3.2f;          // per flight (run 6 m, about 28 degrees)
+        // Stairs: two side-by-side lanes (a scissor stair). Every flight and landing is solid down to
+        // the floor below it, so there's nothing to fall through, and no flight runs over another, so
+        // the top-down camera always sees you. Run 8 m per flight.
+        const float Lane = 1.5f;          // flight width
+        const float LandingDepth = 1.5f;  // landing at each end: room to turn round
+        const float StairLength = 11f;    // along the wall: 1.5 + 8 + 1.5
+
+        // Lower stairs: x 3..14 on the block's front face. Upper stairs: x 10.5..21.5 on the pier face.
+        const float LowerX0 = 3f, UpperX0 = 10.5f;
+        const float LowerZ0 = -2f * Lane;          // -3..0
+        const float UpperZ0 = 7f - 2f * Lane;      // 4..7
 
         const float RailHeight = 1.1f;
         const float RailThick = 0.1f;
@@ -107,9 +113,9 @@ namespace StealthProto.EditorTools
                 new Vector3((x0 + x1) * 0.5f, (y0 + y1) * 0.5f, (z0 + z1) * 0.5f),
                 new Vector3(x1 - x0, y1 - y0, z1 - z0));
 
-        /// <summary>A landing slab whose top is at y.</summary>
-        static void Landing(Transform parent, string name, float x0, float x1, float z0, float z1, float y)
-            => Box(parent, name, x0, x1, y - 0.3f, y, z0, z1);
+        /// <summary>A landing whose top is at y, solid down to floorY.</summary>
+        static void Landing(Transform parent, string name, float x0, float x1, float z0, float z1, float y, float floorY)
+            => Box(parent, name, x0, x1, floorY, y, z0, z1);
 
         /// <summary>A straight railing (or parapet) standing on a surface at height y.</summary>
         static void RailX(Transform parent, float x0, float x1, float z, float y, float thick = RailThick, float height = RailHeight)
@@ -128,17 +134,83 @@ namespace StealthProto.EditorTools
         }
 
         /// <summary>
-        /// One flight along x in a lane (z0..z1), from (xFrom, yFrom) to (xTo, yFrom + Rise).
-        /// railZ is the side that gets a railing (NaN for none).
+        /// One flight along x in a lane (z0..z1), climbing from (xFrom, yFrom) to (xTo, yTo),
+        /// solid underneath down to floorY. railZ is the side that gets a railing (NaN for none).
         /// </summary>
-        static void Flight(Transform parent, string name, float xFrom, float xTo, float yFrom, float z0, float z1, float railZ)
+        static void Flight(Transform parent, string name, float xFrom, float xTo, float yFrom, float yTo,
+            float floorY, float z0, float z1, float railZ)
         {
-            float zc = (z0 + z1) * 0.5f;
-            var bottom = new Vector3(xFrom, yFrom, zc);
-            var top = new Vector3(xTo, yFrom + Rise, zc);
-            G.Ramp(parent, name, bottom, top, z1 - z0);
+            Wedge(parent, name, xFrom, xTo, yFrom, yTo, floorY, z0, z1);
             if (!float.IsNaN(railZ))
-                SlopedRail(parent, new Vector3(xFrom, yFrom, railZ), new Vector3(xTo, yFrom + Rise, railZ));
+                SlopedRail(parent, new Vector3(xFrom, yFrom, railZ), new Vector3(xTo, yTo, railZ));
+        }
+
+        /// <summary>
+        /// A solid block with a sloped top: flat bottom at floorY, top rising from yFrom at xFrom to yTo
+        /// at xTo, across z0..z1. Convex mesh collider, grid material, UVs in metres.
+        /// </summary>
+        static GameObject Wedge(Transform parent, string name, float xFrom, float xTo, float yFrom, float yTo,
+            float floorY, float z0, float z1)
+        {
+            float xa = Mathf.Min(xFrom, xTo), xb = Mathf.Max(xFrom, xTo);
+            float ya = xFrom < xTo ? yFrom : yTo, yb = xFrom < xTo ? yTo : yFrom;
+            var centre = new Vector3((xa + xb) * 0.5f, floorY, (z0 + z1) * 0.5f);
+            Vector3 P(float x, float y, float z) => new Vector3(x, y, z) - centre;
+
+            // Corners: bottom (b) and top (t) at the low-x (a) and high-x (b) ends, near (z0) and far (z1).
+            Vector3 ba0 = P(xa, floorY, z0), bb0 = P(xb, floorY, z0), ba1 = P(xa, floorY, z1), bb1 = P(xb, floorY, z1);
+            Vector3 ta0 = P(xa, ya, z0), tb0 = P(xb, yb, z0), ta1 = P(xa, ya, z1), tb1 = P(xb, yb, z1);
+
+            var verts = new System.Collections.Generic.List<Vector3>();
+            var uvs = new System.Collections.Generic.List<Vector2>();
+            var tris = new System.Collections.Generic.List<int>();
+            Vector3 mid = P((xa + xb) * 0.5f, (floorY + (ya + yb) * 0.5f) * 0.5f, (z0 + z1) * 0.5f);
+
+            void Quad(Vector3 a, Vector3 b, Vector3 c, Vector3 d)
+            {
+                Vector3 n = Vector3.Cross(b - a, c - a);
+                if (n.sqrMagnitude < 1e-6f) return; // degenerate (a zero-height end)
+                if (Vector3.Dot(n, (a + c) * 0.5f - mid) < 0f) { var t = b; b = d; d = t; n = -n; }
+                n.Normalize();
+                // Planar UVs on the face's dominant axis, in metres, so the grid tiles at 1 m.
+                Vector2 UV(Vector3 v)
+                {
+                    Vector3 w = v + centre;
+                    float ax = Mathf.Abs(n.x), ay = Mathf.Abs(n.y), az = Mathf.Abs(n.z);
+                    if (ay >= ax && ay >= az) return new Vector2(w.x, w.z);
+                    if (ax >= az) return new Vector2(w.z, w.y);
+                    return new Vector2(w.x, w.y);
+                }
+                int i = verts.Count;
+                verts.Add(a); verts.Add(b); verts.Add(c); verts.Add(d);
+                uvs.Add(UV(a)); uvs.Add(UV(b)); uvs.Add(UV(c)); uvs.Add(UV(d));
+                tris.AddRange(new[] { i, i + 1, i + 2, i, i + 2, i + 3 });
+            }
+
+            Quad(ta0, tb0, tb1, ta1); // sloped top
+            Quad(ba0, ba1, bb1, bb0); // bottom
+            Quad(ba0, bb0, tb0, ta0); // z0 side
+            Quad(ba1, ta1, tb1, bb1); // z1 side
+            Quad(ba0, ta0, ta1, ba1); // low-x end
+            Quad(bb0, bb1, tb1, tb0); // high-x end
+
+            var mesh = new Mesh { name = $"PH_Wedge_{name}" };
+            mesh.SetVertices(verts);
+            mesh.SetUVs(0, uvs);
+            mesh.SetTriangles(tris, 0);
+            mesh.RecalculateNormals();
+            mesh.RecalculateBounds();
+            mesh.RecalculateTangents();
+
+            var go = new GameObject(name);
+            go.transform.SetParent(parent, false);
+            go.transform.position = centre;
+            go.AddComponent<MeshFilter>().sharedMesh = mesh;
+            go.AddComponent<MeshRenderer>().sharedMaterial = G.gridMat;
+            var col = go.AddComponent<MeshCollider>();
+            col.sharedMesh = mesh;
+            col.convex = true;
+            return go;
         }
 
         // ---------------------------------------------------------------- level
@@ -156,7 +228,7 @@ namespace StealthProto.EditorTools
 
             // Railings. The east one stops short of the end, where the lower stairs start.
             RailZ(parent, -120f, 0f, 0.05f, WallTop);
-            RailZ(parent, -120f, -2.6f, 2.95f, WallTop);
+            RailZ(parent, -120f, LowerZ0, 2.95f, WallTop);
             RailX(parent, 0f, 3f, -119.95f, WallTop); // the downstream tip
 
             var dolphins = G.Group(parent, "PH_Dolphins");
@@ -174,8 +246,8 @@ namespace StealthProto.EditorTools
             Box(parent, "PH_LowerBlock", 0f, 22f, Base, LedgeTop, 0f, 7f);
 
             // Ledge railings: the front edge (gap at the top of the lower stairs), the west and east ends.
-            RailX(parent, 0f, 3f, 0.05f, LedgeTop);
-            RailX(parent, 4f, 22f, 0.05f, LedgeTop);
+            RailX(parent, 0f, LowerX0, 0.05f, LedgeTop);
+            RailX(parent, LowerX0 + LandingDepth, 22f, 0.05f, LedgeTop);
             RailZ(parent, 0f, 7f, 0.05f, LedgeTop);
             RailZ(parent, 0f, 7f, 21.95f, LedgeTop);
 
@@ -184,60 +256,53 @@ namespace StealthProto.EditorTools
         }
 
         /// <summary>
-        /// Lower stairs: a 2.5 m strip on the block's front face (x 3..11, z -2.5..0), two flights.
-        /// Flight 1 in the outer lane climbs east; flight 2 in the inner lane climbs back west to the ledge.
+        /// Lower stairs: a 3 m strip on the block's front face (x 3..14, z -3..0), two flights of 3.2 m (22 degrees).
+        /// Step east off the end of the guide wall onto the bottom landing; flight 1 (outer lane) climbs
+        /// east, flight 2 (inner lane) climbs back west, and the top landing opens north onto the ledge.
         /// </summary>
         static void BuildLowerStairs(Transform parent)
         {
-            const float x0 = 3f, x1 = 11f;
-            const float outerZ0 = -2.5f, outerZ1 = outerZ0 + Lane;          // -2.5..-1.3
-            const float innerZ0 = outerZ1 + LaneGap, innerZ1 = 0f;          // -1.2..0
+            float x0 = LowerX0, x1 = LowerX0 + StairLength;
+            float outerZ0 = LowerZ0, mid = LowerZ0 + Lane, innerZ1 = 0f;
             float fx0 = x0 + LandingDepth, fx1 = x1 - LandingDepth;
+            float yTurn = (WallTop + LedgeTop) * 0.5f;
 
-            Landing(parent, "PH_Landing_Bottom", x0, fx0, outerZ0, outerZ1, WallTop);
-            Flight(parent, "PH_Flight_1", fx0, fx1, WallTop, outerZ0, outerZ1, outerZ0 + 0.05f);
-            Landing(parent, "PH_Landing_Turn", fx1, x1, outerZ0, innerZ1, WallTop + Rise);
-            Flight(parent, "PH_Flight_2", fx1, fx0, WallTop + Rise, innerZ0, innerZ1, innerZ0 - LaneGap * 0.5f);
-            Landing(parent, "PH_Landing_Top", x0, fx0, innerZ0, innerZ1, LedgeTop);
+            Landing(parent, "PH_Landing_Bottom", x0, fx0, outerZ0, mid, WallTop, Base);
+            Flight(parent, "PH_Flight_1", fx0, fx1, WallTop, yTurn, Base, outerZ0, mid, outerZ0 + 0.05f);
+            Landing(parent, "PH_Landing_Turn", fx1, x1, outerZ0, innerZ1, yTurn, Base);
+            Flight(parent, "PH_Flight_2", fx1, fx0, yTurn, LedgeTop, Base, mid, innerZ1, mid);
+            Landing(parent, "PH_Landing_Top", x0, fx0, mid, innerZ1, LedgeTop, Base);
 
-            // Outer rails on the landings.
-            RailZ(parent, outerZ0, innerZ1, x1 - 0.05f, WallTop + Rise);
-            RailX(parent, fx1, x1, outerZ0 + 0.05f, WallTop + Rise);
-            RailZ(parent, innerZ0, innerZ1, x0 + 0.05f, LedgeTop);
-            RailX(parent, x0, fx0, innerZ0 - LaneGap * 0.5f, LedgeTop);
+            // Rails round the turn landing and the top landing's open sides.
+            RailZ(parent, outerZ0, innerZ1, x1 - 0.05f, yTurn);
+            RailX(parent, fx1, x1, outerZ0 + 0.05f, yTurn);
+            RailZ(parent, mid, innerZ1, x0 + 0.05f, LedgeTop);
+            RailX(parent, x0, fx0, mid, LedgeTop);
         }
 
         /// <summary>
-        /// Upper stairs: a 2.5 m strip against the upper pier face (x 13..21, z 4.5..7), three flights,
-        /// with open ledge in front. Flights 1 and 3 share the outer lane (6.4 m apart), flight 2 is inner.
-        /// The top landing opens north onto the bridge through a gap in its south parapet.
+        /// Upper stairs: a 3 m strip against the upper pier face (x 10.5..21.5, z 4..7), two flights of
+        /// 4.8 m (31 degrees), with 4 m of open ledge in front. Flight 1 (outer lane) climbs east from the ledge,
+        /// flight 2 (inner lane) climbs back west, and the top landing opens north onto the bridge
+        /// through a gap in its south parapet.
         /// </summary>
         static void BuildUpperStairs(Transform parent)
         {
-            const float x0 = 13f, x1 = 21f;
-            const float outerZ0 = 4.5f, outerZ1 = outerZ0 + Lane;           // 4.5..5.7
-            const float innerZ0 = outerZ1 + LaneGap, innerZ1 = 7f;          // 5.8..7
+            float x0 = UpperX0, x1 = UpperX0 + StairLength;
+            float outerZ0 = UpperZ0, mid = UpperZ0 + Lane, innerZ1 = 7f;
             float fx0 = x0 + LandingDepth, fx1 = x1 - LandingDepth;
-            float y0 = LedgeTop;
+            float yTurn = (LedgeTop + DeckTop) * 0.5f;
 
             // Flight 1 starts on the ledge itself.
-            Flight(parent, "PH_Flight_1", fx0, fx1, y0, outerZ0, outerZ1, outerZ0 + 0.05f);
-            Landing(parent, "PH_Landing_Turn1", fx1, x1, outerZ0, innerZ1, y0 + Rise);
-            Flight(parent, "PH_Flight_2", fx1, fx0, y0 + Rise, innerZ0, innerZ1, innerZ0 - LaneGap * 0.5f);
-            Landing(parent, "PH_Landing_Turn2", x0, fx0, outerZ0, innerZ1, y0 + 2f * Rise);
-            Flight(parent, "PH_Flight_3", fx0, fx1, y0 + 2f * Rise, outerZ0, outerZ1, outerZ0 + 0.05f);
-            Landing(parent, "PH_Landing_Top", fx1, x1, outerZ0, innerZ1, DeckTop);
-            // Flight 3's inner side, so you don't drop from it onto flight 2.
-            SlopedRail(parent, new Vector3(fx0, y0 + 2f * Rise, innerZ0 - LaneGap * 0.5f),
-                new Vector3(fx1, DeckTop, innerZ0 - LaneGap * 0.5f));
+            Flight(parent, "PH_Flight_1", fx0, fx1, LedgeTop, yTurn, LedgeTop, outerZ0, mid, outerZ0 + 0.05f);
+            Landing(parent, "PH_Landing_Turn", fx1, x1, outerZ0, innerZ1, yTurn, LedgeTop);
+            Flight(parent, "PH_Flight_2", fx1, fx0, yTurn, DeckTop, LedgeTop, mid, innerZ1, mid);
+            Landing(parent, "PH_Landing_Top", x0, fx0, mid, innerZ1, DeckTop, LedgeTop);
 
-            // Rails round the landings' open sides.
-            RailZ(parent, outerZ0, innerZ1, x1 - 0.05f, y0 + Rise);
-            RailX(parent, fx1, x1, outerZ0 + 0.05f, y0 + Rise);
-            RailZ(parent, outerZ0, innerZ1, x0 + 0.05f, y0 + 2f * Rise);
-            RailX(parent, x0, fx0, outerZ0 + 0.05f, y0 + 2f * Rise);
-            RailZ(parent, outerZ0, innerZ1, x1 - 0.05f, DeckTop);
-            RailX(parent, fx1, x1, outerZ0 + 0.05f, DeckTop);
+            RailZ(parent, outerZ0, innerZ1, x1 - 0.05f, yTurn);
+            RailX(parent, fx1, x1, outerZ0 + 0.05f, yTurn);
+            RailZ(parent, mid, innerZ1, x0 + 0.05f, DeckTop);
+            RailX(parent, x0, fx0, mid, DeckTop);
         }
 
         /// <summary>
@@ -256,10 +321,10 @@ namespace StealthProto.EditorTools
             // Chamber 1's far (west) wall under the bridge, and the walls framing the chamber.
             Box(parent, "PH_ChamberWall_West", -40f, -34f, Base, DeckTop - 1.5f, z0 - 4f, z1 + 4f);
 
-            // Parapets. South: all along, with a gap at the top of the upper stairs (x 20..21).
+            // Parapets. South: all along, with a gap at the top of the upper stairs.
             float pz = z0 + ParapetThick * 0.5f;
-            RailX(parent, -40f, 20f, pz, DeckTop, ParapetThick);
-            RailX(parent, 21f, 66f, pz, DeckTop, ParapetThick);
+            RailX(parent, -40f, UpperX0, pz, DeckTop, ParapetThick);
+            RailX(parent, UpperX0 + LandingDepth, 66f, pz, DeckTop, ParapetThick);
             // North: only where there's no pier deck beyond.
             float nz = z1 - ParapetThick * 0.5f;
             RailX(parent, -40f, 0f, nz, DeckTop, ParapetThick);
