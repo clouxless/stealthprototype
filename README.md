@@ -29,7 +29,8 @@ The repo holds only our code and docs. Unity generates the project settings, so:
    and let it restart.
 5. Check **Window > Package Manager** has **Input System** and **AI Navigation**
    installed. Install either one if it's missing.
-6. Run **Stealth Prototype > Build Graybox Test Scene** (or **Build Dock Sandbox Scene**),
+6. Run **Stealth Prototype > Build Graybox Test Scene** (or **Build Dock Sandbox Scene**, or
+   **Build Tutorial Gatehouse Scene**),
    then press **Play**.
 7. Commit the template's files (`Assets/`, `Packages/`, `ProjectSettings/`, and all
    `.meta` files) so the project opens the same everywhere.
@@ -69,15 +70,22 @@ While hanging: the stick shimmies along the edge, E climbs up, Space or C lets g
   lights the floor you stand on. Your character's tint shows the tier; there's no meter.
 - **Guards don't roll dice.** Patrols, pauses, head sweeps and searches are the same every
   time. A "?" shows before a guard turns suspicious and a "!" before an alert. Shots have
-  a visible wind-up and always hit unless you break line of sight first.
+  a short visible wind-up (0.3 s) and always hit unless you break line of sight first. Once the
+  "!" freeze ends, an alerted guard who can see you within 20 m fires about every 0.8 s, so
+  being seen in the open is deadly fast.
 - **Short hunts.** When a guard loses you, a marker shows where they'll search: your last
   known position, then one step further along your heading. Break line of sight or lure
   them with noise and the hunt ends quickly. The lasting cost is the room: after the
   first alert, guards stay wary (they spot you faster) and the red alarm floods stay on.
-- **Focus.** Hold Q to listen. Over about 3 seconds the world fades to pitch black, leaving
+- **Focus.** Hold Q to listen, also while clinging to a wall. Over about 3 seconds the world fades to pitch black, leaving
   only you and sounds drawn as ripples. Once it is fully black, the camera pulls out. Hold longer for more: loud
   nearby sounds, then every sound (from 0.75 s), then which guard made it and their state
-  (from 3 s). Ripples from sounds off screen sweep in across the screen edge. Only sound shows. Critical sounds (gunshots,
+  (from 3 s). Ripples are slow, soft rings with fainter rings trailing them, like water, and
+  each source makes at most one every 1.2 s. As focus deepens the ripples shrink, from the
+  sound's full radius down to a fifth of it after 9 s of holding (slower than the camera's
+  pull-out, which ends at 5 s), so it gets easier to pinpoint who
+  made them (`FocusMode.ripple*` to tune). Ripples from sounds
+  off screen drift in across the screen edge. Only sound shows. Critical sounds (gunshots,
   shouts) always draw a ring, focus or not.
 - **Walking is the sneaking.** There's one walking speed and no sneak button. Walking is
   silent, and a guard never notices you outside his vision cone, so walking up behind one
@@ -104,10 +112,11 @@ While hanging: the stick shimmies along the edge, E climbs up, Space or C lets g
   last metre and short of the very edge, the camera swings low to look along the wall and round
   the corner, MGS1-style (`CameraRig.coverSwing`: 1 is the full swing, 0 stays top-down). Cover
   is for seeing and luring, not hiding: guards still see you there.
-- **Knocking (luring).** In cover, hold LMB (X) to show the knock's reach on the floor: a 10 m
+- **Knocking (luring).** In cover, hold LMB (X) to show the knock's reach on the floor: a 16 m
   circle with any sealed-off spaces cut out. Release to knock; let go of Shift first to cancel.
-  Every guard who hears it walks to it by the shortest path, does the same look-around and goes
-  back. In a vent or a floor grate the same hold-and-release works without Shift (moving
+  Every guard who hears it stops and turns to it with a "?" for a second (`hearNoticeTime`),
+  then walks to it by the shortest path, does the same look-around and goes back. A second
+  knock while he's investigating gets the same pause before he heads to the new spot. In a vent or a floor grate the same hold-and-release works without Shift (moving
   cancels it).
 - **How noise travels.** Every noise is a straight-line circle of its radius. A guard inside
   the circle hears it if there's any open way round from the noise to him, however long. Only a
@@ -183,6 +192,36 @@ the player and guard AI, laid out from Cloux's design on a 2 m grid (50 x 28 m):
 The floor plan is a text map at the top of `Editor/DockSandboxBuilder.cs`. Edit it and run
 the menu item again to try a variation.
 
+## Tutorial: guide wall to the gatehouse
+
+**Stealth Prototype > Build Tutorial Gatehouse Scene** builds `PH_TutorialGatehouse`, the
+first stretch of the tutorial from map A (`design/tutorial-gatehouse/versions/map-A-labeled` in
+the project files). It's geometry and lights only for now: **no guards yet**.
+
+- **Coordinates are the map's:** x is east, z is north (upriver), in metres. Heights follow
+  the real lowest lock head, measured from the guide wall top: ledge +6.4 m, bridge and pier
+  deck +16 m, all in flights of 3.2 m.
+- **Guide wall:** 3 m wide, 120 m long, railed, with buttresses under its river side and four
+  mooring dolphins carrying on downstream. You start at its downstream tip.
+- **Lower stairs:** a scissor stair (two flights) on the front face of the lower block, east of
+  where the wall lands. Step east off the end of the wall onto it. It tops out on the **ledge**
+  (22 x 7 m) next to a small hut.
+- **Upper stairs:** three flights against the upper pier face, side by side in three 1.4 m lanes,
+  with 2.8 m of open ledge in front. It comes out on the bridge through a gap in the south parapet.
+- **How the stairs are built:** each flight is 8 m long and rises 3.2 m (22 degrees), with a
+  1.5 m landing at each end to turn round on. Every flight is solid down to the floor below it (so
+  there's no gap to fall through), and no flight runs over another (so the camera always sees you).
+- **Bridge:** a 13 m road from x -40 to 66, over chamber 1 (centre x -17), the pier, and the
+  east bank. Lampposts on both edges. The west end is two Humvees with their headlights down the
+  road; the east end is a wall. Both ends are walled off past the climb limit.
+- **Pier deck:** the gatehouse (15 x 13 m) against the chamber edge, a small box between it and
+  the bridge, open deck to the east and an outbuilding further north.
+- **Goal:** the gatehouse door, on its south face.
+- **Rules here:** one hit point (one shot kills) and a silent dash. Falling into the water
+  restarts the level.
+
+The layout lives in `Editor/TutorialGatehouseBuilder.cs`, one method per area.
+
 ## Look and testing toggles
 
 - **Black and white, except guard state:** a global URP volume
@@ -226,4 +265,5 @@ the menu item again to try a variation.
 | `Scripts/Level/GrateRun.cs`, `Scripts/Player/PlayerGrateCrawl.cs` | Floor grates: enter, crawl, exit |
 | `Editor/GrayboxBuilder.cs` | Builds the test scene from code |
 | `Editor/DockSandboxBuilder.cs` | Builds the dock sandbox from a text map |
+| `Editor/TutorialGatehouseBuilder.cs` | Builds the tutorial's first stretch (map A) |
 | `Editor/PlaceholderAudit.cs` | Placeholder audit and release-build block |

@@ -162,7 +162,8 @@ namespace StealthProto
                 dashCooldownTimer = dashDuration + dashCooldown;
                 if (health != null) health.Invulnerable = true;
                 transform.rotation = Quaternion.LookRotation(dashDirection);
-                NoiseSystem.Emit(transform.position, dashNoiseRadius, 0.5f, null, SoundKind.Movement, gameObject);
+                if (dashNoiseRadius > 0f)
+                    NoiseSystem.Emit(transform.position, dashNoiseRadius, 0.5f, null, SoundKind.Movement, gameObject);
             }
 
             Vector3 horizontal;
