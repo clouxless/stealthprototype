@@ -88,6 +88,7 @@ namespace StealthProto.EditorTools
             BuildWater();        // outside PH_Level: visual only
             BuildFallHazard();   // outside PH_Level so the NavMesh never sees it
             BuildGoal();
+            BuildCameraZones();
 
             var player = G.BuildPlayer(new Vector3(1.6f, WallTop, -118f));
             player.transform.rotation = Quaternion.identity; // facing north, up the wall
@@ -229,19 +230,34 @@ namespace StealthProto.EditorTools
             for (float z = -118f; z < -2f; z += 9f)
                 Box(parent, "PH_Buttress", -2f, 0f, Base, WallTop - 0.6f, z, z + 3f);
 
-            // Railings. The east one stops short of the end, where the lower stairs start.
-            RailZ(parent, -120f, 0f, 0.05f, WallTop);
-            RailZ(parent, -120f, LowerZ0, 2.95f, WallTop);
-            RailX(parent, 0f, 3f, -119.95f, WallTop); // the downstream tip
+            // No railings: the edge rules stop you walking off (you hang instead), and the open tip
+            // lets you dash-jump out to the dolphins. A low concrete lip marks each edge from above.
+            var lips = G.Group(parent, "PH_EdgeLips");
+            G.Visual(PrimitiveType.Cube, lips, "PH_EdgeLip", new Vector3(0.075f, WallTop + 0.075f, -60f), new Vector3(0.15f, 0.15f, 120f), G.gridMat);
+            float eastLipEnd = LowerZ0;
+            G.Visual(PrimitiveType.Cube, lips, "PH_EdgeLip", new Vector3(2.925f, WallTop + 0.075f, (-120f + eastLipEnd) * 0.5f),
+                new Vector3(0.15f, 0.15f, eastLipEnd + 120f), G.gridMat);
 
+            // Mooring dolphins: round concrete posts downstream of the tip, 0.5 m below the wall top.
+            // Gaps: 3.6 m from the tip, then 3.2, 3.2, and 4.2 to the last one, where a short jump ends
+            // in a ledge catch. The last one will hold a hidden item.
             var dolphins = G.Group(parent, "PH_Dolphins");
-            foreach (float z in new[] { -125f, -131f, -137f, -143f })
+            float h = WallTop - 0.5f - WaterY;
+            float[] centres = { -125f, -131f, -137f, -144f };
+            foreach (float z in centres)
             {
-                float h = WallTop - 0.5f - WaterY;
-                G.Visual(PrimitiveType.Cylinder, dolphins, "PH_Dolphin",
-                    new Vector3(1.5f, WaterY + h * 0.5f, z), new Vector3(2.8f, h * 0.5f, 2.8f), G.gridMat);
+                var d = G.Visual(PrimitiveType.Cylinder, dolphins, "PH_Dolphin",
+                    new Vector3(1.5f, WaterY + h * 0.5f, z), new Vector3(DolphinDiameter, h * 0.5f, DolphinDiameter), G.gridMat);
+                var col = d.AddComponent<MeshCollider>(); // flat top, unlike the primitive's capsule
+                col.sharedMesh = d.GetComponent<MeshFilter>().sharedMesh;
+                col.convex = true;
             }
+            var item = G.Visual(PrimitiveType.Cube, dolphins, "PH_ItemMarker",
+                new Vector3(1.5f, WallTop - 0.5f + 0.25f, centres[centres.Length - 1]), new Vector3(0.4f, 0.4f, 0.4f), G.noseMat);
+            item.transform.rotation = Quaternion.Euler(0f, 45f, 0f);
         }
+
+        const float DolphinDiameter = 2.8f;
 
         /// <summary>The lower block of the lock head: its top is the ledge (22 x 7 m), with a small hut.</summary>
         static void BuildLowerBlock(Transform parent)
@@ -409,6 +425,70 @@ namespace StealthProto.EditorTools
             box.isTrigger = true;
             box.size = new Vector3(260f, 4f, 280f);
             hazard.AddComponent<FallHazard>();
+        }
+
+        /// <summary>
+        /// Cinematic shots. Guide wall: top-down at the spawn (so you see the dolphins), then the camera
+        /// swoops round to your right for the dam view, then slowly cranes back and up behind you onto
+        /// the lock head, and drops back to top-down 20 m before the wall's end. Each stair has a fixed
+        /// camera out over the water, looking at it side-on.
+        /// </summary>
+        static void BuildCameraZones()
+        {
+            var zones = new GameObject("PH_CameraZones").transform; // outside PH_Level: triggers stay off the NavMesh
+
+            // Dam view: tracks alongside you, 9 m to your right (east), looking west past you over the river.
+            var dam = Zone(zones, "PH_Cam_DamView", CameraZone.Kind.Track, new Vector3(1.5f, 0.5f, -85f), new Vector3(10f, 8f, 50f), 1.8f);
+            dam.eyeRelativeToPlayer = true;
+            dam.eyeStart = dam.eyeEnd = new Vector3(9f, 3.5f, -2f);
+            dam.lookStart = dam.lookEnd = new Vector3(-30f, 4f, 8f);
+            dam.fovStart = dam.fovEnd = 50f;
+
+            // Lock view: starts at your shoulder, then slowly cranes back and up until the head fills the frame.
+            var lockView = Zone(zones, "PH_Cam_LockView", CameraZone.Kind.Crane, new Vector3(1.5f, 0.5f, -41f), new Vector3(10f, 8f, 38f), 2.5f);
+            lockView.progressStart = new Vector3(1.5f, 0f, -60f);
+            lockView.progressEnd = new Vector3(1.5f, 0f, -22f);
+            lockView.easePower = 2f;
+            lockView.eyeRelativeToPlayer = true;
+            lockView.eyeStart = new Vector3(0.6f, 2f, -4.5f);
+            lockView.eyeEnd = new Vector3(4f, 13f, -19f);
+            lockView.lookStart = new Vector3(0f, 1.8f, 12f);
+            lockView.lookEnd = new Vector3(0f, 11f, 45f);
+            lockView.fovStart = 50f;
+            lockView.fovEnd = 42f;
+
+            // Stairs: fixed cameras over the water to the south, turning to keep you in frame.
+            float lx0 = LowerX0, lx1 = LowerX0 + StairLength;
+            var lower = Zone(zones, "PH_Cam_LowerStairs", CameraZone.Kind.Fixed,
+                new Vector3((lx0 - 0.5f + lx1 + 1f) * 0.5f, 3.5f, (LowerZ0 - 1f + 1f) * 0.5f),
+                new Vector3(lx1 + 1f - (lx0 - 0.5f), 9f, 1f - (LowerZ0 - 1f)), 1f);
+            lower.eyeRelativeToPlayer = false;
+            lower.eyeStart = lower.eyeEnd = new Vector3((lx0 + lx1) * 0.5f, WallTop + 5f, -15f);
+            lower.lookStart = lower.lookEnd = new Vector3(0f, 1.2f, 0f);
+            lower.fovStart = lower.fovEnd = 45f;
+
+            float ux0 = UpperX0, ux1 = UpperX0 + StairLength;
+            var upper = Zone(zones, "PH_Cam_UpperStairs", CameraZone.Kind.Fixed,
+                new Vector3((ux0 - 0.5f + ux1 + 1f) * 0.5f, (LedgeTop + DeckTop) * 0.5f, (UpperZ0 - 0.5f + 7.5f) * 0.5f),
+                new Vector3(ux1 + 1f - (ux0 - 0.5f), DeckTop - LedgeTop + 4f, 7.5f - (UpperZ0 - 0.5f)), 1f);
+            upper.eyeRelativeToPlayer = false;
+            upper.eyeStart = upper.eyeEnd = new Vector3((ux0 + ux1) * 0.5f, LedgeTop + 6.5f, -11f);
+            upper.lookStart = upper.lookEnd = new Vector3(0f, 1.2f, 0f);
+            upper.fovStart = upper.fovEnd = 45f;
+        }
+
+        static CameraZone Zone(Transform parent, string name, CameraZone.Kind kind, Vector3 centre, Vector3 size, float blendTime)
+        {
+            var go = new GameObject(name);
+            go.transform.SetParent(parent, false);
+            go.transform.position = centre;
+            var box = go.AddComponent<BoxCollider>();
+            box.isTrigger = true;
+            box.size = size;
+            var zone = go.AddComponent<CameraZone>();
+            zone.kind = kind;
+            zone.blendTime = blendTime;
+            return zone;
         }
 
         /// <summary>The goal: the gatehouse door. The level carries on into the chamber later.</summary>

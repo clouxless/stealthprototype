@@ -6,7 +6,11 @@ namespace StealthProto
 {
     /// <summary>
     /// Top-down follow camera with a toggleable first-person look mode (movement locked while
-    /// looking, like the classic stealth games). The rig's yaw defines "up" for movement input.
+    /// looking, like the classic stealth games).
+    /// Camera zones (CameraZone) placed in the level take over with cinematic shots and blend back
+    /// out; any suspicious or alert guard, or the cover corner view, sends the camera back to top-down.
+    /// Movement input follows the camera's facing, but after the view turns the stick keeps its old
+    /// directions until you let go of it or swing it more than controlHoldAngle.
     /// </summary>
     public class CameraRig : MonoBehaviour
     {
@@ -58,6 +62,13 @@ namespace StealthProto
         [Tooltip("Also hide geometry entirely above the player's head within this horizontal radius (decks, beams overhead).")]
         public float overheadRadius = 6f;
 
+        [Header("Camera zones")]
+        public bool useCameraZones = true;
+        [Tooltip("Seconds to snap back to top-down when a guard turns suspicious or worse.")]
+        public float safetyBlendTime = 0.4f;
+        [Tooltip("After the view turns, the stick keeps its old directions until you let go of it or swing it this many degrees.")]
+        public float controlHoldAngle = 45f;
+
         [Header("Shake")]
         public float maxShake = 0.6f;
         public float shakeDecay = 2.5f;
@@ -76,6 +87,15 @@ namespace StealthProto
         readonly HashSet<Renderer> cutThisFrame = new HashSet<Renderer>();
         static readonly RaycastHit[] CutHits = new RaycastHit[16];
         static readonly Collider[] OverheadHits = new Collider[32];
+        readonly Dictionary<CameraZone, float> zoneWeights = new Dictionary<CameraZone, float>();
+        readonly List<CameraZone> zoneOrder = new List<CameraZone>();
+        Transform controlFrame;
+        float controlYaw;
+        float heldStickAngle;
+        bool holdingStick;
+
+        /// <summary>The camera zone currently taking over (null for plain top-down).</summary>
+        public CameraZone ActiveZone { get; private set; }
 
         public bool IsFirstPerson { get; private set; }
 
@@ -117,7 +137,11 @@ namespace StealthProto
             input = target.GetComponent<PlayerInputReader>();
             motor = target.GetComponent<PlayerMotor>();
             targetRenderers = target.GetComponentsInChildren<Renderer>();
-            if (motor != null) motor.cameraYawReference = transform;
+            controlFrame = new GameObject("PH_ControlFrame").transform;
+            controlFrame.SetParent(transform.parent, false);
+            controlYaw = yaw;
+            controlFrame.rotation = Quaternion.Euler(0f, controlYaw, 0f);
+            if (motor != null) motor.cameraYawReference = controlFrame;
             followPosition = target.position + targetOffset;
             cam.fieldOfView = fieldOfView;
             TopDown(0f);
@@ -137,6 +161,7 @@ namespace StealthProto
                     distance = Mathf.Clamp(distance - zoomIn, minDistance, maxDistance);
                 }
                 TopDown(Time.deltaTime);
+                ApplyZones(Time.deltaTime);
             }
 
             trauma = Mathf.Max(0f, trauma - shakeDecay * Time.unscaledDeltaTime);
@@ -245,6 +270,87 @@ namespace StealthProto
                 Quaternion topRot = cam.transform.rotation;
                 cam.transform.SetPositionAndRotation(Vector3.Lerp(topPos, eye + shake, b), Quaternion.Slerp(topRot, view, b));
             }
+        }
+
+        static bool GuardThreat()
+        {
+            foreach (var g in GuardBrain.All)
+                if (g != null && (g.State == GuardState.Suspicious || g.State == GuardState.Alert || g.State == GuardState.Search))
+                    return true;
+            return false;
+        }
+
+        /// <summary>Blends the top-down pose (already on the camera) toward any camera zones, then sets the control frame.</summary>
+        void ApplyZones(float dt)
+        {
+            bool threat = GuardThreat();
+            CameraZone active = null;
+            if (useCameraZones && !threat && !CoverViewActive)
+                foreach (var z in CameraZone.All)
+                    if (z != null && z.isActiveAndEnabled && z.Contains(target.position) && (active == null || z.priority > active.priority))
+                        active = z;
+            ActiveZone = active;
+            if (active != null && !zoneWeights.ContainsKey(active)) zoneWeights[active] = 0f;
+
+            // Fading zones first, the active one last, so it ends on top.
+            zoneOrder.Clear();
+            foreach (var z in zoneWeights.Keys) if (z != active) zoneOrder.Add(z);
+            if (active != null) zoneOrder.Add(active);
+
+            Vector3 pos = cam.transform.position;
+            Quaternion rot = cam.transform.rotation;
+            float fov = fieldOfView;
+            float notZone = 1f;
+            foreach (var z in zoneOrder)
+            {
+                if (z == null) { zoneWeights.Remove(z); continue; }
+                float w = zoneWeights[z];
+                float time = threat ? safetyBlendTime : Mathf.Max(0.01f, z.blendTime);
+                if (dt > 0f) w = Mathf.MoveTowards(w, z == active ? 1f : 0f, dt / time);
+                if (w <= 0f && z != active)
+                {
+                    zoneWeights.Remove(z);
+                    continue;
+                }
+                zoneWeights[z] = w;
+                float k = Mathf.SmoothStep(0f, 1f, w);
+                z.Evaluate(target.position, out Vector3 eye, out Quaternion r, out float f);
+                pos = Vector3.Lerp(pos, eye + Random.insideUnitSphere * (trauma * trauma * maxShake), k);
+                rot = Quaternion.Slerp(rot, r, k);
+                fov = Mathf.Lerp(fov, f, k);
+                notZone *= 1f - k;
+            }
+            cam.transform.SetPositionAndRotation(pos, rot);
+            cam.fieldOfView = fov;
+
+            // Which way the stick points: the camera's facing once a zone mostly has the view,
+            // otherwise the top-down yaw (the cover view never turns the controls).
+            float desired = yaw;
+            if (notZone < 0.5f)
+            {
+                Vector3 f = rot * Vector3.forward;
+                f.y = 0f;
+                if (f.sqrMagnitude < 0.01f) f = rot * Vector3.up; // looking straight down
+                f.y = 0f;
+                if (f.sqrMagnitude > 0.0001f) desired = Quaternion.LookRotation(f).eulerAngles.y;
+            }
+            Vector2 stick = input != null ? input.Move : Vector2.zero;
+            if (stick.magnitude < 0.2f)
+            {
+                controlYaw = desired;
+                holdingStick = false;
+            }
+            else
+            {
+                float stickAngle = Mathf.Atan2(stick.x, stick.y) * Mathf.Rad2Deg;
+                if (!holdingStick || Mathf.Abs(Mathf.DeltaAngle(stickAngle, heldStickAngle)) > controlHoldAngle)
+                {
+                    controlYaw = desired;
+                    heldStickAngle = stickAngle;
+                    holdingStick = true;
+                }
+            }
+            if (controlFrame != null) controlFrame.rotation = Quaternion.Euler(0f, controlYaw, 0f);
         }
 
         void FirstPerson(float dt)

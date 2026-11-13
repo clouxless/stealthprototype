@@ -47,7 +47,7 @@ and turn on **Lighting > Additional Lights > Cast Shadows**.
 | Action | Keyboard + mouse | Gamepad |
 | --- | --- | --- |
 | Move | WASD | Left stick |
-| Dash (i-frames, a little noisy) | Space | A |
+| Dash (i-frames, a little noisy); into a gap, a dash-jump | Space | A |
 | Melee | LMB | X |
 | Context: takedown (hold), clamber, climb, hang off an edge | E | Y |
 | Cover: cling to a tall wall (hold), slide along it | Hold Shift | Hold LB |
@@ -127,8 +127,15 @@ While hanging: the stick shimmies along the edge, E climbs up, Space or C lets g
   The noise rings (F2) and the knock preview stop at walls that seal the noise in. Focus follows
   the same rule, so it only shows sounds from the space you're in (and none from outside while
   you're in a vent or grate). See `SoundGrid` and `SoundDuct`.
-- **Ledge hang.** At a drop (the catwalk edge, the beam), walk to the edge and press E to
-  hang. Shimmy along, climb back up with E, or let go. Your grip lasts 6 s. While hanging,
+- **Edges.** You never walk or dash off a drop of 1.7 m or more (`PlayerMotor.edgeDrop`). Walk
+  into one and you lower yourself over it into a hang. A dash into one stops at the edge, unless
+  there's somewhere to land across the gap: then it's a **dash-jump**. Near an edge, a faint ring
+  shows where a dash would take you. Depending on the far side you land, clamber straight up onto
+  it (up to 1.6 m higher), or, if it's a little too far or too high, catch its edge and hang.
+  Landings up to 4.7 m away, far edges up to 5.2 m. The jump is silent for now.
+- **Ledge hang.** At a drop (the catwalk edge, the beam), walk into the edge (or press E) to
+  hang. Shimmy along, climb back up with E, or let go. Your grip lasts 6 s. Over a deadly drop
+  (water, a bottomless pit) you can't let go, and a spent grip pulls you back up. While hanging,
   the floor below you sets your light tier (switchable to the ledge on
   `PlayerContextActions.hangLight`).
 - **Takedowns.** Get close behind a guard who isn't alert and a `Takedown` prompt
@@ -169,7 +176,8 @@ the player and guard AI, laid out from Cloux's design on a 2 m grid (50 x 28 m):
   the start block, one down the pit-side lane under the north block. Stand on a grate and press
   E to drop in, push the stick to crawl along it, and press E again to climb out wherever there's
   room to stand. Inside you're silent, and guards walk over you without seeing you.
-- **Bottomless pit:** a hole in the west floor. Fall in and you're downed.
+- **Bottomless pit:** a hole in the west floor. You can't walk or dash into it (walk into its
+  edge and you hang from it, and you can't let go over it), but anything that gets you in downs you.
 - **Yard:** solid blocks, floor to ceiling, that block sight, with a north, middle and south lane between them. Two of the middle ones are roofed rooms (below).
   Downward lamps light the lane crossings and leave the runs between them dark.
 - **Guards:** all loops, with no sudden about-faces. A north guard holds a post in the
@@ -201,8 +209,20 @@ the project files). It's geometry and lights only for now: **no guards yet**.
 - **Coordinates are the map's:** x is east, z is north (upriver), in metres. Heights follow
   the real lowest lock head, measured from the guide wall top: ledge +6.4 m, bridge and pier
   deck +16 m, all in flights of 3.2 m.
-- **Guide wall:** 3 m wide, 120 m long, railed, with buttresses under its river side and four
-  mooring dolphins carrying on downstream. You start at its downstream tip.
+- **Guide wall:** 3 m wide, 120 m long, with buttresses under its river side (step down onto
+  them) and four mooring dolphins carrying on downstream. No railings: a low lip marks each edge,
+  and the edge rules keep you on. You start at its downstream tip.
+- **Dolphins:** dash off the tip to jump out to them: gaps of 3.6, 3.2 and 3.2 m, then 4.2 m to
+  the last one, where a short jump ends in a ledge catch. A placeholder item marker sits on the
+  last one.
+- **Cameras along the wall:** top-down at the spawn. About 10 m in, the camera swoops round to
+  your right for a view over the river (where the dam will go). From the halfway point it starts
+  slowly craning back and up behind you until the lock head fills the frame, then drops back to
+  top-down 20 m before the end of the wall. Each stair has a fixed camera out over the water,
+  looking at it side-on. Any suspicious or alert guard snaps the camera back to top-down. The
+  shots are `CameraZone` boxes under `PH_CameraZones` (tweak them in the inspector).
+  Movement follows the camera, but when the view turns, the stick keeps its old directions until
+  you let go of it or swing it more than 45 degrees.
 - **Lower stairs:** a scissor stair (two flights) on the front face of the lower block, east of
   where the wall lands. Step east off the end of the wall onto it. It tops out on the **ledge**
   (22 x 7 m) next to a small hut.
@@ -217,8 +237,7 @@ the project files). It's geometry and lights only for now: **no guards yet**.
 - **Pier deck:** the gatehouse (15 x 13 m) against the chamber edge, a small box between it and
   the bridge, open deck to the east and an outbuilding further north.
 - **Goal:** the gatehouse door, on its south face.
-- **Rules here:** one hit point (one shot kills) and a silent dash. Falling into the water
-  restarts the level.
+- **Rules here:** one hit point (one shot kills), and a silent dash and dash-jump.
 
 The layout lives in `Editor/TutorialGatehouseBuilder.cs`, one method per area.
 
@@ -244,7 +263,7 @@ The layout lives in `Editor/TutorialGatehouseBuilder.cs`, one method per area.
 | Path | What |
 | --- | --- |
 | `Scripts/Player/PlayerMotor.cs` | Movement, dash, crawling |
-| `Scripts/Player/PlayerContextActions.cs` | E: takedown, clamber, climb, ledge hang |
+| `Scripts/Player/PlayerContextActions.cs` | E: takedown, clamber, climb, ledge hang; dash-jump |
 | `Scripts/Player/PlayerCover.cs` | Cover cling, corner view, knock (also in vents and grates) |
 | `Scripts/Player/NoisePreview.cs` | The knock's reach drawn on the floor before you knock |
 | `Scripts/Core/NoiseSystem.cs` | Hearing: circle plus same-space rule, feed for Focus |
@@ -253,7 +272,9 @@ The layout lives in `Editor/TutorialGatehouseBuilder.cs`, one method per area.
 | `Scripts/Core/NoiseShape.cs`, `NoiseRingFX.cs` | Noise rings and preview, cut at sealing walls |
 | `Scripts/Player/FocusMode.cs` | Focus (sound ripples) |
 | `Scripts/Player/PlayerCombat.cs` | Melee, aiming, gun |
-| `Scripts/Camera/CameraRig.cs` | Top-down follow, cover corner view, first-person look, shake |
+| `Scripts/Camera/CameraRig.cs` | Top-down follow, cover corner view, camera zones, first-person look, shake |
+| `Scripts/Camera/CameraZone.cs` | Cinematic shot boxes: track, crane, fixed |
+| `Scripts/Player/EdgeRules.cs` | What counts as a deadly drop |
 | `Scripts/Stealth/StealthLight.cs`, `LightExposure.cs` | Light tiers from the floor under the player |
 | `Scripts/Stealth/HeightLayers.cs` | Named height layers |
 | `Scripts/Level/AlarmLight.cs` | Lights that switch on for good after the first alert |
