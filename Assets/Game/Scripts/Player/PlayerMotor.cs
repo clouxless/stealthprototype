@@ -82,6 +82,8 @@ namespace StealthProto
             set
             {
                 externalControl = value;
+                EdgePushTime = 0f; // a push from before a climb or hang never carries over
+                EdgeNormal = Vector3.zero;
                 velocity = Vector3.zero;
                 lunge = Vector3.zero;
                 verticalVelocity = 0f;

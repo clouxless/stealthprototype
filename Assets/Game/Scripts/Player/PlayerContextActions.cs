@@ -149,6 +149,8 @@ namespace StealthProto
         Health health;
         LineRenderer jumpRing;
         float ringTimer;
+        bool autoHangArmed = true; // off after a hang until the stick stops pointing out over that edge
+        Vector3 lastHangNormal;
         bool ringFound;
         JumpTarget ringTarget;
         readonly Collider[] overlap = new Collider[16];
@@ -196,8 +198,12 @@ namespace StealthProto
             takedownTarget = inCover ? null : FindTakedownTarget();
             Vector3 facing = inCover ? -cover.WallNormal : transform.forward;
 
-            // Walked into an edge: lower yourself over it.
-            if (!inCover && controller.isGrounded && motor.EdgePushTime >= autoHangPush
+            // Walked into an edge: lower yourself over it. After a hang ends, you have to stop pushing
+            // first, so climbing up while still holding the stick out doesn't drop you straight back over.
+            if (!autoHangArmed && (Vector3.Dot(motor.CameraRelative(input.Move), lastHangNormal) < 0.3f
+                || (motor.EdgePushTime > 0f && Vector3.Dot(motor.EdgeNormal, lastHangNormal) < 0.9f))) // a different edge
+                autoHangArmed = true;
+            if (autoHangArmed && !inCover && controller.isGrounded && motor.EdgePushTime >= autoHangPush
                 && FindEdge(motor.EdgeNormal, out Edge pushed))
             {
                 StartCoroutine(HangRoutine(pushed, true));
@@ -546,6 +552,8 @@ namespace StealthProto
             Hanging = false;
             HangingOverDeadlyDrop = false;
             GripFraction = 0f;
+            autoHangArmed = false;
+            lastHangNormal = e.normal;
             if (exposure != null) exposure.SampleOverride = null;
 
             if (climbUp)
