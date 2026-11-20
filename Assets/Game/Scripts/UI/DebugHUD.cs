@@ -124,12 +124,27 @@ namespace StealthProto
             }
         }
 
+        [Header("Awareness meter")]
+        [Tooltip("Width and height in pixels of the meter over each guard's head.")]
+        public Vector2 meterSize = new Vector2(64f, 7f);
+        [Tooltip("Hide the meter while a patrolling guard's awareness is below this.")]
+        public float meterShowAbove = 0.02f;
+
+        readonly System.Collections.Generic.Dictionary<GuardBrain, float> meterShown = new System.Collections.Generic.Dictionary<GuardBrain, float>();
+
         void DrawGuardMarkers()
         {
             if (cam == null || (rig != null && rig.IsFirstPerson)) return;
             foreach (var g in GuardBrain.All)
             {
-                // Tells are big; the ongoing state is a small reminder.
+                if (g.State == GuardState.Down) continue;
+                Vector3 sp = cam.WorldToScreenPoint(g.transform.position + Vector3.up * 2.25f);
+                if (sp.z <= 0f) continue;
+                float x = sp.x, y = Screen.height - sp.y;
+
+                bool meterOn = DrawAwarenessMeter(g, x, y);
+
+                // Tells are big; the ongoing state is a small reminder. Sits above the meter.
                 var tell = g.CurrentTell;
                 string text;
                 int size;
@@ -139,12 +154,45 @@ namespace StealthProto
                 else if (g.State == GuardState.Suspicious || g.State == GuardState.Search) { text = "?"; size = 22; }
                 else continue;
 
-                Vector3 sp = cam.WorldToScreenPoint(g.transform.position + Vector3.up * 2.3f);
-                if (sp.z <= 0f) continue;
+                float lift = meterOn ? 22f : 0f;
                 marker.fontSize = size;
                 marker.normal.textColor = g.CurrentColor;
-                GUI.Label(new Rect(sp.x - 30, Screen.height - sp.y - 30, 60, 60), text, marker);
+                GUI.Label(new Rect(x - 30, y - 30 - lift, 60, 60), text, marker);
             }
+        }
+
+        /// <summary>
+        /// Dishonored-style meter over a guard's head that fills as they notice you (GuardBrain.Awareness).
+        /// White while it builds, with a notch at the suspicious threshold; amber once suspicious or
+        /// searching; solid red at full alert. Returns whether it was drawn.
+        /// </summary>
+        bool DrawAwarenessMeter(GuardBrain g, float x, float y)
+        {
+            float target = g.State == GuardState.Alert ? 1f : g.Awareness;
+            meterShown.TryGetValue(g, out float shown);
+            // Ease the bar so it reads as filling, but never lag far behind a fast spot.
+            shown = Mathf.MoveTowards(shown, target, Mathf.Max(1.5f, Mathf.Abs(target - shown) * 8f) * Time.unscaledDeltaTime);
+            meterShown[g] = shown;
+            if (g.State == GuardState.Patrol && shown < meterShowAbove) return false;
+
+            float threshold = g.suspiciousThreshold;
+            Color fill = g.State == GuardState.Alert ? g.alertColor
+                       : g.State == GuardState.Patrol ? new Color(1f, 1f, 1f, 0.9f)
+                       : g.suspiciousColor;
+            // Fade in as it starts to build, so a glance isn't loud.
+            float alpha = g.State == GuardState.Patrol ? Mathf.Clamp01(shown / threshold * 1.5f + 0.25f) : 1f;
+
+            var r = new Rect(x - meterSize.x * 0.5f, y - meterSize.y * 0.5f, meterSize.x, meterSize.y);
+            GUI.color = new Color(0f, 0f, 0f, 0.7f * alpha);
+            GUI.DrawTexture(new Rect(r.x - 2f, r.y - 2f, r.width + 4f, r.height + 4f), Texture2D.whiteTexture);
+            fill.a *= alpha;
+            GUI.color = fill;
+            GUI.DrawTexture(new Rect(r.x, r.y, r.width * Mathf.Clamp01(shown), r.height), Texture2D.whiteTexture);
+            // Notch at the suspicious threshold: crossing it is the "?".
+            GUI.color = new Color(1f, 0.6f, 0.1f, alpha);
+            GUI.DrawTexture(new Rect(r.x + r.width * threshold - 1f, r.y - 3f, 2f, r.height + 6f), Texture2D.whiteTexture);
+            GUI.color = Color.white;
+            return true;
         }
 
         void DrawContextPrompt()

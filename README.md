@@ -69,7 +69,10 @@ While hanging: the stick shimmies along the edge, E climbs up, Space or C lets g
   Lamp pools have a crisp Lit core and a Dim ring. A flashlight counts only if its beam
   lights the floor you stand on. Your character's tint shows the tier; there's no meter.
 - **Guards don't roll dice.** Patrols, pauses, head sweeps and searches are the same every
-  time. A "?" shows before a guard turns suspicious and a "!" before an alert. Shots have
+  time. A meter over each guard's head fills as they notice you (Dishonored-style): white
+  while it builds, with a notch where they turn suspicious, amber while suspicious or
+  searching, solid red on alert. It empties again once they lose you.
+  A "?" shows before a guard turns suspicious and a "!" before an alert. Shots have
   a short visible wind-up (0.3 s) and always hit unless you break line of sight first. Once the
   "!" freeze ends, an alerted guard who can see you within 20 m fires about every 0.8 s, so
   being seen in the open is deadly fast.
