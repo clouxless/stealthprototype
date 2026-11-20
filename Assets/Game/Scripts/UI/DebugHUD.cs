@@ -83,7 +83,8 @@ namespace StealthProto
             if (player != null)
             {
                 string mode = rig != null && rig.IsFirstPerson ? "FIRST PERSON"
-                    : context != null && context.Hanging ? "HANGING"
+                    : context != null && context.Jumping ? "JUMPING"
+                    : context != null && context.Hanging ? (context.HangingOverDeadlyDrop ? "HANGING (deadly drop: can't let go)" : "HANGING")
                     : cover != null && cover.InCover ? "COVER"
                     : player.IsProne ? "CRAWLING" : "TOP-DOWN";
                 GUILayout.Label($"Mode  {mode}", label);
@@ -104,11 +105,12 @@ namespace StealthProto
                 const string help =
                     "[PH] CONTROLS (F3 hide)\n" +
                     "Move WASD / left stick (silent)    Crawl C / B\n" +
-                    "Dash Space / A            Melee LMB / X\n" +
+                    "Dash Space / A (into a gap: jumps it if a ring shows a landing)   Melee LMB / X\n" +
                     "Context E / Y: takedown (behind an unalerted guard), clamber, climb, hang off edges\n" +
                     "Cover: hold Shift / LB by a wall, slide along it; near the end the camera looks round the corner\n" +
                     "Knock (in cover, or in a vent / grate): hold LMB / X to see its reach, release to knock\n" +
-                    "Hanging: stick shimmies, E climbs up, Space / C lets go (grip runs out)\n" +
+                    "Edges: walk into one to hang from it. Hanging: stick shimmies, E climbs up, Space / C lets go\n" +
+                    "  (not over water or a pit: there a spent grip pulls you back up)\n" +
                     "Focus (hold, can't move) Q / L3: see sounds\n" +
                     "Aim RMB / LT, fire LMB / RT\n" +
                     "First-person look V / R3  (can't move, fire along view)\n" +

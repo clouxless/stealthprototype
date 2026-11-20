@@ -61,6 +61,8 @@ namespace StealthProto
         [Header("Tells (seconds)")]
         [Tooltip("\"?\" pause before investigating.")]
         public float reactionTime = 0.6f;
+        [Tooltip("\"?\" pause after hearing a noise (a lure): the guard stops and turns to it, then walks over. Also applies when a new noise redirects a guard who's already investigating.")]
+        public float hearNoticeTime = 1f;
         [Tooltip("\"!\" freeze before chasing and shooting. Your window to break line of sight.")]
         public float alertTellTime = 0.6f;
         [Tooltip("Shorter \"!\" when alerted by radio or by being hit.")]
@@ -82,9 +84,10 @@ namespace StealthProto
 
         [Header("Shooting")]
         public int fireDamage = 1;
-        public float fireRange = 14f;
-        public float fireWindup = 0.6f;
-        public float fireCooldown = 1.1f;
+        public float fireRange = 20f;
+        [Tooltip("Visible wind-up before each shot. The first one starts as soon as the \"!\" freeze ends.")]
+        public float fireWindup = 0.3f;
+        public float fireCooldown = 0.5f;
         public float gunNoiseRadius = 15f;
 
         [Header("Footsteps (heard only through Focus)")]
@@ -444,9 +447,18 @@ namespace StealthProto
 
         // ---------- suspicious: "?" tell, go look, fixed look-around, back ----------
 
-        void EnterSuspicious(Vector3 point)
+        void EnterSuspicious(Vector3 point, bool heard = false)
         {
             investigatePoint = point;
+            if (State == GuardState.Suspicious && heard)
+            {
+                // A new noise: the same short "?" pause to notice it, then walk to it.
+                suspiciousPhase = SuspiciousPhase.React;
+                reactDuration = hearNoticeTime;
+                phaseTimer = 0f;
+                SetStopped(true);
+                return;
+            }
             if (State == GuardState.Suspicious)
             {
                 // New stimulus: same response, go to the new point (no second "?" pause).
@@ -461,9 +473,12 @@ namespace StealthProto
             SetState(GuardState.Suspicious);
             stateTimer = 0f;
             suspiciousPhase = SuspiciousPhase.React;
+            reactDuration = heard ? hearNoticeTime : reactionTime;
             phaseTimer = 0f;
             SetStopped(true);
         }
+
+        float reactDuration;
 
         void TickSuspicious(float dt)
         {
@@ -475,7 +490,7 @@ namespace StealthProto
             {
                 case SuspiciousPhase.React:
                     FaceTowards(investigatePoint, dt);
-                    if (phaseTimer >= reactionTime)
+                    if (phaseTimer >= reactDuration)
                     {
                         suspiciousPhase = SuspiciousPhase.Walk;
                         phaseTimer = 0f;
@@ -730,7 +745,7 @@ namespace StealthProto
                 default:
                     if (gunfire) { EnterAlert(position, true, secondhandTellTime); return; }
                     Awareness = Mathf.Max(Awareness, suspiciousThreshold + 0.1f + 0.3f * loudness);
-                    EnterSuspicious(position);
+                    EnterSuspicious(position, true);
                     return;
             }
         }
