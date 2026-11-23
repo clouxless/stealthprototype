@@ -545,10 +545,25 @@ namespace StealthProto.EditorTools
             lower.lookStart = lower.lookEnd = new Vector3(0f, 1.2f, 0f);
             lower.fovStart = lower.fovEnd = 45f;
 
+            // Upper stair: the side view lasts until halfway up the last flight (the inner lane, against
+            // the pier face), then it's top-down for the climb onto the bridge, where guards L and L2 stand.
+            // Two boxes with the same shot: the lower lanes in full, and the last lane up to that halfway mark.
             float ux0 = UpperX0, ux1 = UpperX0 + StairLength;
-            var upper = Zone(zones, "PH_Cam_UpperStairs", CameraZone.Kind.Fixed,
-                new Vector3((ux0 - 0.5f + ux1 + 1f) * 0.5f, (LedgeTop + DeckTop) * 0.5f, (UpperZ0 - 0.5f + 7.5f) * 0.5f),
-                new Vector3(ux1 + 1f - (ux0 - 0.5f), DeckTop - LedgeTop + 4f, 7.5f - (UpperZ0 - 0.5f)), 1f);
+            float lastLaneZ = UpperZ0 + (UpperFlights - 1) * UpperLane;
+            float lastFlightMid = ux0 + StairLength * 0.5f;
+            bool lastEast = ((UpperFlights - 1) % 2 == 0) == (UpperFlights % 2 == 1);
+            float lowY = LedgeTop - 1f, highY = DeckTop + 3f;
+            UpperStairShot(Zone(zones, "PH_Cam_UpperStairs", CameraZone.Kind.Fixed,
+                new Vector3((ux0 - 0.5f + ux1 + 1f) * 0.5f, (lowY + highY) * 0.5f, (UpperZ0 - 0.5f + lastLaneZ) * 0.5f),
+                new Vector3(ux1 + 1f - (ux0 - 0.5f), highY - lowY, lastLaneZ - (UpperZ0 - 0.5f)), 1f), ux0, ux1);
+            float lx0 = lastEast ? ux0 - 0.5f : lastFlightMid, lx1 = lastEast ? lastFlightMid : ux1 + 1f;
+            UpperStairShot(Zone(zones, "PH_Cam_UpperStairs_LastFlight", CameraZone.Kind.Fixed,
+                new Vector3((lx0 + lx1) * 0.5f, (lowY + highY) * 0.5f, (lastLaneZ + 7f) * 0.5f),
+                new Vector3(lx1 - lx0, highY - lowY, 7f - lastLaneZ), 1f), ux0, ux1);
+        }
+
+        static void UpperStairShot(CameraZone upper, float ux0, float ux1)
+        {
             upper.eyeRelativeToPlayer = false;
             upper.eyeStart = upper.eyeEnd = new Vector3((ux0 + ux1) * 0.5f, LedgeTop + 6.5f, -11f);
             upper.lookStart = upper.lookEnd = new Vector3(0f, 1.2f, 0f);
