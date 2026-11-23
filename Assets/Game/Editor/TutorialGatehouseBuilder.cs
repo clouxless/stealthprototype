@@ -529,10 +529,14 @@ namespace StealthProto.EditorTools
             lockView.controlYaw = 0f;
 
             // Stairs: fixed cameras over the water to the south, turning to keep you in frame.
+            // The lower one covers only the first flight (the outer lane) and the turn: step onto the
+            // second flight and it's back to top-down, so you can see the searchlights sweeping the ledge
+            // before you reach it (playtest: the side view walked you straight into the beam).
             float lx0 = LowerX0, lx1 = LowerX0 + StairLength;
+            float lowerZoneZ0 = LowerZ0 - 1f, lowerZoneZ1 = LowerZ0 + Lane;
             var lower = Zone(zones, "PH_Cam_LowerStairs", CameraZone.Kind.Fixed,
-                new Vector3((lx0 - 0.5f + lx1 + 1f) * 0.5f, (WallTop + LedgeTop) * 0.5f, (LowerZ0 - 1f + BlockFront + 1f) * 0.5f),
-                new Vector3(lx1 + 1f - (lx0 - 0.5f), LedgeTop - WallTop + 4f, BlockFront + 1f - (LowerZ0 - 1f)), 1f);
+                new Vector3((lx0 - 0.5f + lx1 + 1f) * 0.5f, (WallTop + LedgeTop) * 0.5f, (lowerZoneZ0 + lowerZoneZ1) * 0.5f),
+                new Vector3(lx1 + 1f - (lx0 - 0.5f), LedgeTop - WallTop + 4f, lowerZoneZ1 - lowerZoneZ0), 1f);
             lower.eyeRelativeToPlayer = false;
             lower.eyeStart = lower.eyeEnd = new Vector3((lx0 + lx1) * 0.5f, WallTop + 5f, -15f);
             lower.lookStart = lower.lookEnd = new Vector3(0f, 1.2f, 0f);
