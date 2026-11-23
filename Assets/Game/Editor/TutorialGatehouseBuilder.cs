@@ -89,6 +89,9 @@ namespace StealthProto.EditorTools
             var surface = level.AddComponent<NavMeshSurface>();
             surface.collectObjects = CollectObjects.Children;
             surface.useGeometry = NavMeshCollectGeometry.PhysicsColliders;
+            // Finer voxels so the 1.4-1.5 m stair lanes and the 1.5 m parapet gap stay walkable for guards.
+            surface.overrideVoxelSize = true;
+            surface.voxelSize = 0.08f;
             level.AddComponent<RuntimeNavMeshBaker>();
 
             BuildLamps(G.Group(root, "PH_Lamps"));
@@ -493,7 +496,7 @@ namespace StealthProto.EditorTools
         /// <summary>
         /// Cinematic shots. Guide wall: top-down at the spawn (so you see the dolphins), then the camera
         /// swoops round to your right for the dam view, then slowly cranes back and up behind you onto
-        /// the lock head, and drops back to top-down 20 m before the wall's end. Each stair has a fixed
+        /// the lock head, and drops back to top-down 20 m before the wall's end. The upper stair has a fixed
         /// camera out over the water, looking at it side-on.
         /// </summary>
         static void BuildCameraZones()
@@ -528,20 +531,9 @@ namespace StealthProto.EditorTools
             lockView.fixedControls = true;
             lockView.controlYaw = 0f;
 
-            // Stairs: fixed cameras over the water to the south, turning to keep you in frame.
-            // The lower one covers only the first flight (the outer lane) and the turn: step onto the
-            // second flight and it's back to top-down, so you can see the searchlights sweeping the ledge
-            // before you reach it (playtest: the side view walked you straight into the beam).
-            float lx0 = LowerX0, lx1 = LowerX0 + StairLength;
-            float lowerZoneZ0 = LowerZ0 - 1f, lowerZoneZ1 = LowerZ0 + Lane;
-            var lower = Zone(zones, "PH_Cam_LowerStairs", CameraZone.Kind.Fixed,
-                new Vector3((lx0 - 0.5f + lx1 + 1f) * 0.5f, (WallTop + LedgeTop) * 0.5f, (lowerZoneZ0 + lowerZoneZ1) * 0.5f),
-                new Vector3(lx1 + 1f - (lx0 - 0.5f), LedgeTop - WallTop + 4f, lowerZoneZ1 - lowerZoneZ0), 1f);
-            lower.eyeRelativeToPlayer = false;
-            lower.eyeStart = lower.eyeEnd = new Vector3((lx0 + lx1) * 0.5f, WallTop + 5f, -15f);
-            lower.lookStart = lower.lookEnd = new Vector3(0f, 1.2f, 0f);
-            lower.fovStart = lower.fovEnd = 45f;
-
+            // Stairs: a fixed camera over the water to the south of the upper stair, turning to keep you
+            // in frame. The lower stair has none (playtest): it stays top-down from the end of the wall
+            // to the ledge, so you can see the searchlights sweeping the ledge before you climb into them.
             float ux0 = UpperX0, ux1 = UpperX0 + StairLength;
             var upper = Zone(zones, "PH_Cam_UpperStairs", CameraZone.Kind.Fixed,
                 new Vector3((ux0 - 0.5f + ux1 + 1f) * 0.5f, (LedgeTop + DeckTop) * 0.5f, (UpperZ0 - 0.5f + 7.5f) * 0.5f),

@@ -227,9 +227,9 @@ the project files), with the first-pass guards W, L, L2 and P from the guard vis
 - **Cameras along the wall:** top-down at the spawn. About 16 m in, the camera swoops round to
   your right for a view over the river (where the dam will go) for 50 m, then goes back to
   top-down for 12 m. Then, over 18 m, it cranes back and up behind you until the lock head
-  fills the frame, and drops back to top-down 22 m before the end of the wall. Each stair has a fixed camera out over the water,
-  looking at it side-on. On the lower stair it covers only the first flight and the turn: the
-  second flight is top-down again, so you see the ledge's searchlights before you get there. Any suspicious or alert guard snaps the camera back to top-down. The
+  fills the frame, and drops back to top-down 22 m before the end of the wall. The upper stair has a fixed camera out over the
+  water, looking at it side-on. The lower stair stays top-down, so you see the ledge's
+  searchlights before you climb into them. Any suspicious or alert guard snaps the camera back to top-down. The
   shots are `CameraZone` boxes under `PH_CameraZones` (tweak them in the inspector).
   On the stairs, movement follows the camera, but when the view turns the stick keeps its old
   directions until you let go of it or swing it more than 45 degrees. Along the wall (the river

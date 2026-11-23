@@ -228,7 +228,10 @@ namespace StealthProto
         {
             // The agent is left disabled in the scene so it binds after the runtime NavMesh bake.
             agent.enabled = true;
-            agent.Warp(transform.position);
+            // Snap onto the NavMesh: a guard placed by an edge or parapet can sit just off it.
+            Vector3 start = transform.position;
+            if (NavMesh.SamplePosition(start, out NavMeshHit onMesh, 2f, NavMesh.AllAreas)) start = onMesh.position;
+            agent.Warp(start);
             if (!agent.isOnNavMesh) Debug.LogWarning($"{name} is not on the NavMesh.", this);
             agent.speed = walkSpeed;
             GoToRoutePoint();
@@ -242,6 +245,9 @@ namespace StealthProto
         void SetDestination(Vector3 p)
         {
             if (!AgentReady) return;
+            // Aim at the nearest walkable point (the player can stand where guards can't: a hut roof,
+            // a ledge hang). If it still can't be reached, the agent walks to the closest point it can.
+            if (NavMesh.SamplePosition(p, out NavMeshHit onMesh, 3f, NavMesh.AllAreas)) p = onMesh.position;
             if (agent.hasPath && (agent.destination - p).sqrMagnitude < 0.25f) return;
             agent.SetDestination(p);
         }
