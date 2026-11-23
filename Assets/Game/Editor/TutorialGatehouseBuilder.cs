@@ -124,6 +124,8 @@ namespace StealthProto.EditorTools
             LookSetup.Apply(Camera.main);
             BuildGuards(player.transform);
 
+            StarkLights();
+
             new GameObject("PH_DebugHUD").AddComponent<DebugHUD>();
             new GameObject("PH_LastKnownMarker").AddComponent<LastKnownMarker>();
             var layers = new GameObject("HeightLayers").AddComponent<HeightLayers>();
@@ -767,6 +769,30 @@ namespace StealthProto.EditorTools
             zone.kind = kind;
             zone.blendTime = blendTime;
             return zone;
+        }
+
+        /// <summary>
+        /// Every lamp, headlight and searchlight in the level looks like the guard flashlights: the real
+        /// light isn't drawn, and its pool is a crisp flat overlay showing exactly where it makes you Lit
+        /// or Dim (LightFootprintMesh). Guard flashlights already work this way.
+        /// </summary>
+        static void StarkLights()
+        {
+            var group = new GameObject("PH_LightFootprints").transform; // world-space meshes, at the origin
+            foreach (var sl in Object.FindObjectsByType<StealthLight>(FindObjectsSortMode.None))
+            {
+                if (sl.GetComponentInParent<GuardBrain>() != null) continue;
+                var light = sl.GetComponent<Light>();
+                if (light == null || light.type != LightType.Spot) continue;
+                light.cullingMask = 0;
+                light.renderingLayerMask = 0;
+                light.shadows = LightShadows.None;
+                var fp = new GameObject("PH_Footprint_" + sl.name);
+                fp.transform.SetParent(group, false);
+                fp.AddComponent<MeshFilter>();
+                fp.AddComponent<MeshRenderer>().sharedMaterial = G.coneMat;
+                fp.AddComponent<LightFootprintMesh>().source = sl;
+            }
         }
 
         /// <summary>The goal: the gatehouse door. The level carries on into the chamber later.</summary>
