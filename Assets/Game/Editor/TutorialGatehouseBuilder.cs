@@ -14,9 +14,10 @@ namespace StealthProto.EditorTools
     /// gatehouse on the pier deck. Geometry, lamps, the Humvee light wall and the first-pass guards.
     ///
     /// Coordinates are the map's, in metres: x = east, z = north (upriver). y is height.
-    /// Heights: ledge +9.6 (3 flights of 3.2 m), bridge and deck +22.4 (4 more flights). Cloux asked
-    /// for one more flight on each stair (2026-11-23); the earlier +6.4 / +16 followed the real lowest
-    /// head (design/tutorial-gatehouse/real-heights.md).
+    /// Heights follow the real lowest head, measured from the guide wall top: ledge +6.4 (2 flights),
+    /// bridge and deck +16 (3 more flights), about 15 m of real climb from wall top to bridge. See
+    /// design/tutorial-gatehouse/real-heights.md in the project files for how that was estimated.
+    /// Flight counts are LowerFlights / UpperFlights; the stairs and heights follow from them.
     /// Everything it makes is a placeholder (Assets/_Placeholder, PH_*).
     /// </summary>
     public static class TutorialGatehouseBuilder
@@ -26,10 +27,10 @@ namespace StealthProto.EditorTools
         // Elevations (top surfaces).
         const float WallTop = 0f;
         const float FlightRise = 3.2f;
-        const int LowerFlights = 3;
-        const int UpperFlights = 4;
-        const float LedgeTop = WallTop + LowerFlights * FlightRise;   // 9.6: 3 flights of 3.2 m
-        const float DeckTop = LedgeTop + UpperFlights * FlightRise;   // 22.4: 4 more flights
+        const int LowerFlights = 2;
+        const int UpperFlights = 3;
+        const float LedgeTop = WallTop + LowerFlights * FlightRise;   // 6.4: 2 flights of 3.2 m
+        const float DeckTop = LedgeTop + UpperFlights * FlightRise;   // 16: 3 more flights
         const float Base = -8f;           // where the concrete meets the water (well under the surface)
         const float WaterY = -5f;         // visual only
         const float HazardY = -12f;       // falling in the water kills you
@@ -46,9 +47,9 @@ namespace StealthProto.EditorTools
         // still leaves 2.8 m of open ledge in front of it.
         const float LowerX0 = 3f, UpperX0 = 10.5f;
         const float UpperLane = 1.4f;
-        const float UpperZ0 = 7f - UpperFlights * UpperLane;   // 1.4..7
-        const float BlockFront = UpperZ0 - 2.8f;               // -1.4
-        const float LowerZ0 = BlockFront - LowerFlights * Lane; // -5.9..-1.4
+        const float UpperZ0 = 7f - UpperFlights * UpperLane;   // 2.8..7
+        const float BlockFront = UpperZ0 - 2.8f;               // 0
+        const float LowerZ0 = BlockFront - LowerFlights * Lane; // -3..0
 
         const float RailHeight = 1.1f;
         const float RailThick = 0.1f;
@@ -289,9 +290,9 @@ namespace StealthProto.EditorTools
         static float LowerTopX0 => LowerFlights % 2 == 0 ? LowerX0 : LowerX0 + StairLength - LandingDepth;
 
         /// <summary>
-        /// Lower stairs: a strip on the block's front face (x 3..14), three flights of 3.2 m (22 degrees)
-        /// in three 1.5 m lanes. Step east off the end of the guide wall onto the bottom landing; the
-        /// flights zig-zag east, west, east, and the top landing opens north onto the ledge.
+        /// Lower stairs: a strip on the block's front face (x 3..14), two flights of 3.2 m (22 degrees)
+        /// in 1.5 m lanes. Step east off the end of the guide wall onto the bottom landing; the
+        /// flights zig-zag, and the top landing opens north onto the ledge.
         /// </summary>
         static void BuildLowerStairs(Transform parent)
         {
@@ -301,9 +302,9 @@ namespace StealthProto.EditorTools
         }
 
         /// <summary>
-        /// Upper stairs: four flights of 3.2 m against the upper pier face (x 10.5..21.5, z 1.4..7), side by
+        /// Upper stairs: three flights of 3.2 m against the upper pier face (x 10.5..21.5, z 2.8..7), side by
         /// side in 1.4 m lanes so none runs over another, with 2.8 m of open ledge in front. Flight 1
-        /// (outer lane) starts at the east end on the ledge and climbs west, then they zig-zag, and the top
+        /// (outer lane) starts on the ledge (west end for an odd count), then they zig-zag, and the top
         /// landing at the east end opens north onto the bridge through a gap in its south parapet.
         /// </summary>
         static void BuildUpperStairs(Transform parent)
@@ -438,7 +439,7 @@ namespace StealthProto.EditorTools
                 G.BuildGuard("PH_Guard_" + id, position, yaw, route, player);
             }
 
-            Post("W", new Vector3(0.6f, WallTop, BlockFront - 1f), 270f);
+            Post("W", new Vector3(0.6f, WallTop, -1.8f), 270f);
             Post("L", new Vector3(8f, DeckTop, 7.6f), 180f);
             Post("L2", new Vector3(3f, DeckTop, 7.8f), 180f);
             Post("P", new Vector3(14f, DeckTop, 21.2f), 180f);
@@ -531,7 +532,7 @@ namespace StealthProto.EditorTools
                 new Vector3((lx0 - 0.5f + lx1 + 1f) * 0.5f, (WallTop + LedgeTop) * 0.5f, (LowerZ0 - 1f + BlockFront + 1f) * 0.5f),
                 new Vector3(lx1 + 1f - (lx0 - 0.5f), LedgeTop - WallTop + 4f, BlockFront + 1f - (LowerZ0 - 1f)), 1f);
             lower.eyeRelativeToPlayer = false;
-            lower.eyeStart = lower.eyeEnd = new Vector3((lx0 + lx1) * 0.5f, WallTop + 6.5f, -17f);
+            lower.eyeStart = lower.eyeEnd = new Vector3((lx0 + lx1) * 0.5f, WallTop + 5f, -15f);
             lower.lookStart = lower.lookEnd = new Vector3(0f, 1.2f, 0f);
             lower.fovStart = lower.fovEnd = 45f;
 

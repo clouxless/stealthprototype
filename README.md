@@ -215,9 +215,9 @@ the menu item again to try a variation.
 first stretch of the tutorial from map A (`design/tutorial-gatehouse/versions/map-A-labeled` in
 the project files), with the first-pass guards W, L, L2 and P from the guard vision spec.
 
-- **Coordinates are the map's:** x is east, z is north (upriver), in metres. Heights, from the
-  guide wall top: ledge +9.6 m (3 flights), bridge and pier deck +22.4 m (4 more), all in
-  flights of 3.2 m.
+- **Coordinates are the map's:** x is east, z is north (upriver), in metres. Heights follow
+  the real lowest lock head, measured from the guide wall top: ledge +6.4 m, bridge and pier
+  deck +16 m, all in flights of 3.2 m.
 - **Guide wall:** 3 m wide, 120 m long, with buttresses under its river side (step down onto
   them) and four mooring dolphins carrying on downstream. No railings: a low lip marks each edge,
   and the edge rules keep you on. You start at its downstream tip.
@@ -234,12 +234,11 @@ the project files), with the first-pass guards W, L, L2 and P from the guard vis
   directions until you let go of it or swing it more than 45 degrees. Along the wall (the river
   view and the crane) up on the stick always walks north along the wall, however the camera looks,
   so stopping or turning round never changes your controls (`CameraZone.fixedControls`).
-- **Lower stairs:** a scissor stair (three flights in 1.5 m lanes) on the front face of the
-  lower block, east of where the wall lands. Step east off the end of the wall onto it. It tops
-  out at its east end on the **ledge** (22 x 8.4 m), which has a small hut at its west end.
-- **Upper stairs:** four flights against the upper pier face, side by side in four 1.4 m lanes,
-  with 2.8 m of open ledge in front. The first flight starts at the east end. It comes out on the
-  bridge through a gap in the south parapet.
+- **Lower stairs:** a scissor stair (two flights) on the front face of the lower block, east of
+  where the wall lands. Step east off the end of the wall onto it. It tops out on the **ledge**
+  (22 x 7 m) next to a small hut.
+- **Upper stairs:** three flights against the upper pier face, side by side in three 1.4 m lanes,
+  with 2.8 m of open ledge in front. It comes out on the bridge through a gap in the south parapet.
 - **How the stairs are built:** each flight is 8 m long and rises 3.2 m (22 degrees), with a
   1.5 m landing at each end to turn round on. Every flight is solid down to the floor below it (so
   there's no gap to fall through), and no flight runs over another (so the camera always sees you).
