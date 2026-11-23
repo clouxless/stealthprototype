@@ -153,8 +153,8 @@ namespace StealthProto
 
             // A searchlight on the player is the guard's eyes: Instant, wherever the guard is looking.
             if (searchlights != null && targetExposure != null)
-                foreach (var light in searchlights)
-                    if (light != null && light.isActiveAndEnabled && light.TierAt(targetExposure.SamplePoint, target) == LightTier.Lit)
+                foreach (var searchlight in searchlights)
+                    if (searchlight != null && searchlight.isActiveAndEnabled && searchlight.TierAt(targetExposure.SamplePoint, target) == LightTier.Lit)
                     {
                         zone = 'S';
                         NormalizedDistance = 1f;
