@@ -249,7 +249,7 @@ the project files), with the first-pass guards W, L, L2 and P from the guard vis
   22 degrees, with a 1.5 m landing across both lanes at each end. The lowest flight in each lane is
   solid; the rest are 0.3 m slabs with 2.4-2.9 m of headroom. Rails on the outer edge and between
   the lanes.
-- **Bridge:** a 13 m, four-lane road from x -40 to 66, over chamber 1 (centre x -17), the pier, and the
+- **Bridge:** a 15.6 m, four-lane road (3.9 m lanes) from x -40 to 66, over chamber 1 (centre x -17), the pier, and the
   east bank. Lampposts on both edges. The west end is two Humvees with their headlights down the
   road; the east end is a wall. Both ends are walled off past the climb limit.
 - **Pier deck:** the gatehouse (15 x 13 m) against the chamber edge, a small box between it and

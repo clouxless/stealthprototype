@@ -61,6 +61,12 @@ namespace StealthProto.EditorTools
         const float LowerZ0 = BlockFront - 2f * Lane;            // -6.6..-4
         const float UpperZ0 = PierFace - 2f * Lane;              // 4.4..7
 
+        // The road: four 3.9 m lanes (z 7..22.6). The pier deck north of it is laid out from its
+        // original 20 m north edge, shifted by DeckShift.
+        const float RoadLane = 3.9f;
+        const float RoadZ0 = PierFace, RoadZ1 = RoadZ0 + 4f * RoadLane;
+        const float DeckShift = RoadZ1 - 20f;                    // 2.6
+
         const float RailHeight = 1.1f;
         const float RailThick = 0.1f;
         const float ParapetThick = 0.3f;
@@ -382,15 +388,15 @@ namespace StealthProto.EditorTools
         }
 
         /// <summary>
-        /// The H6 bridge: a 13 m, four-lane road (z 7..20) from x -40 to 66 over chamber 1 (x -34..0, centre -17),
+        /// The H6 bridge: a 15.6 m, four-lane road (z 7..22.6) from x -40 to 66 over chamber 1 (x -34..0, centre -17),
         /// the pier and onto the east bank. West end: two Humvees and their headlights. East end: a wall.
         /// </summary>
         static void BuildBridge(Transform parent)
         {
-            const float z0 = 7f, z1 = 20f;
+            const float z0 = RoadZ0, z1 = RoadZ1;
 
-            // The pier under the bridge and the deck: solid from the water up (x 0..36, z 7..44).
-            Box(parent, "PH_Pier", 0f, 36f, Base, DeckTop, z0, 44f);
+            // The pier under the bridge and the deck: solid from the water up (x 0..36, z 7..46.6).
+            Box(parent, "PH_Pier", 0f, 36f, Base, DeckTop, z0, 44f + DeckShift);
             // Road slabs either side of the pier: over chamber 1 to the west, onto the bank to the east.
             Box(parent, "PH_Road_West", -40f, 0f, DeckTop - 1.5f, DeckTop, z0, z1);
             Box(parent, "PH_Road_East", 36f, 66f, DeckTop - 1.5f, DeckTop, z0, z1);
@@ -410,7 +416,7 @@ namespace StealthProto.EditorTools
             Box(parent, "PH_EndWall_West", -41f, -40f, DeckTop, DeckTop + 8f, z0, z1);
             Box(parent, "PH_EndWall_East", 66f, 67f, DeckTop, DeckTop + 8f, z0, z1);
 
-            // Four lanes (3.25 m each): a double yellow centre line and dashed white lane lines.
+            // Four lanes (3.9 m each): a double yellow centre line and dashed white lane lines.
             var yellow = G.MakeLitMaterial("PH_RoadYellow", null, new Color(0.85f, 0.7f, 0.15f));
             var white = G.MakeLitMaterial("PH_RoadWhite", null, new Color(0.85f, 0.85f, 0.82f));
             var marks = G.Group(parent, "PH_RoadMarkings");
@@ -423,41 +429,42 @@ namespace StealthProto.EditorTools
             float zc = (z0 + z1) * 0.5f;
             Mark(yellow, -40f, 66f, zc - 0.12f, 0.12f);
             Mark(yellow, -40f, 66f, zc + 0.12f, 0.12f);
-            foreach (float lz in new[] { z0 + 3.25f, z1 - 3.25f })
+            foreach (float lz in new[] { z0 + RoadLane, z1 - RoadLane })
                 for (float x = -38f; x < 66f; x += 9f)
                     Mark(white, x, Mathf.Min(x + 3f, 66f), lz, 0.12f);
 
             // Humvees (2 m tall boxes, climbable), headlights pointing east down the road.
-            Box(parent, "PH_Humvee", -40f, -35f, DeckTop, DeckTop + 2f, 7.9f, 10.5f);
-            Box(parent, "PH_Humvee", -40f, -35f, DeckTop, DeckTop + 2f, 16.7f, 19.3f);
+            Box(parent, "PH_Humvee", -40f, -35f, DeckTop, DeckTop + 2f, z0 + 0.9f, z0 + 3.5f);
+            Box(parent, "PH_Humvee", -40f, -35f, DeckTop, DeckTop + 2f, z1 - 3.5f, z1 - 0.9f);
         }
 
         /// <summary>
-        /// The pier deck north of the bridge (x 0..36, z 20..44): the gatehouse against the chamber edge,
+        /// The pier deck north of the bridge (x 0..36, z 22.6..46.6): the gatehouse against the chamber edge,
         /// a small box between it and the bridge, open deck to the east, and an outbuilding further north.
         /// </summary>
         static void BuildPierDeck(Transform parent)
         {
             // Edges: a railed strip along the chamber (west), parapets east and north.
-            RailZ(parent, 20f, 44f, 0.3f, DeckTop);
-            RailZ(parent, 20f, 44f, 36f - ParapetThick * 0.5f, DeckTop, ParapetThick);
-            RailX(parent, 0f, 36f, 44f - ParapetThick * 0.5f, DeckTop, ParapetThick);
+            const float s = DeckShift;
+            RailZ(parent, 20f + s, 44f + s, 0.3f, DeckTop);
+            RailZ(parent, 20f + s, 44f + s, 36f - ParapetThick * 0.5f, DeckTop, ParapetThick);
+            RailX(parent, 0f, 36f, 44f + s - ParapetThick * 0.5f, DeckTop, ParapetThick);
 
             // Gatehouse: 15 x 13 m, 4 m tall. Door on its south face (x 13..15.5).
-            var gatehouse = Box(parent, "PH_Gatehouse", 2.5f, 17.5f, DeckTop, DeckTop + 4f, 26f, 39f);
+            var gatehouse = Box(parent, "PH_Gatehouse", 2.5f, 17.5f, DeckTop, DeckTop + 4f, 26f + s, 39f + s);
             var door = G.Visual(PrimitiveType.Cube, gatehouse.transform, "PH_GatehouseDoor",
                 new Vector3(14.25f - 10f, 1.1f - 2f, -6.5f - 0.03f), new Vector3(2.5f, 2.2f, 0.06f), G.noseMat);
             door.GetComponent<Renderer>().shadowCastingMode = ShadowCastingMode.Off;
 
-            Box(parent, "PH_SmallBox", 5f, 11f, DeckTop, DeckTop + 2.5f, 21.5f, 24.5f);
-            Box(parent, "PH_Outbuilding", 24f, 32f, DeckTop, DeckTop + 3.5f, 35f, 41f);
+            Box(parent, "PH_SmallBox", 5f, 11f, DeckTop, DeckTop + 2.5f, 21.5f + s, 24.5f + s);
+            Box(parent, "PH_Outbuilding", 24f, 32f, DeckTop, DeckTop + 3.5f, 35f + s, 41f + s);
         }
 
         static void BuildLamps(Transform parent)
         {
             // Bridge lampposts on both edges: lamps 5 m up.
             foreach (float x in new[] { -18f, 2f, 22f, 42f })
-                foreach (float z in new[] { 7.8f, 19.2f })
+                foreach (float z in new[] { RoadZ0 + 0.8f, RoadZ1 - 0.8f })
                 {
                     G.Lamp(parent, new Vector3(x, DeckTop + 5f, z), 7f);
                     G.Visual(PrimitiveType.Cylinder, parent, "PH_LampPost",
@@ -465,12 +472,12 @@ namespace StealthProto.EditorTools
                 }
 
             // Pier deck lamps, 4 m up.
-            G.Lamp(parent, new Vector3(1.3f, DeckTop + 4f, 30f), 5.5f);
-            G.Lamp(parent, new Vector3(1.3f, DeckTop + 4f, 41f), 5.5f);
-            G.Lamp(parent, new Vector3(26f, DeckTop + 4.5f, 23f), 6.5f);
+            G.Lamp(parent, new Vector3(1.3f, DeckTop + 4f, 30f + DeckShift), 5.5f);
+            G.Lamp(parent, new Vector3(1.3f, DeckTop + 4f, 41f + DeckShift), 5.5f);
+            G.Lamp(parent, new Vector3(26f, DeckTop + 4.5f, 23f + DeckShift), 6.5f);
 
             // Humvee headlights: a wall of light across the west end of the road.
-            foreach (float z in new[] { 9.2f, 18f })
+            foreach (float z in new[] { RoadZ0 + 2.2f, RoadZ1 - 2.2f })
                 G.SpotLamp(parent, "PH_HumveeHeadlight", new Vector3(-34.8f, DeckTop + 1f, z),
                     new Vector3(-22f, DeckTop, z), 34f, 14f);
         }
@@ -497,7 +504,7 @@ namespace StealthProto.EditorTools
             Post("W", new Vector3(0.6f, WallTop, BlockFront - 1.8f), 270f);
             Post("L", new Vector3(8f, DeckTop, 7.6f), 180f);
             Post("L2", new Vector3(3f, DeckTop, 7.8f), 180f);
-            Post("P", new Vector3(14f, DeckTop, 21.2f), 180f);
+            Post("P", new Vector3(14f, DeckTop, 21.2f + DeckShift), 180f);
 
             // Swivel spotlights for L and L2: on the parapet's outer face, aimed down at the ledge.
             // Each is its guard's eyes: standing in the beam gets you spotted at once (GuardVision.searchlights).
@@ -629,7 +636,7 @@ namespace StealthProto.EditorTools
         static void BuildGoal()
         {
             var goal = new GameObject("PH_GatehouseGoal");
-            goal.transform.position = new Vector3(14.25f, DeckTop + 1.5f, 25f);
+            goal.transform.position = new Vector3(14.25f, DeckTop + 1.5f, 25f + DeckShift);
             var box = goal.AddComponent<BoxCollider>();
             box.isTrigger = true;
             box.size = new Vector3(2.5f, 3f, 2f);
