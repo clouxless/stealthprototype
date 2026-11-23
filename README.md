@@ -217,8 +217,8 @@ the project files), with the first-pass guards W, L, L2 and P from the guard vis
 
 - **Coordinates are the map's:** x is east, z is north (upriver), in metres. Heights follow
   the real lowest lock head, measured from the guide wall top: ledge +6.4 m, bridge and pier
-  deck +16 m, all in flights of 3.2 m.
-- **Guide wall:** 3 m wide, 120 m long, with buttresses under its river side (step down onto
+  deck +16 m. Flight counts follow photo 29: 4 on the lower stair, 7 on the upper one.
+- **Guide wall:** 3 m wide, 120 m long, with buttresses along its east side, away from the shipping channel (step down onto
   them) and four mooring dolphins carrying on downstream. No railings: a low lip marks each edge,
   and the edge rules keep you on. You start at its downstream tip.
 - **Dolphins:** dash off the tip to jump out to them: gaps of 3.6, 3.2 and 3.2 m, then 4.2 m to
@@ -228,8 +228,8 @@ the project files), with the first-pass guards W, L, L2 and P from the guard vis
   your right for a view over the river (where the dam will go) for 50 m, then goes back to
   top-down for 12 m. Then, over 18 m, it cranes back and up behind you until the lock head
   fills the frame, and drops back to top-down 22 m before the end of the wall. Each stair has a fixed camera out over the water,
-  looking at it side-on. On the lower stair it covers only the first flight and the turn: the
-  second flight is top-down again, so you see the ledge's searchlights before you get there.
+  looking at it side-on. On the lower stair it covers the first two flights (half the climb): from
+  the second turn it's top-down again, so you see the ledge's searchlights before you get there.
   On the upper stair it lasts until halfway up the last flight, then it's top-down for the
   climb onto the bridge. Any suspicious or alert guard snaps the camera back to top-down. The
   shots are `CameraZone` boxes under `PH_CameraZones` (tweak them in the inspector).
@@ -237,15 +237,19 @@ the project files), with the first-pass guards W, L, L2 and P from the guard vis
   directions until you let go of it or swing it more than 45 degrees. Along the wall (the river
   view and the crane) up on the stick always walks north along the wall, however the camera looks,
   so stopping or turning round never changes your controls (`CameraZone.fixedControls`).
-- **Lower stairs:** a scissor stair (two flights) on the front face of the lower block, east of
-  where the wall lands. Step east off the end of the wall onto it. It tops out on the **ledge**
-  (22 x 7 m) next to a small hut.
-- **Upper stairs:** three flights against the upper pier face, side by side in three 1.4 m lanes,
-  with 2.8 m of open ledge in front. It comes out on the bridge through a gap in the south parapet.
-- **How the stairs are built:** each flight is 8 m long and rises 3.2 m (22 degrees), with a
-  1.5 m landing at each end to turn round on. Every flight is solid down to the floor below it (so
-  there's no gap to fall through), and no flight runs over another (so the camera always sees you).
-- **Bridge:** a 13 m road from x -40 to 66, over chamber 1 (centre x -17), the pier, and the
+- **Lower stairs:** four flights of 1.6 m on the front face of the lower block, east of where the
+  wall lands. Step east off the end of the wall onto it. It tops out on the **ledge** (22 x 11 m)
+  next to a small hut.
+- **Terrace:** the ledge carries on east at the same height (x 22..46) along the pier face, with a
+  low beam across it and a rim wall round its edges.
+- **Upper stairs:** seven flights of 1.37 m against the pier face at the ledge's east end. It
+  comes out on the bridge through a gap in the south parapet.
+- **How the stairs are built:** like the real ones, the flights zig-zag up the wall in two 1.3 m
+  lanes (2.6 m deep in all), each flight running straight over the one two below it. Flights are
+  22 degrees, with a 1.5 m landing across both lanes at each end. The lowest flight in each lane is
+  solid; the rest are 0.3 m slabs with 2.4-2.9 m of headroom. Rails on the outer edge and between
+  the lanes.
+- **Bridge:** a 13 m, four-lane road from x -40 to 66, over chamber 1 (centre x -17), the pier, and the
   east bank. Lampposts on both edges. The west end is two Humvees with their headlights down the
   road; the east end is a wall. Both ends are walled off past the climb limit.
 - **Pier deck:** the gatehouse (15 x 13 m) against the chamber edge, a small box between it and

@@ -14,10 +14,10 @@ namespace StealthProto.EditorTools
     /// gatehouse on the pier deck. Geometry, lamps, the Humvee light wall and the first-pass guards.
     ///
     /// Coordinates are the map's, in metres: x = east, z = north (upriver). y is height.
-    /// Heights follow the real lowest head, measured from the guide wall top: ledge +6.4 (2 flights),
-    /// bridge and deck +16 (3 more flights), about 15 m of real climb from wall top to bridge. See
+    /// Heights follow the real lowest head, measured from the guide wall top: ledge +6.4, bridge and
+    /// deck +16, about 15 m of real climb from wall top to bridge. See
     /// design/tutorial-gatehouse/real-heights.md in the project files for how that was estimated.
-    /// Flight counts are LowerFlights / UpperFlights; the stairs and heights follow from them.
+    /// Flight counts follow photo 29: 4 short flights on the lower stair, 7 on the upper one.
     /// Everything it makes is a placeholder (Assets/_Placeholder, PH_*).
     /// </summary>
     public static class TutorialGatehouseBuilder
@@ -26,30 +26,40 @@ namespace StealthProto.EditorTools
 
         // Elevations (top surfaces).
         const float WallTop = 0f;
-        const float FlightRise = 3.2f;
-        const int LowerFlights = 2;
-        const int UpperFlights = 3;
-        const float LedgeTop = WallTop + LowerFlights * FlightRise;   // 6.4: 2 flights of 3.2 m
-        const float DeckTop = LedgeTop + UpperFlights * FlightRise;   // 16: 3 more flights
+        const float LedgeTop = WallTop + 6.4f;
+        const float DeckTop = LedgeTop + 9.6f;      // 16
+        const int LowerFlights = 4;
+        const int UpperFlights = 7;
+        const float LowerRise = (LedgeTop - WallTop) / LowerFlights;   // 1.6 m
+        const float UpperRise = (DeckTop - LedgeTop) / UpperFlights;   // 1.37 m
         const float Base = -8f;           // where the concrete meets the water (well under the surface)
         const float WaterY = -5f;         // visual only
         const float HazardY = -12f;       // falling in the water kills you
 
-        // Stairs: two side-by-side lanes (a scissor stair). Every flight and landing is solid down to
-        // the floor below it, so there's nothing to fall through, and no flight runs over another, so
-        // the top-down camera always sees you. Run 8 m per flight.
-        const float Lane = 1.5f;          // flight width
+        // Stairs (photo 29): short flights zig-zagging up a wall face in two 1.3 m lanes, 2.6 m deep.
+        // Flights alternate lanes (outer, inner, outer...), so each one runs directly over the flight
+        // two below it, with a turn landing across both lanes at each end. The lowest flight in each
+        // lane is solid down to the floor; everything above is a 0.3 m slab, leaving 2.4-2.9 m of
+        // headroom. Rails on the outer edge and between the lanes, so you never step off a flight.
+        const float Lane = 1.3f;          // flight width
         const float LandingDepth = 1.5f;  // landing at each end: room to turn round
-        const float StairLength = 11f;    // along the wall: 1.5 + 8 + 1.5
+        const float SlabThick = 0.3f;
+        const float LowerRun = 4f, UpperRun = 3.4f;                        // about 22 degrees
+        const float LowerLength = LandingDepth * 2f + LowerRun;           // 7 m along the wall
+        const float UpperLength = LandingDepth * 2f + UpperRun;           // 6.4 m
 
-        // Lower stairs: x 3..14 on the block's front face. Upper stairs: x 10.5..21.5 on the pier face.
-        // One lane per flight. The lower block reaches south past z 0 so the upper stair's extra lane
-        // still leaves 2.8 m of open ledge in front of it.
-        const float LowerX0 = 3f, UpperX0 = 10.5f;
-        const float UpperLane = 1.4f;
-        const float UpperZ0 = 7f - UpperFlights * UpperLane;   // 2.8..7
-        const float BlockFront = UpperZ0 - 2.8f;               // 0
-        const float LowerZ0 = BlockFront - LowerFlights * Lane; // -3..0
+        // The ledge (top of the lower block) is 22 x 11 m, from the block front up to the pier face
+        // under the bridge, with a terrace at the same height running east of it. Lower stairs on the
+        // block's front face, from where the guide wall lands; upper stairs against the pier face at
+        // the ledge's east end, topping out by the bridge lamp.
+        const float PierFace = 7f;
+        const float LedgeDepth = 11f;
+        const float BlockFront = PierFace - LedgeDepth;          // -4
+        const float TerraceX1 = 46f;
+        const float LowerX0 = 3f;
+        const float UpperX0 = 21.5f - UpperLength;               // 15.1
+        const float LowerZ0 = BlockFront - 2f * Lane;            // -6.6..-4
+        const float UpperZ0 = PierFace - 2f * Lane;              // 4.4..7
 
         const float RailHeight = 1.1f;
         const float RailThick = 0.1f;
@@ -231,20 +241,21 @@ namespace StealthProto.EditorTools
         // ---------------------------------------------------------------- level
 
         /// <summary>
-        /// The right-side guide wall: a 3 m walkway, 120 m long, with the river to the west.
-        /// Box buttresses under the walkway on the river side, and the mooring dolphins carrying on
-        /// downstream in the water (out of reach).
+        /// The right-side guide wall: a 3 m walkway, 120 m long, with the shipping channel to the west.
+        /// Box buttresses under the walkway on the east side (away from the channel, as in photo 29),
+        /// and the mooring dolphins carrying on downstream in the water.
         /// </summary>
         static void BuildGuideWall(Transform parent)
         {
-            Box(parent, "PH_GuideWall", 0f, 3f, Base, WallTop, -120f, 0f);
-            for (float z = -118f; z < -2f; z += 9f)
-                Box(parent, "PH_Buttress", -2f, 0f, Base, WallTop - 0.6f, z, z + 3f);
+            Box(parent, "PH_GuideWall", 0f, 3f, Base, WallTop, -120f, BlockFront);
+            for (float z = -118f; z + 3f <= LowerZ0 - 1f; z += 9f)
+                Box(parent, "PH_Buttress", 3f, 5f, Base, WallTop - 0.6f, z, z + 3f);
 
             // No railings: the edge rules stop you walking off (you hang instead), and the open tip
             // lets you dash-jump out to the dolphins. A low concrete lip marks each edge from above.
             var lips = G.Group(parent, "PH_EdgeLips");
-            G.Visual(PrimitiveType.Cube, lips, "PH_EdgeLip", new Vector3(0.075f, WallTop + 0.075f, -60f), new Vector3(0.15f, 0.15f, 120f), G.gridMat);
+            G.Visual(PrimitiveType.Cube, lips, "PH_EdgeLip", new Vector3(0.075f, WallTop + 0.075f, (-120f + BlockFront) * 0.5f),
+                new Vector3(0.15f, 0.15f, BlockFront + 120f), G.gridMat);
             float eastLipEnd = LowerZ0;
             G.Visual(PrimitiveType.Cube, lips, "PH_EdgeLip", new Vector3(2.925f, WallTop + 0.075f, (-120f + eastLipEnd) * 0.5f),
                 new Vector3(0.15f, 0.15f, eastLipEnd + 120f), G.gridMat);
@@ -270,84 +281,108 @@ namespace StealthProto.EditorTools
 
         const float DolphinDiameter = 2.8f;
 
-        /// <summary>The lower block of the lock head: its top is the ledge (22 x 7 m), with a small hut.</summary>
+        /// <summary>
+        /// The lower block of the lock head: its top is the ledge (22 x 11 m), with a small hut, and a
+        /// terrace at the same height carries on east under the bridge's south side (x 22..46), with a
+        /// low beam across it and a rim wall round its edges (photo 29).
+        /// </summary>
         static void BuildLowerBlock(Transform parent)
         {
-            Box(parent, "PH_LowerBlock", 0f, 22f, Base, LedgeTop, BlockFront, 7f);
+            Box(parent, "PH_LowerBlock", 0f, 22f, Base, LedgeTop, BlockFront, PierFace);
+            Box(parent, "PH_Terrace", 22f, TerraceX1, Base, LedgeTop, BlockFront, PierFace);
+            Box(parent, "PH_TerraceBeam", 31f, 32f, LedgeTop, LedgeTop + 0.9f, BlockFront + 2f, PierFace);
 
-            // Ledge railings: the front edge (gap at the top of the lower stairs), the west and east ends.
+            // Railings: the front edge (gap at the top of the lower stairs) and the west end; a rim wall
+            // round the terrace's front and east end.
             float gap0 = LowerTopX0, gap1 = LowerTopX0 + LandingDepth;
             RailX(parent, 0f, gap0, BlockFront + 0.05f, LedgeTop);
             RailX(parent, gap1, 22f, BlockFront + 0.05f, LedgeTop);
-            RailZ(parent, BlockFront, 7f, 0.05f, LedgeTop);
-            RailZ(parent, BlockFront, 7f, 21.95f, LedgeTop);
+            RailZ(parent, BlockFront, PierFace, 0.05f, LedgeTop);
+            RailX(parent, 22f, TerraceX1, BlockFront + ParapetThick * 0.5f, LedgeTop, ParapetThick);
+            RailZ(parent, BlockFront, PierFace, TerraceX1 - ParapetThick * 0.5f, LedgeTop, ParapetThick);
 
             // Hut near the top of the lower stairs: natural cover.
             Box(parent, "PH_Hut", 0.6f, 4.6f, LedgeTop, LedgeTop + 2.5f, 3.6f, 6.6f);
         }
 
         /// <summary>West end of the upper stair's top landing (the gap in the bridge parapet).</summary>
-        static float UpperTopX0 => UpperX0 + StairLength - LandingDepth; // BuildUpperStairs always finishes eastward
+        static float UpperTopX0 => UpperFlights % 2 == 1 ? UpperX0 + UpperLength - LandingDepth : UpperX0;
 
         /// <summary>West end of the lower stair's top landing (where it opens onto the ledge).</summary>
-        static float LowerTopX0 => LowerFlights % 2 == 0 ? LowerX0 : LowerX0 + StairLength - LandingDepth;
+        static float LowerTopX0 => LowerFlights % 2 == 0 ? LowerX0 : LowerX0 + LowerLength - LandingDepth;
 
         /// <summary>
-        /// Lower stairs: a strip on the block's front face (x 3..14), two flights of 3.2 m (22 degrees)
-        /// in 1.5 m lanes. Step east off the end of the guide wall onto the bottom landing; the
-        /// flights zig-zag, and the top landing opens north onto the ledge.
+        /// Lower stairs: a strip on the block's front face (x 3..10, z -6.6..-4), four flights of 1.6 m.
+        /// Step east off the end of the guide wall onto the bottom landing; the top landing (west end)
+        /// opens north onto the ledge.
         /// </summary>
         static void BuildLowerStairs(Transform parent)
-        {
-            float x0 = LowerX0, fx0 = x0 + LandingDepth;
-            Landing(parent, "PH_Landing_Bottom", x0, fx0, LowerZ0, LowerZ0 + Lane, WallTop, Base);
-            ScissorStair(parent, LowerX0, LowerZ0, Lane, LowerFlights, WallTop, true, Base);
-        }
+            => StackedStair(parent, LowerX0, LowerZ0, LowerFlights, LowerRise, LowerRun, WallTop, true, Base);
 
         /// <summary>
-        /// Upper stairs: three flights of 3.2 m against the upper pier face (x 10.5..21.5, z 2.8..7), side by
-        /// side in 1.4 m lanes so none runs over another, with 2.8 m of open ledge in front. Flight 1
-        /// (outer lane) starts on the ledge (west end for an odd count), then they zig-zag, and the top
-        /// landing at the east end opens north onto the bridge through a gap in its south parapet.
+        /// Upper stairs: seven flights of 1.37 m against the pier face (x 15.1..21.5, z 4.4..7), starting
+        /// on the ledge at the west end. The top landing at the east end opens north onto the bridge
+        /// through a gap in its south parapet.
         /// </summary>
         static void BuildUpperStairs(Transform parent)
-        {
-            // Even count: start westward so the top still comes out at the east end (by the bridge lamp).
-            ScissorStair(parent, UpperX0, UpperZ0, UpperLane, UpperFlights, LedgeTop, UpperFlights % 2 == 1, LedgeTop);
-        }
+            => StackedStair(parent, UpperX0, UpperZ0, UpperFlights, UpperRise, UpperRun, LedgeTop, true, LedgeTop);
 
         /// <summary>
-        /// A zig-zag stair: one flight per lane, lanes side by side from z0 northwards, each flight
-        /// FlightRise high across StairLength (with LandingDepth landings at both ends). Turn landings
-        /// span the two lanes they join; the top landing is in the last lane. Solid down to floorY.
+        /// A zig-zag stair up a wall face, two lanes deep (z0 outer, z0 + Lane inner, wall at z0 + 2 Lane).
+        /// Flight i is in the outer lane when i is even, the inner one when odd, and climbs `rise` over
+        /// `run`, with LandingDepth landings across both lanes at each end. So flight i + 2 runs straight
+        /// over flight i. The bottom landing, the first two flights and the first turn are solid down to
+        /// floorY (nothing is under them); the rest are slabs.
         /// </summary>
-        static void ScissorStair(Transform parent, float x0, float z0, float lane, int flights, float yBottom,
-            bool firstEast, float floorY)
+        static void StackedStair(Transform parent, float x0, float z0, int flights, float rise, float run,
+            float yBottom, bool firstEast, float floorY)
         {
-            float x1 = x0 + StairLength;
+            float x1 = x0 + LandingDepth * 2f + run;
             float fx0 = x0 + LandingDepth, fx1 = x1 - LandingDepth;
+            float zMid = z0 + Lane, zWall = z0 + 2f * Lane;
+
+            if (yBottom > floorY + 0.01f)
+                Landing(parent, "PH_Landing_Bottom", firstEast ? x0 : fx1, firstEast ? fx0 : x1, z0, zWall, yBottom, floorY);
+
             for (int i = 0; i < flights; i++)
             {
                 bool east = (i % 2 == 0) == firstEast;
-                float za = z0 + i * lane, zb = za + lane;
-                float ya = yBottom + i * FlightRise, yb = ya + FlightRise;
+                bool outer = i % 2 == 0;
+                float za = outer ? z0 : zMid, zb = za + Lane;
+                float ya = yBottom + i * rise, yb = ya + rise;
                 float from = east ? fx0 : fx1, to = east ? fx1 : fx0;
-                Flight(parent, $"PH_Flight_{i + 1}", from, to, ya, yb, floorY, za, zb, i == 0 ? za + 0.05f : za);
+                string name = $"PH_Flight_{i + 1}";
+                if (i < 2) Wedge(parent, name, from, to, ya, yb, floorY, za, zb);
+                else SlopedSlab(parent, name, from, to, ya, yb, za, zb);
+                // Rails: the outer edge (outer lane) and the lane divider (every flight).
+                if (outer) SlopedRail(parent, new Vector3(from, ya, z0 + 0.05f), new Vector3(to, yb, z0 + 0.05f));
+                SlopedRail(parent, new Vector3(from, ya, zMid), new Vector3(to, yb, zMid));
 
-                // The landing at this flight's top end: a turn (two lanes) or the top (last lane).
+                // The landing at this flight's top end, across both lanes: a turn, or the top.
                 bool top = i == flights - 1;
                 float lx0 = east ? fx1 : x0, lx1 = east ? x1 : fx0;
-                float lz1 = top ? zb : zb + lane;
-                Landing(parent, top ? "PH_Landing_Top" : $"PH_Landing_Turn{i + 1}", lx0, lx1, za, lz1, yb, floorY);
+                string lname = top ? "PH_Landing_Top" : $"PH_Landing_Turn{i + 1}";
+                if (i == 0) Landing(parent, lname, lx0, lx1, z0, zWall, yb, floorY);
+                else Box(parent, lname, lx0, lx1, yb - SlabThick, yb, z0, zWall);
                 // Rails on its open sides: the far end and the outer (south) edge.
-                float endX = east ? x1 - 0.05f : x0 + 0.05f;
-                RailZ(parent, za, lz1, endX, yb);
-                RailX(parent, lx0, lx1, i == 0 ? za + 0.05f : za, yb);
+                RailZ(parent, z0, zWall, east ? x1 - 0.05f : x0 + 0.05f, yb);
+                RailX(parent, lx0, lx1, z0 + 0.05f, yb);
             }
         }
 
+        /// <summary>A 0.3 m slab whose top runs from (xFrom, yFrom) to (xTo, yTo), across z0..z1.</summary>
+        static void SlopedSlab(Transform parent, string name, float xFrom, float xTo, float yFrom, float yTo, float z0, float z1)
+        {
+            float zc = (z0 + z1) * 0.5f;
+            Vector3 a = new Vector3(xFrom, yFrom, zc), b = new Vector3(xTo, yTo, zc);
+            Vector3 dir = b - a;
+            Quaternion rot = Quaternion.LookRotation(dir.normalized, Vector3.up);
+            Vector3 centre = (a + b) * 0.5f - rot * Vector3.up * (SlabThick * 0.5f);
+            G.Block(parent, name, centre, new Vector3(z1 - z0, SlabThick, dir.magnitude), rot);
+        }
+
         /// <summary>
-        /// The H6 bridge: a 13 m road (z 7..20) from x -40 to 66 over chamber 1 (x -34..0, centre -17),
+        /// The H6 bridge: a 13 m, four-lane road (z 7..20) from x -40 to 66 over chamber 1 (x -34..0, centre -17),
         /// the pier and onto the east bank. West end: two Humvees and their headlights. East end: a wall.
         /// </summary>
         static void BuildBridge(Transform parent)
@@ -374,6 +409,23 @@ namespace StealthProto.EditorTools
             // Dead ends: tall walls past the climb limit at both ends.
             Box(parent, "PH_EndWall_West", -41f, -40f, DeckTop, DeckTop + 8f, z0, z1);
             Box(parent, "PH_EndWall_East", 66f, 67f, DeckTop, DeckTop + 8f, z0, z1);
+
+            // Four lanes (3.25 m each): a double yellow centre line and dashed white lane lines.
+            var yellow = G.MakeLitMaterial("PH_RoadYellow", null, new Color(0.85f, 0.7f, 0.15f));
+            var white = G.MakeLitMaterial("PH_RoadWhite", null, new Color(0.85f, 0.85f, 0.82f));
+            var marks = G.Group(parent, "PH_RoadMarkings");
+            void Mark(Material m, float xa, float xb, float mz, float w)
+            {
+                var v = G.Visual(PrimitiveType.Cube, marks, "PH_RoadMark",
+                    new Vector3((xa + xb) * 0.5f, DeckTop + 0.01f, mz), new Vector3(xb - xa, 0.02f, w), m);
+                v.GetComponent<Renderer>().shadowCastingMode = ShadowCastingMode.Off;
+            }
+            float zc = (z0 + z1) * 0.5f;
+            Mark(yellow, -40f, 66f, zc - 0.12f, 0.12f);
+            Mark(yellow, -40f, 66f, zc + 0.12f, 0.12f);
+            foreach (float lz in new[] { z0 + 3.25f, z1 - 3.25f })
+                for (float x = -38f; x < 66f; x += 9f)
+                    Mark(white, x, Mathf.Min(x + 3f, 66f), lz, 0.12f);
 
             // Humvees (2 m tall boxes, climbable), headlights pointing east down the road.
             Box(parent, "PH_Humvee", -40f, -35f, DeckTop, DeckTop + 2f, 7.9f, 10.5f);
@@ -442,7 +494,7 @@ namespace StealthProto.EditorTools
                 G.BuildGuard("PH_Guard_" + id, position, yaw, route, player);
             }
 
-            Post("W", new Vector3(0.6f, WallTop, -1.8f), 270f);
+            Post("W", new Vector3(0.6f, WallTop, BlockFront - 1.8f), 270f);
             Post("L", new Vector3(8f, DeckTop, 7.6f), 180f);
             Post("L2", new Vector3(3f, DeckTop, 7.8f), 180f);
             Post("P", new Vector3(14f, DeckTop, 21.2f), 180f);
@@ -463,7 +515,7 @@ namespace StealthProto.EditorTools
         static StealthLight Swivel(Transform parent, string name, Vector3 position, float phase)
         {
             // About a 3.5 m pool on the ledge (30 degrees from ~14 m up).
-            var light = G.SpotLamp(parent, name, position, new Vector3(position.x, LedgeTop, 3.5f), 30f, 20f, 40f);
+            var light = G.SpotLamp(parent, name, position, new Vector3(position.x, LedgeTop, 1.5f), 30f, 20f, 40f);
             var stealth = light.GetComponent<StealthLight>();
             stealth.litFraction = 1f;       // the whole beam is Lit
             stealth.litRangeFraction = 1f;
@@ -531,41 +583,30 @@ namespace StealthProto.EditorTools
             lockView.fixedControls = true;
             lockView.controlYaw = 0f;
 
-            // Stairs: fixed cameras over the water to the south, turning to keep you in frame.
-            // The lower one covers only the first flight (the outer lane) and the turn: step onto the
-            // second flight and it's back to top-down, so you can see the searchlights sweeping the ledge
-            // before you reach it (playtest: the side view walked you straight into the beam).
-            float lx0 = LowerX0, lx1 = LowerX0 + StairLength;
-            float lowerZoneZ0 = LowerZ0 - 1f, lowerZoneZ1 = LowerZ0 + Lane;
+            // Stairs: fixed cameras over the water to the south, turning to keep you in frame. Each
+            // zone is a box round its stair, capped in height, so climbing out of the top of it hands
+            // back to top-down. Lower stair: the first two flights (half the climb); from the second
+            // turn it's top-down, so you see the searchlights sweeping the ledge before you reach it
+            // (playtest: the side view walked you straight into the beam).
+            float lx0 = LowerX0, lx1 = LowerX0 + LowerLength;
+            float lowY0 = WallTop - 1f, lowY1 = WallTop + 2f * LowerRise - 0.2f;
             var lower = Zone(zones, "PH_Cam_LowerStairs", CameraZone.Kind.Fixed,
-                new Vector3((lx0 - 0.5f + lx1 + 1f) * 0.5f, (WallTop + LedgeTop) * 0.5f, (lowerZoneZ0 + lowerZoneZ1) * 0.5f),
-                new Vector3(lx1 + 1f - (lx0 - 0.5f), LedgeTop - WallTop + 4f, lowerZoneZ1 - lowerZoneZ0), 1f);
+                new Vector3((lx0 - 0.5f + lx1 + 1f) * 0.5f, (lowY0 + lowY1) * 0.5f, (LowerZ0 - 1f + BlockFront) * 0.5f),
+                new Vector3(lx1 + 1f - (lx0 - 0.5f), lowY1 - lowY0, BlockFront - (LowerZ0 - 1f)), 1f);
             lower.eyeRelativeToPlayer = false;
-            lower.eyeStart = lower.eyeEnd = new Vector3((lx0 + lx1) * 0.5f, WallTop + 5f, -15f);
+            lower.eyeStart = lower.eyeEnd = new Vector3((lx0 + lx1) * 0.5f, WallTop + 5f, LowerZ0 - 12f);
             lower.lookStart = lower.lookEnd = new Vector3(0f, 1.2f, 0f);
             lower.fovStart = lower.fovEnd = 45f;
 
-            // Upper stair: the side view lasts until halfway up the last flight (the inner lane, against
-            // the pier face), then it's top-down for the climb onto the bridge, where guards L and L2 stand.
-            // Two boxes with the same shot: the lower lanes in full, and the last lane up to that halfway mark.
-            float ux0 = UpperX0, ux1 = UpperX0 + StairLength;
-            float lastLaneZ = UpperZ0 + (UpperFlights - 1) * UpperLane;
-            float lastFlightMid = ux0 + StairLength * 0.5f;
-            bool lastEast = ((UpperFlights - 1) % 2 == 0) == (UpperFlights % 2 == 1);
-            float lowY = LedgeTop - 1f, highY = DeckTop + 3f;
-            UpperStairShot(Zone(zones, "PH_Cam_UpperStairs", CameraZone.Kind.Fixed,
-                new Vector3((ux0 - 0.5f + ux1 + 1f) * 0.5f, (lowY + highY) * 0.5f, (UpperZ0 - 0.5f + lastLaneZ) * 0.5f),
-                new Vector3(ux1 + 1f - (ux0 - 0.5f), highY - lowY, lastLaneZ - (UpperZ0 - 0.5f)), 1f), ux0, ux1);
-            float lx0 = lastEast ? ux0 - 0.5f : lastFlightMid, lx1 = lastEast ? lastFlightMid : ux1 + 1f;
-            UpperStairShot(Zone(zones, "PH_Cam_UpperStairs_LastFlight", CameraZone.Kind.Fixed,
-                new Vector3((lx0 + lx1) * 0.5f, (lowY + highY) * 0.5f, (lastLaneZ + 7f) * 0.5f),
-                new Vector3(lx1 - lx0, highY - lowY, 7f - lastLaneZ), 1f), ux0, ux1);
-        }
-
-        static void UpperStairShot(CameraZone upper, float ux0, float ux1)
-        {
+            // Upper stair: the side view lasts until halfway up the last flight, then it's top-down for
+            // the climb onto the bridge, where guards L and L2 stand.
+            float ux0 = UpperX0, ux1 = UpperX0 + UpperLength;
+            float upY0 = LedgeTop - 1f, upY1 = LedgeTop + (UpperFlights - 0.5f) * UpperRise;
+            var upper = Zone(zones, "PH_Cam_UpperStairs", CameraZone.Kind.Fixed,
+                new Vector3((ux0 - 0.5f + ux1 + 1f) * 0.5f, (upY0 + upY1) * 0.5f, (UpperZ0 - 0.5f + PierFace) * 0.5f),
+                new Vector3(ux1 + 1f - (ux0 - 0.5f), upY1 - upY0, PierFace - (UpperZ0 - 0.5f)), 1f);
             upper.eyeRelativeToPlayer = false;
-            upper.eyeStart = upper.eyeEnd = new Vector3((ux0 + ux1) * 0.5f, LedgeTop + 6.5f, -11f);
+            upper.eyeStart = upper.eyeEnd = new Vector3((ux0 + ux1) * 0.5f, LedgeTop + 6.5f, BlockFront - 11f);
             upper.lookStart = upper.lookEnd = new Vector3(0f, 1.2f, 0f);
             upper.fovStart = upper.fovEnd = 45f;
         }
