@@ -2,37 +2,76 @@ using UnityEngine;
 
 namespace StealthProto
 {
+    /// <summary>How fast a guard's awareness meter fills. Ordered slowest to fastest.</summary>
+    public enum DetectRate { None = 0, VerySlow = 1, Slow = 2, Fast = 3, Instant = 4 }
+
     /// <summary>
-    /// 3D vision: a horizontal cone, height layers (a guard sees its own layer and the one below,
-    /// and looks up only while searching), line of sight against the body, and the target's
-    /// light tier. Each tier has one fixed sight distance, the same for every guard.
-    /// Inside that distance the target is seen; beyond it, not at all.
+    /// The guard vision model (design/guard-vision/guard-vision-spec.md). Three overlapping zones,
+    /// measured with 3D distance from the eye and the horizontal angle off the guard's facing:
+    ///   Sight cone (70 degrees, out to Far): A = Mid..Far, B = Near..Mid, C = within Near
+    ///   Peripheral (within Mid, out to 90 degrees each side): D = Near..Mid, E = within Near
+    ///   Noise (the whole Far circle, behind too): F = the rest
+    /// Everything needs line of sight. The player's state picks a row of the rate table: light on
+    /// the floor under their feet (Lit / Dim / Dark), movement (still, walking, dashing, crawling)
+    /// and height relative to the guard (below, equal, above). Of the zones the player is in, the
+    /// fastest rate counts. Above the guard is never seen unless the guard is searching (LookUp).
     /// </summary>
     public class GuardVision : MonoBehaviour
     {
         public Transform eye;
         public Transform target;
 
-        [Header("Cone")]
-        [Tooltip("Cone length. Also the sight distance for a Lit target.")]
+        [Header("Distances (named in the design; tune here)")]
+        public float nearDistance = 3f;
+        public float midDistance = 6f;
+        [Tooltip("Far: the end of the sight cone and the edge of the noise zone.")]
         public float viewDistance = 13f;
+
+        [Header("Angles")]
+        [Tooltip("Half the sight cone (70 degrees across).")]
         public float halfAngle = 35f;
-        [Tooltip("How many height layers below its own a guard can see.")]
-        public int layersDown = 1;
+        [Tooltip("Peripheral zone: this far either side of facing, within Mid.")]
+        public float peripheralHalfAngle = 90f;
 
-        [Header("Light tiers: fixed sight distances")]
-        public float darkSightDistance = 2.5f;
-        public float dimSightDistance = 6.5f;
-        [Tooltip("Within this distance a seen target registers at full speed; it slows toward the tier's limit.")]
-        public float closeRange = 2.5f;
+        [Header("Meter fill times (seconds from empty to full)")]
+        public float fastTime = 1f;
+        public float slowTime = 4f;
+        public float verySlowTime = 10f;
 
-        [Header("Long sight: lit targets dead ahead")]
-        [Tooltip("A Lit target straight ahead is seen out to this distance, well past the normal cone.")]
-        public float litFarDistance = 26f;
-        [Tooltip("How far off dead ahead the long sight reaches, in degrees either side.")]
-        public float litFarHalfAngle = 12f;
+        [Header("Player movement")]
+        [Tooltip("Below this speed a standing player counts as still.")]
+        public float stillSpeed = 0.2f;
 
         static readonly Vector3[] BodyPoints = { new Vector3(0f, 0.35f, 0f), new Vector3(0f, 1.1f, 0f), new Vector3(0f, 1.65f, 0f) };
+
+        // ---------------------------------------------------------------- rate table
+        // Zones in order A B C D E F. Letters: I Instant, F Fast, S Slow, V Very slow, N None.
+        // Rows: Still, Walking, Dashing, Crawling. Lit has a second table for a player below the guard.
+        enum Move { Still = 0, Walking = 1, Dashing = 2, Crawling = 3 }
+
+        static readonly string[] LitSame  = { "FIISFS", "FIISFS", "IIIFIF", "SFFVSN" };
+        static readonly string[] LitBelow = { "IIISFF", "IIISFF", "IIIFII", "FIIVSS" };
+        static readonly string[] Dim      = { "SFFVFN", "SFFVFN", "FIISIN", "VSSNSN" };
+        static readonly string[] Dark     = { "NVSNFN", "NSFNFN", "NFININ", "NNVNSN" };
+
+        static DetectRate Parse(char c) => c switch
+        {
+            'I' => DetectRate.Instant,
+            'F' => DetectRate.Fast,
+            'S' => DetectRate.Slow,
+            'V' => DetectRate.VerySlow,
+            _ => DetectRate.None
+        };
+
+        /// <summary>The table's rate for one zone (0..5 = A..F).</summary>
+        static DetectRate TableRate(LightTier light, Move move, bool below, int zone)
+        {
+            string[] rows = light == LightTier.Lit ? (below ? LitBelow : LitSame)
+                          : light == LightTier.Dim ? Dim : Dark;
+            return Parse(rows[(int)move][zone]);
+        }
+
+        // ---------------------------------------------------------------- state
 
         LightExposure targetExposure;
         Health targetHealth;
@@ -40,40 +79,44 @@ namespace StealthProto
 
         public int OwnLayer => HeightLayers.LayerOf(transform.position.y);
 
-        /// <summary>Whether this guard can currently see things on a height layer.</summary>
-        public bool CanSeeLayer(int layer)
-        {
-            int own = OwnLayer;
-            if (layer < own - layersDown) return false;
-            return layer <= own || LookUp;
-        }
+        /// <summary>Whether this guard can currently see things on a height layer: its own and any below; above only while LookUp.</summary>
+        public bool CanSeeLayer(int layer) => layer <= OwnLayer || LookUp;
 
         /// <summary>Set by the brain while searching: the guard checks higher layers too.</summary>
         public bool LookUp { get; set; }
-        /// <summary>Widened while alert.</summary>
+        /// <summary>Widens the sight cone (alert).</summary>
         public float AngleMultiplier { get; set; } = 1f;
-        /// <summary>0..1 how well the target is seen this frame.</summary>
-        public float Visibility { get; private set; }
-        /// <summary>0 at the eye, 1 at max view distance.</summary>
+        public float EffectiveHalfAngle => halfAngle * AngleMultiplier;
+
+        /// <summary>This frame's meter rate for the target.</summary>
+        public DetectRate Rate { get; private set; }
+        /// <summary>Which zone set the rate: 'A'..'F', or '-' when unseen.</summary>
+        public char Zone { get; private set; } = '-';
+        /// <summary>1 while the target registers at all this frame, else 0.</summary>
+        public float Visibility => Rate == DetectRate.None ? 0f : 1f;
+        /// <summary>Seconds to fill the meter from empty at this frame's rate (0 = instant, infinity = never).</summary>
+        public float FillTime => Rate switch
+        {
+            DetectRate.Instant => 0f,
+            DetectRate.Fast => fastTime,
+            DetectRate.Slow => slowTime,
+            DetectRate.VerySlow => verySlowTime,
+            _ => float.PositiveInfinity
+        };
+        /// <summary>0 at the eye, 1 at Far.</summary>
         public float NormalizedDistance { get; private set; } = 1f;
         public Vector3 LastSeenPosition { get; private set; }
-        public float EffectiveHalfAngle => halfAngle * AngleMultiplier;
         /// <summary>Centre of the target's body (lower when prone).</summary>
         public Vector3 TargetCenter => target.position + Vector3.up * (targetMotor != null ? targetMotor.CenterHeight : 1.1f);
 
-        /// <summary>Furthest anything can be seen: the long sight for lit targets, or the cone.</summary>
-        public float MaxRange => Mathf.Max(viewDistance, litFarDistance);
-
-        /// <summary>Sight distance at an angle off dead ahead: the long sight's spike, else the cone.</summary>
-        public float RangeAtAngle(float degreesOffAhead) =>
-            Mathf.Abs(degreesOffAhead) <= litFarHalfAngle ? MaxRange : viewDistance;
-
-        public float SightDistance(LightTier tier) => tier switch
+        /// <summary>Furthest anything can be seen (Far).</summary>
+        public float MaxRange => viewDistance;
+        /// <summary>How far the zones reach at an angle off facing: Far in the cone, Mid in the periphery, Far behind (Noise zone, Lit only).</summary>
+        public float RangeAtAngle(float degreesOffAhead)
         {
-            LightTier.Lit => viewDistance,
-            LightTier.Dim => Mathf.Min(dimSightDistance, viewDistance),
-            _ => Mathf.Min(darkSightDistance, viewDistance)
-        };
+            float a = Mathf.Abs(degreesOffAhead);
+            return a <= EffectiveHalfAngle ? viewDistance : a <= peripheralHalfAngle ? midDistance : viewDistance;
+        }
 
         void Start()
         {
@@ -93,51 +136,62 @@ namespace StealthProto
 
         public void Tick()
         {
-            Visibility = Evaluate();
-            if (Visibility > 0f) LastSeenPosition = target.position;
+            Rate = Evaluate(out char zone);
+            Zone = Rate == DetectRate.None ? '-' : zone;
+            if (Rate != DetectRate.None) LastSeenPosition = target.position;
         }
 
-        float Evaluate()
+        DetectRate Evaluate(out char zone)
         {
-            if (target == null || eye == null) return 0f;
-            if (targetHealth != null && targetHealth.IsDead) return 0f;
+            zone = '-';
+            if (target == null || eye == null) return DetectRate.None;
+            if (targetHealth != null && targetHealth.IsDead) return DetectRate.None;
 
             Vector3 eyePos = eye.position;
             Vector3 toTarget = TargetCenter - eyePos;
-            float distance = toTarget.magnitude;
+            float distance = toTarget.magnitude; // 3D: height counts
             NormalizedDistance = Mathf.Clamp01(distance / viewDistance);
-            if (distance > MaxRange) return 0f;
+            if (distance > viewDistance) return DetectRate.None;
+
+            // Height: above the guard is unseen unless searching. Below changes the Lit rates.
+            int targetLayer = HeightLayers.LayerOf(target.position.y);
+            int own = OwnLayer;
+            if (targetLayer > own && !LookUp) return DetectRate.None;
+            bool below = targetLayer < own;
+
+            // Line of sight to any part of the body (prone bodies are long and low: low cover hides them).
+            Vector3[] points = targetMotor != null ? targetMotor.VisibilityPoints : BodyPoints;
+            bool anyVisible = false;
+            foreach (var p in points)
+                if (!Occlusion.Blocked(eyePos, target.TransformPoint(p), target, transform)) { anyVisible = true; break; }
+            if (!anyVisible) return DetectRate.None;
 
             Vector3 flatForward = eye.forward;
             flatForward.y = 0f;
             Vector3 flatTo = toTarget;
             flatTo.y = 0f;
-            if (!CanSeeLayer(HeightLayers.LayerOf(target.position.y))) return 0f;
-            float offAhead = Vector3.Angle(flatForward, flatTo);
-            bool inCone = offAhead <= EffectiveHalfAngle;
-            if (distance > viewDistance && offAhead > litFarHalfAngle) return 0f;
+            float off = flatTo.sqrMagnitude < 0.0001f ? 0f : Vector3.Angle(flatForward, flatTo);
 
-            // Outside the cone a guard sees nothing: walking up behind one is always safe, which
-            // is what makes takedowns possible. (The long Lit spike is inside the cone.)
-            if (!inCone) return 0f;
+            LightTier light = targetExposure != null ? targetExposure.Tier : LightTier.Lit;
+            Move move = targetMotor == null ? Move.Walking
+                      : targetMotor.IsProne ? Move.Crawling
+                      : targetMotor.IsDashing ? Move.Dashing
+                      : targetMotor.Speed > stillSpeed ? Move.Walking
+                      : Move.Still;
 
-            // Line of sight to the body (prone bodies are long and low: low cover hides them).
-            Vector3[] points = targetMotor != null ? targetMotor.VisibilityPoints : BodyPoints;
-            int visibleParts = 0;
-            foreach (var p in points)
-                if (!Occlusion.Blocked(eyePos, target.TransformPoint(p), target, transform)) visibleParts++;
-            if (visibleParts == 0) return 0f;
-            float partFactor = visibleParts / (float)points.Length;
-
-            // SeenTier, not Tier: a crawling player counts as one tier darker than the floor.
-            LightTier tier = targetExposure != null ? targetExposure.SeenTier : LightTier.Lit;
-            float sight = SightDistance(tier);
-            // Long sight: standing in light dead ahead of a guard is visible from much further away.
-            if (tier == LightTier.Lit && offAhead <= litFarHalfAngle) sight = MaxRange;
-            if (distance > sight) return 0f;
-
-            float distanceFactor = 1f - Mathf.InverseLerp(closeRange, sight, distance) * 0.6f;
-            return Mathf.Clamp01(partFactor * distanceFactor);
+            // Every zone the target is in; the fastest rate wins.
+            DetectRate best = DetectRate.None;
+            int bestZone = 5;
+            void Consider(int z)
+            {
+                DetectRate r = TableRate(light, move, below, z);
+                if (r > best) { best = r; bestZone = z; }
+            }
+            if (off <= EffectiveHalfAngle) Consider(distance < nearDistance ? 2 : distance < midDistance ? 1 : 0);
+            if (off <= peripheralHalfAngle && distance < midDistance) Consider(distance < nearDistance ? 4 : 3);
+            Consider(5); // the Noise zone covers the whole Far circle
+            zone = (char)('A' + bestZone);
+            return best;
         }
     }
 }

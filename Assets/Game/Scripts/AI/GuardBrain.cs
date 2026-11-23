@@ -48,13 +48,14 @@ namespace StealthProto
         public float chaseSpeed = 5.5f;
         public float turnSpeed = 360f;
 
-        [Header("Awareness")]
-        public float detectRate = 2f;
-        public float searchDetectMultiplier = 2f;
-        [Tooltip("Detection multiplier for every guard once the room has been alerted.")]
+        [Header("Awareness (fill rates come from GuardVision's rate table)")]
+        [Tooltip("Detection multiplier for every guard once the room has been alerted (not applied to Instant or None).")]
         public float waryDetectMultiplier = 1.5f;
+        [Tooltip("With nothing filling it, the meter holds this long, then drains.")]
+        public float meterHoldTime = 1f;
         public float decayRate = 0.12f;
-        [Range(0f, 1f)] public float suspiciousThreshold = 0.3f;
+        [Tooltip("\"?\" and turn toward the player at this fill.")]
+        [Range(0f, 1f)] public float suspiciousThreshold = 0.5f;
         [Tooltip("Takedowns: attacks from more than this angle off the guard's facing count as from behind.")]
         public float takedownAngle = 100f;
 
@@ -371,16 +372,15 @@ namespace StealthProto
         void UpdateAwareness(float dt)
         {
             float v = vision.Visibility;
-            if (v > 0f)
+            DetectRate rate = vision.Rate;
+            if (rate != DetectRate.None)
             {
                 lastSeenTime = Time.time;
                 lastKnown = vision.LastSeenPosition;
-                float proximity = Mathf.Lerp(2.5f, 0.75f, vision.NormalizedDistance);
-                float mult = State == GuardState.Search ? searchDetectMultiplier : 1f;
-                if (RoomAlerted) mult *= waryDetectMultiplier;
-                Awareness += v * detectRate * proximity * mult * dt;
+                if (rate == DetectRate.Instant) Awareness = 1f;
+                else Awareness += dt * (RoomAlerted ? waryDetectMultiplier : 1f) / vision.FillTime;
             }
-            else if (State != GuardState.Alert && Time.time - lastSeenTime > 1f)
+            else if (State != GuardState.Alert && Time.time - lastSeenTime > meterHoldTime)
             {
                 Awareness -= decayRate * dt;
             }

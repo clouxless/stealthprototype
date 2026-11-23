@@ -17,7 +17,7 @@ namespace StealthProto
 
         public GuardVision vision;
         public GuardBrain brain;
-        public int segments = 20;
+        public int segments = 36;
         [Tooltip("Distance between rows of the grid, in metres.")]
         public float rowStep = 0.75f;
         public float updateInterval = 0.1f;
@@ -79,6 +79,7 @@ namespace StealthProto
             forward.Normalize();
 
             float half = vision.EffectiveHalfAngle;
+            float span = Mathf.Max(half, vision.peripheralHalfAngle);
             float maxRange = vision.MaxRange;
             Transform self = vision.transform;
             Transform target = vision.target;
@@ -89,10 +90,11 @@ namespace StealthProto
 
             for (int i = 0; i <= segments; i++)
             {
-                float angle = Mathf.Lerp(-half, half, i / (float)segments);
+                // The sight cone out to Far, flanked by the peripheral zone out to Mid (90 degrees each side).
+                float angle = Mathf.Lerp(-span, span, i / (float)segments);
                 Vector3 dir = Quaternion.Euler(0f, angle, 0f) * forward;
-                // The narrow spike dead ahead is the long sight: only lit targets are seen out there.
-                float range = vision.RangeAtAngle(angle);
+                bool inCone = Mathf.Abs(angle) <= half + 0.01f;
+                float range = inCone ? maxRange : vision.midDistance;
                 for (int j = 0; j < rows; j++)
                 {
                     int v = i * rows + j;
@@ -112,7 +114,7 @@ namespace StealthProto
                     valid[v] = ok;
                     vertices[v] = transform.InverseTransformPoint(new Vector3(column.x, y + heightOffset, column.z));
                     Color c = baseColor;
-                    float fade = dist > vision.viewDistance ? 0.5f : 1f; // the long-sight spike is fainter
+                    float fade = inCone ? 1f : 0.45f; // the periphery is fainter
                     c.a = ok ? Mathf.Lerp(alpha, alpha * 0.3f, dist / maxRange) * fade : 0f;
                     colors[v] = c;
                 }

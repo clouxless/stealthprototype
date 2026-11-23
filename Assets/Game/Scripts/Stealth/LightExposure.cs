@@ -4,9 +4,8 @@ namespace StealthProto
 {
     /// <summary>
     /// The player's light tier, decided only by the light reaching the floor under their feet.
-    /// Guards use SeenTier: the same, except that crawling counts as one tier darker
-    /// (Lit reads as Dim, Dim as Dark). The character's tint shows SeenTier, so it always
-    /// says what the guards get.
+    /// Guards read this tier directly; crawling has its own row in the guard rate table
+    /// (GuardVision), so it no longer darkens the tier. The character's tint shows it.
     /// </summary>
     public class LightExposure : MonoBehaviour
     {
@@ -17,20 +16,10 @@ namespace StealthProto
         public LightTier Tier { get; private set; } = LightTier.Dark;
         /// <summary>The floor point last sampled.</summary>
         public Vector3 SamplePoint { get; private set; }
-        /// <summary>The tier guards see you at: Tier, one darker while crawling. A muzzle flash is always Lit.</summary>
-        public LightTier SeenTier
-        {
-            get
-            {
-                if (Time.time < flashUntil) return LightTier.Lit;
-                if (motor != null && motor.IsProne && Tier > LightTier.Dark) return Tier - 1;
-                return Tier;
-            }
-        }
+        /// <summary>The tier guards see you at. Same as Tier (kept for callers); a muzzle flash is always Lit.</summary>
+        public LightTier SeenTier => Time.time < flashUntil ? LightTier.Lit : Tier;
         public bool IsHidden => SeenTier == LightTier.Dark;
-        PlayerMotor motor;
 
-        void Awake() => motor = GetComponent<PlayerMotor>();
 
         /// <summary>
         /// When set, the tier is sampled here instead of under the feet (e.g. the ledge surface

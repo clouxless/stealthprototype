@@ -96,6 +96,7 @@ namespace StealthProto.EditorTools
             player.GetComponent<PlayerMotor>().dashNoiseRadius = 0f; // tutorial rule: silent dash (for now)
             G.BuildCamera(player);
             LookSetup.Apply(Camera.main);
+            BuildGuards(player.transform);
 
             new GameObject("PH_DebugHUD").AddComponent<DebugHUD>();
             new GameObject("PH_LastKnownMarker").AddComponent<LastKnownMarker>();
@@ -406,6 +407,52 @@ namespace StealthProto.EditorTools
             foreach (float z in new[] { 9.2f, 18f })
                 G.SpotLamp(parent, "PH_HumveeHeadlight", new Vector3(-34.8f, DeckTop + 1f, z),
                     new Vector3(-22f, DeckTop, z), 34f, 14f);
+        }
+
+        /// <summary>
+        /// First-pass guards from design/guard-vision/guard-vision-spec.md (map A placement).
+        /// Each stands at one point (a one-point route: no back-and-forth) and sweeps its head.
+        ///   W  guide wall end, facing west over the river. Teaches: behind is safe, beside is not.
+        ///   L, L2  bridge south parapet, 9.6 m above the ledge, facing south, each with a swivel
+        ///          spotlight sweeping the ledge, out of step so a gap opens.
+        ///   P  in front of the gatehouse door, facing south over the road.
+        /// Plus a lamp on the ledge by the hut. Open in the design: which way W and L2 face, and
+        /// whether the Humvee light wall gets a guard (it doesn't yet).
+        /// </summary>
+        static void BuildGuards(Transform player)
+        {
+            var routes = new GameObject("PH_PatrolRoutes").transform;
+            void Post(string id, Vector3 position, float yaw)
+            {
+                var route = G.Route(routes, "PH_Route_" + id, true, 3f, (position, yaw));
+                G.BuildGuard("PH_Guard_" + id, position, yaw, route, player);
+            }
+
+            Post("W", new Vector3(0.6f, WallTop, -1.8f), 270f);
+            Post("L", new Vector3(8f, DeckTop, 7.6f), 180f);
+            Post("L2", new Vector3(3f, DeckTop, 7.8f), 180f);
+            Post("P", new Vector3(14f, DeckTop, 21.2f), 180f);
+
+            // Swivel spotlights for L and L2: on the parapet's outer face, aimed down at the ledge.
+            var lights = G.Group(root, "PH_GuardLights");
+            Swivel(lights, "PH_Swivel_L", new Vector3(8f, DeckTop + 1.3f, 6.8f), 0f);
+            Swivel(lights, "PH_Swivel_L2", new Vector3(3f, DeckTop + 1.3f, 6.8f), 0.5f);
+
+            // Ledge lamp by the hut: its Dim ring is Slow walking, Very slow crawling; the ledge's
+            // front edge stays dark.
+            G.Lamp(lights, new Vector3(8f, LedgeTop + 3.4f, 5.6f), 6f);
+        }
+
+        static void Swivel(Transform parent, string name, Vector3 position, float phase)
+        {
+            var light = G.SpotLamp(parent, name, position, new Vector3(position.x, LedgeTop, 3.5f), 16f, 16f, 40f);
+            var stealth = light.GetComponent<StealthLight>();
+            stealth.litFraction = 1f;       // the whole beam is Lit
+            stealth.litRangeFraction = 1f;
+            var swivel = light.gameObject.AddComponent<SwivelLight>();
+            swivel.sweepAngle = 80f;
+            swivel.sweepTime = 8f;
+            swivel.phase = phase;
         }
 
         static void BuildWater()
