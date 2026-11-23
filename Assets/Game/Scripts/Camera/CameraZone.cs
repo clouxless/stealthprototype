@@ -43,6 +43,12 @@ namespace StealthProto
         public Vector3 lookStart = new Vector3(0f, 1.2f, 0f);
         public Vector3 lookEnd = new Vector3(0f, 1.2f, 0f);
 
+        [Header("Controls")]
+        [Tooltip("Walking shots: the stick keeps one fixed direction in this zone (up = controlYaw), however the camera looks. So stopping, letting go or turning never re-maps the controls mid-walk.")]
+        public bool fixedControls;
+        [Tooltip("World yaw that up on the stick walks toward while fixedControls is on (0 = north).")]
+        public float controlYaw;
+
         [Header("Lens")]
         public float fovStart = 45f;
         public float fovEnd = 45f;

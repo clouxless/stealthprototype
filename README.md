@@ -64,10 +64,18 @@ While hanging: the stick shimmies along the edge, E climbs up, Space or C lets g
 
 ## How the stealth works
 
-- **Light in three tiers.** Only the floor under your feet counts: Dark, Dim or Lit. Each
-  tier has one fixed guard sight distance everywhere (Dark 2.5 m, Dim 6.5 m, Lit 13 m).
-  Lamp pools have a crisp Lit core and a Dim ring. A flashlight counts only if its beam
-  lights the floor you stand on. Your character's tint shows the tier; there's no meter.
+- **Light in three tiers.** Only the floor under your feet counts: Dark, Dim or Lit.
+  Lamp pools have a crisp Lit core and a Dim ring. A guard's flashlight makes you Lit inside
+  their sight cone out to Mid. Swivel spotlights sweep a fixed arc (80 degrees over 11 s); standing in the beam gets you spotted at once by the guard who works it.
+  Your character's tint shows the tier.
+- **Guard vision model** (`design/guard-vision/guard-vision-spec.md`). Three overlapping zones
+  around each guard, by 3D distance: the sight cone (70 degrees, to Far: A Mid–Far, B Near–Mid,
+  C within Near), the periphery (to 90 degrees each side, within Mid: D, E) and the rest of the
+  Far circle, behind too (F). Your light tier, movement (still, walking, dashing, crawling) and
+  height (below, level, above) pick a rate from the table: Instant, Fast (1 s), Slow (4 s),
+  Very slow (10 s) or None. The fastest zone you're in counts, and everything needs line of
+  sight. Above a guard you're unseen unless they're searching. Distances are Near 3, Mid 6,
+  Far 13 m for now (`GuardVision`). The debug HUD shows which zone and rate each guard has on you.
 - **Guards don't roll dice.** Patrols, pauses, head sweeps and searches are the same every
   time. A meter over each guard's head fills as they notice you (Dishonored-style): white
   while it builds, with a notch where they turn suspicious, amber while suspicious or
@@ -96,17 +104,15 @@ While hanging: the stick shimmies along the edge, E climbs up, Space or C lets g
   dashing, fighting, knocking, shooting.
 - **Crawling is the extra-sneaky option.** Press C to toggle it. It's slow (1 m/s) and does
   exactly three things, and nothing else:
-  1. **One tier darker.** Guards see you as if your light tier were one darker: a Lit floor
-     counts as Dim, and a Dim floor counts as Dark. Dark stays Dark. Your character's tint and
-     the HUD show the tier guards get.
-  2. **Low profile.** Low cover (crates, ledges, waist-high walls) hides you completely, and
-     when part of you is hidden you're spotted more slowly.
+  1. **Its own row in the rate table.** Crawling is slower to spot than walking in every zone
+     (see the guard vision model above). It no longer changes your light tier.
+  2. **Low profile.** Low cover (crates, ledges, waist-high walls) hides you completely.
   3. **Small spaces.** You fit under tables and through vents and floor grates, and you can't
      stand up where there's no head room.
 
   Crawling does not change hearing (walking is already silent) or how wide a guard's cone is.
 - **Height layers.** Floor, platform (from 0.75 m) and catwalk (from 2.75 m). Guards see
-  their own layer and one below; they only look up while searching. Vision cones are drawn
+  their own layer and any below; they only look up while searching. Vision cones are drawn
   on the surfaces they cover, so you can see whether a cone reaches the catwalk. Geometry
   above you fades out, and characters behind walls show as silhouettes.
 - **Cover.** Hold Shift (LB) next to a tall wall, or walk into one while holding it, to press
@@ -207,7 +213,7 @@ the menu item again to try a variation.
 
 **Stealth Prototype > Build Tutorial Gatehouse Scene** builds `PH_TutorialGatehouse`, the
 first stretch of the tutorial from map A (`design/tutorial-gatehouse/versions/map-A-labeled` in
-the project files). It's geometry and lights only for now: **no guards yet**.
+the project files), with the first-pass guards W, L, L2 and P from the guard vision spec.
 
 - **Coordinates are the map's:** x is east, z is north (upriver), in metres. Heights follow
   the real lowest lock head, measured from the guide wall top: ledge +6.4 m, bridge and pier
@@ -218,14 +224,16 @@ the project files). It's geometry and lights only for now: **no guards yet**.
 - **Dolphins:** dash off the tip to jump out to them: gaps of 3.6, 3.2 and 3.2 m, then 4.2 m to
   the last one, where a short jump ends in a ledge catch. A placeholder item marker sits on the
   last one.
-- **Cameras along the wall:** top-down at the spawn. About 10 m in, the camera swoops round to
-  your right for a view over the river (where the dam will go). From the halfway point it starts
-  slowly craning back and up behind you until the lock head fills the frame, then drops back to
-  top-down 20 m before the end of the wall. Each stair has a fixed camera out over the water,
+- **Cameras along the wall:** top-down at the spawn. About 16 m in, the camera swoops round to
+  your right for a view over the river (where the dam will go) for 50 m, then goes back to
+  top-down for 12 m. Then, over 18 m, it cranes back and up behind you until the lock head
+  fills the frame, and drops back to top-down 22 m before the end of the wall. Each stair has a fixed camera out over the water,
   looking at it side-on. Any suspicious or alert guard snaps the camera back to top-down. The
   shots are `CameraZone` boxes under `PH_CameraZones` (tweak them in the inspector).
-  Movement follows the camera, but when the view turns, the stick keeps its old directions until
-  you let go of it or swing it more than 45 degrees.
+  On the stairs, movement follows the camera, but when the view turns the stick keeps its old
+  directions until you let go of it or swing it more than 45 degrees. Along the wall (the river
+  view and the crane) up on the stick always walks north along the wall, however the camera looks,
+  so stopping or turning round never changes your controls (`CameraZone.fixedControls`).
 - **Lower stairs:** a scissor stair (two flights) on the front face of the lower block, east of
   where the wall lands. Step east off the end of the wall onto it. It tops out on the **ledge**
   (22 x 7 m) next to a small hut.
@@ -254,8 +262,6 @@ The layout lives in `Editor/TutorialGatehouseBuilder.cs`, one method per area.
 - **Flashlights are drawn crisp and flat**, in the same draped style as the vision cones: bright
   where the beam makes you Lit, faint where it makes you Dim, nothing in its shadows. Tinted
   amber or red with the guard's state.
-- **Long sight:** guards see a Lit player dead ahead (within 12 degrees) out to 26 m, shown as a
-  faint spike in front of each vision cone. Off-centre, the normal 13 m cone applies.
 - **Gunfire gives you away:** your muzzle flash counts as Lit for 1.5 s, and guards who hear a
   shot or get hit go alert at the shot and look up for 6 s, so shooting from the catwalk gets
   you shot back.
@@ -281,7 +287,8 @@ The layout lives in `Editor/TutorialGatehouseBuilder.cs`, one method per area.
 | `Scripts/Stealth/StealthLight.cs`, `LightExposure.cs` | Light tiers from the floor under the player |
 | `Scripts/Stealth/HeightLayers.cs` | Named height layers |
 | `Scripts/Level/AlarmLight.cs` | Lights that switch on for good after the first alert |
-| `Scripts/AI/GuardVision.cs` | Cone, line of sight, tier sight distances, height layers |
+| `Scripts/AI/GuardVision.cs` | Vision zones, rate table, line of sight, height |
+| `Scripts/Stealth/SwivelLight.cs` | Sweeping spotlight |
 | `Scripts/AI/GuardBrain.cs` | State machine, tells, hearing, radio, search, shooting |
 | `Scripts/AI/LastKnownMarker.cs` | Marker where hunting guards will search |
 | `Scripts/AI/VisionConeMesh.cs` | Vision drawn on the surfaces it covers |

@@ -6,7 +6,7 @@ namespace StealthProto
     /// Snappy top-down movement: high acceleration, near-instant turning, a short dash with
     /// i-frames, and crawling (prone). There is one walking speed and no sneak button: walking
     /// is silent, and guards only notice you by sight. The dash is the noisy move.
-    /// Crawling's detection rules live in LightExposure.SeenTier and the prone VisibilityPoints.
+    /// Crawling's detection rules live in GuardVision's rate table and the prone VisibilityPoints.
     /// </summary>
     [RequireComponent(typeof(CharacterController), typeof(PlayerInputReader))]
     public class PlayerMotor : MonoBehaviour

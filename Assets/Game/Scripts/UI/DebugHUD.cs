@@ -92,7 +92,8 @@ namespace StealthProto
             GUILayout.Space(6);
             foreach (var g in GuardBrain.All)
             {
-                GUILayout.Label($"{g.name}  {g.State}", label);
+                string seenBy = g.vision != null && g.vision.Rate != DetectRate.None ? $"  zone {g.vision.Zone}: {g.vision.Rate}" : "";
+                GUILayout.Label($"{g.name}  {g.State}{seenBy}", label);
                 Bar(g.Awareness, g.CurrentColor);
             }
             GUILayout.EndArea();
