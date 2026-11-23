@@ -11,7 +11,7 @@ namespace StealthProto.EditorTools
     /// <summary>
     /// Builds the tutorial's first stretch from map A (design/tutorial-gatehouse/versions/map-A-labeled):
     /// the guide wall, the two zig-zag stairs up the lowest lock head, the H6 bridge and the
-    /// gatehouse on the pier deck. Geometry, lamps, the Humvee light wall and the first-pass guards.
+    /// gatehouse on the pier deck. Geometry, lamps, the road layout from the planner, and the guards.
     ///
     /// Coordinates are the map's, in metres: x = east, z = north (upriver). y is height.
     /// Heights follow the real lowest head, measured from the guide wall top: ledge +6.4, bridge and
@@ -101,6 +101,7 @@ namespace StealthProto.EditorTools
             BuildUpperStairs(G.Group(root, "PH_UpperStairs"));
             BuildBridge(G.Group(root, "PH_Bridge"));
             BuildPierDeck(G.Group(root, "PH_PierDeck"));
+            BuildRoadLayout(G.Group(root, "PH_RoadLayout"));
             var surface = level.AddComponent<NavMeshSurface>();
             surface.collectObjects = CollectObjects.Children;
             surface.useGeometry = NavMeshCollectGeometry.PhysicsColliders;
@@ -380,7 +381,7 @@ namespace StealthProto.EditorTools
 
         /// <summary>
         /// The H6 bridge: a 15.6 m, four-lane road (z 7..22.6) from x -40 to 66 over chamber 1 (x -34..0, centre -17),
-        /// the pier and onto the east bank. West end: two Humvees and their headlights. East end: a wall.
+        /// the pier and onto the east bank. Walled off at both ends.
         /// </summary>
         static void BuildBridge(Transform parent)
         {
@@ -424,9 +425,7 @@ namespace StealthProto.EditorTools
                 for (float x = -38f; x < 66f; x += 9f)
                     Mark(white, x, Mathf.Min(x + 3f, 66f), lz, 0.12f);
 
-            // Humvees (2 m tall boxes, climbable), headlights pointing east down the road.
-            Box(parent, "PH_Humvee", -40f, -35f, DeckTop, DeckTop + 2f, z0 + 0.9f, z0 + 3.5f);
-            Box(parent, "PH_Humvee", -40f, -35f, DeckTop, DeckTop + 2f, z1 - 3.5f, z1 - 0.9f);
+            // Vehicles and cover on the road: BuildRoadLayout.
         }
 
         /// <summary>
@@ -451,26 +450,128 @@ namespace StealthProto.EditorTools
             Box(parent, "PH_Outbuilding", 24f, 32f, DeckTop, DeckTop + 3.5f, 35f + s, 41f + s);
         }
 
+        /// <summary>
+        /// Lamps from the road layout planner (design/tutorial-gatehouse/road/road-layout-v1.json):
+        /// lampposts 5 m up on the road, 4 m up on the pier deck.
+        /// </summary>
+        static readonly (float x, float z)[] LayoutLamps =
+        {
+            (-18f, 7.8f),
+            (-18f, 21.8f),
+            (-3f, 8f),
+            (-3f, 21.6f),
+            (1.3f, 43.6f),
+            (13.5f, 8f),
+            (13.5f, 21.5f),
+            (29.5f, 21.6f),
+            (45.5f, 21.6f),
+            (29.5f, 8f),
+            (45.5f, 8f),
+        };
+
         static void BuildLamps(Transform parent)
         {
-            // Bridge lampposts on both edges: lamps 5 m up.
-            foreach (float x in new[] { -18f, 2f, 22f, 42f })
-                foreach (float z in new[] { RoadZ0 + 0.8f, RoadZ1 - 0.8f })
+            foreach (var (x, z) in LayoutLamps)
+            {
+                bool road = z <= RoadZ1;
+                float h = road ? 5f : 4f;
+                G.Lamp(parent, new Vector3(x, DeckTop + h, z), road ? 7f : 5.5f);
+                G.Visual(PrimitiveType.Cylinder, parent, "PH_LampPost",
+                    new Vector3(x, DeckTop + h * 0.5f, z), new Vector3(0.15f, h * 0.5f, 0.15f), G.gridMat);
+            }
+        }
+
+        // ---------------------------------------------------------------- road layout (planner)
+
+        /// <summary>
+        /// Props from the road layout planner, exactly as placed: type, centre (x, z), yaw (degrees
+        /// clockwise from the piece's long axis pointing east; front = east at yaw 0), stack height.
+        /// Source: design/tutorial-gatehouse/road/road-layout-v1.json (planner version 401).
+        /// </summary>
+        static readonly (string type, float x, float z, float yaw, int stack)[] LayoutProps =
+        {
+            ("humvee", -25f, 11.5f, 0f, 1),
+            ("humvee", -25f, 18.5f, 0f, 1),
+            ("container40", 50.5f, 17f, 47f, 1),
+            ("container20", 53.5f, 10f, 326f, 1),
+            ("cab", 40.5f, 8.5f, 180f, 1),
+            ("trailer", 43.5f, 14f, 105f, 1),
+            ("boom", 32.5f, 29f, 0f, 1),
+            ("boom", 21f, 29f, 0f, 1),
+            ("boom", 26.5f, 29f, 0f, 1),
+            ("jersey", -10.5f, 19.5f, 270f, 1),
+            ("jersey", -10.5f, 16f, 270f, 1),
+            ("jersey", -10.5f, 12.5f, 270f, 1),
+            ("jersey", -10.5f, 9f, 270f, 1),
+            ("container40", 18f, 14.5f, 105f, 1),
+            ("container20", 24f, 14f, 330f, 1),
+            ("humvee", 37.5f, 12.5f, 217f, 1),
+            ("car", 40.5f, 19f, 42f, 1),
+            ("crate", 25.5f, 19.5f, 0f, 1),
+            ("crate", 23.5f, 20f, 0f, 1),
+            ("crate", 26.5f, 17.5f, 0f, 1),
+            ("humvee", 30f, 33f, 132f, 1),
+            ("car", 23f, 22.5f, 2f, 1),
+            ("car", 32f, 19.5f, 19f, 1),
+            ("container40", 59f, 13.5f, 273f, 1),
+            ("container20", 54.5f, 19.5f, 337f, 1),
+            ("container40", 63f, 16f, 74f, 1),
+            ("trailer", 6f, 12.5f, 197f, 1),
+            ("cab", -0.5f, 12.5f, 136f, 1),
+        };
+
+        /// <summary>
+        /// The road's vehicles and cover. Sizes match the planner. Trucks are a cab plus a flatbed
+        /// trailer whose deck sits 1 m up, so you can crawl underneath. Humvees have headlights.
+        /// </summary>
+        static void BuildRoadLayout(Transform parent)
+        {
+            var lights = G.Group(root, "PH_RoadLayoutLights");
+            foreach (var (type, x, z, yaw, stack) in LayoutProps)
+            {
+                Quaternion rot = Quaternion.Euler(0f, yaw, 0f);
+                Vector3 c = new Vector3(x, DeckTop, z);
+                // A box in the piece's own frame: lx along its length (+ = front), lz across, y up from the deck.
+                void Part(string name, float lx0, float lx1, float y0, float y1, float lz0, float lz1)
                 {
-                    G.Lamp(parent, new Vector3(x, DeckTop + 5f, z), 7f);
-                    G.Visual(PrimitiveType.Cylinder, parent, "PH_LampPost",
-                        new Vector3(x, DeckTop + 2.5f, z), new Vector3(0.15f, 2.5f, 0.15f), G.gridMat);
+                    Vector3 local = new Vector3((lx0 + lx1) * 0.5f, (y0 + y1) * 0.5f, (lz0 + lz1) * 0.5f);
+                    G.Block(parent, name, c + rot * local, new Vector3(lx1 - lx0, y1 - y0, lz1 - lz0), rot);
                 }
-
-            // Pier deck lamps, 4 m up.
-            G.Lamp(parent, new Vector3(1.3f, DeckTop + 4f, 30f + DeckShift), 5.5f);
-            G.Lamp(parent, new Vector3(1.3f, DeckTop + 4f, 41f + DeckShift), 5.5f);
-            G.Lamp(parent, new Vector3(26f, DeckTop + 4.5f, 23f + DeckShift), 6.5f);
-
-            // Humvee headlights: a wall of light across the west end of the road.
-            foreach (float z in new[] { RoadZ0 + 2.2f, RoadZ1 - 2.2f })
-                G.SpotLamp(parent, "PH_HumveeHeadlight", new Vector3(-34.8f, DeckTop + 1f, z),
-                    new Vector3(-22f, DeckTop, z), 34f, 14f);
+                switch (type)
+                {
+                    case "container40": Part("PH_Container40", -6.1f, 6.1f, 0f, 2.6f * stack, -1.22f, 1.22f); break;
+                    case "container20": Part("PH_Container20", -3.05f, 3.05f, 0f, 2.6f * stack, -1.22f, 1.22f); break;
+                    case "car": Part("PH_Car", -1.9f, 1.9f, 0f, 1.6f, -1.3f, 1.3f); break;
+                    case "jersey": Part("PH_JerseyBarrier", -1.5f, 1.5f, 0f, 0.8f, -0.3f, 0.3f); break;
+                    case "sandbag": Part("PH_Sandbags", -1.2f, 1.2f, 0f, 1f, -0.4f, 0.4f); break;
+                    case "crate": Part("PH_Crate", -0.6f, 0.6f, 0f, 1.2f, -0.6f, 0.6f); break;
+                    case "boom":
+                        // Post at the west end, arm at about 1 m: crawl under it or clamber over.
+                        Part("PH_BoomPost", -3f, -2.6f, 0f, 1.1f, -0.2f, 0.2f);
+                        Part("PH_BoomArm", -2.6f, 3f, 0.95f, 1.1f, -0.08f, 0.08f);
+                        break;
+                    case "humvee":
+                        Part("PH_Humvee", -2.45f, 2.45f, 0f, 1.9f, -1.1f, 1.1f);
+                        // Headlights: one wide beam out of the front, Lit down the road ahead.
+                        Vector3 hl = c + rot * new Vector3(2.65f, 1f, 0f);
+                        G.SpotLamp(lights, "PH_HumveeHeadlight", hl, hl + rot * new Vector3(12f, -1f, 0f), 34f, 14f);
+                        break;
+                    case "cab":
+                        // Tractor unit: cab at the front, a low chassis behind it (a step up).
+                        Part("PH_TruckCab", -0.5f, 3.1f, 0f, 3.2f, -1.25f, 1.25f);
+                        Part("PH_TruckChassis", -3.1f, -0.5f, 0f, 1.2f, -1.25f, 1.25f);
+                        break;
+                    case "trailer":
+                        // Deck 1.0..1.4 m up, open underneath for crawling. Wheels at the back, legs at the front.
+                        Part("PH_TrailerDeck", -6.25f, 6.25f, 1f, 1.4f, -1.25f, 1.25f);
+                        foreach (float side in new[] { -1f, 1f })
+                        {
+                            Part("PH_TrailerWheels", -5.6f, -3.2f, 0f, 1f, side * 1.25f - (side > 0 ? 0.5f : 0f), side * 1.25f + (side < 0 ? 0.5f : 0f));
+                            Part("PH_TrailerLeg", 3.6f, 3.8f, 0f, 1f, side * 1f - 0.1f, side * 1f + 0.1f);
+                        }
+                        break;
+                }
+            }
         }
 
         /// <summary>
@@ -479,23 +580,56 @@ namespace StealthProto.EditorTools
         ///   W  guide wall end, facing west over the river. Teaches: behind is safe, beside is not.
         ///   L, L2  bridge south parapet, 9.6 m above the ledge, facing south, each with a swivel
         ///          spotlight sweeping the ledge, out of step so a gap opens.
-        ///   P  in front of the gatehouse door, facing south over the road.
+        ///   Road guards (R, G, T): from the road layout planner, see below.
         /// Plus a lamp on the ledge by the hut. Open in the design: which way W and L2 face, and
         /// whether the Humvee light wall gets a guard (it doesn't yet).
         /// </summary>
         static void BuildGuards(Transform player)
         {
             var routes = new GameObject("PH_PatrolRoutes").transform;
-            void Post(string id, Vector3 position, float yaw)
+            // sweep: total head swivel in degrees (0 = still, < 0 = the default 45 each way);
+            // sweepTime: seconds from one side to the other.
+            void Post(string id, Vector3 position, float yaw, float sweep = -1f, float sweepTime = 8f)
             {
                 var route = G.Route(routes, "PH_Route_" + id, true, 3f, (position, yaw));
                 G.BuildGuard("PH_Guard_" + id, position, yaw, route, player);
+                if (sweep < 0f) return;
+                var brain = GameObject.Find("PH_Guard_" + id).GetComponent<GuardBrain>();
+                brain.sweepAngle = sweep * 0.5f;
+                brain.sweepSpeed = Mathf.PI / Mathf.Max(1f, sweepTime);
             }
+            void Patrol(string id, params Vector3[] points)
+            {
+                var pts = new (Vector3 pos, float yaw)[points.Length];
+                for (int i = 0; i < points.Length; i++)
+                {
+                    Vector3 to = points[(i + 1) % points.Length] - points[i];
+                    pts[i] = (points[i], to.sqrMagnitude > 0.01f ? Mathf.Atan2(to.x, to.z) * Mathf.Rad2Deg : 0f);
+                }
+                var route = G.Route(routes, "PH_Route_" + id, true, 2f, pts);
+                G.BuildGuard("PH_Guard_" + id, points[0], pts[0].yaw, route, player);
+            }
+            Vector3 D(float x, float z) => new Vector3(x, DeckTop, z);
 
             Post("W", new Vector3(0.6f, WallTop, BlockFront - 1.8f), 270f);
             Post("L", new Vector3(8f, DeckTop, 7.6f), 180f);
             Post("L2", new Vector3(3f, DeckTop, 7.8f), 180f);
-            Post("P", new Vector3(14f, DeckTop, 21.2f + DeckShift), 180f);
+
+            // Road guards from the layout planner (road-layout-v1.json). R1-R3 hold the jersey-barrier
+            // line at the west end, facing east. R4 swivels by the eastern Humvee. G1-G3 watch the
+            // gatehouse and the boom gates; G4 stands still by the gatehouse's east side.
+            Post("R1", D(-13.5f, 9.5f), 90f, 0f);
+            Post("R2", D(-13.5f, 13.5f), 90f, 0f);
+            Post("R3", D(-13.5f, 17f), 90f, 0f);
+            Post("R4", D(37.5f, 11.5f), 275f, 120f);
+            Post("G1", D(4.5f, 24.5f), 240f, 115f);
+            Post("G2", D(4.5f, 26.5f), 255f, 90f);
+            Post("G3", D(32.5f, 30f), 180f, 80f);
+            Post("G4", D(18.5f, 26f), 90f, 0f);
+            // Patrols: T1 loops round the wrecked truck and the first container; T2 walks the north
+            // edge of the road from the west end to the gatehouse and back.
+            Patrol("T1", D(14.5f, 9f), D(17.5f, 20f), D(10.5f, 17.5f), D(14.5f, 8.5f));
+            Patrol("T2", D(-30f, 21.5f), D(9.5f, 21.5f), D(16f, 27f), D(18f, 24.5f), D(10f, 20f), D(-3f, 21.5f));
 
             // Swivel spotlights for L and L2: on the parapet's outer face, aimed down at the ledge.
             // Each is its guard's eyes: standing in the beam gets you spotted at once (GuardVision.searchlights).

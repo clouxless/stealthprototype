@@ -213,7 +213,7 @@ the menu item again to try a variation.
 
 **Stealth Prototype > Build Tutorial Gatehouse Scene** builds `PH_TutorialGatehouse`, the
 first stretch of the tutorial from map A (`design/tutorial-gatehouse/versions/map-A-labeled` in
-the project files), with the first-pass guards W, L, L2 and P from the guard vision spec.
+the project files), with the first-pass guards W, L and L2 from the guard vision spec, and the road guards from the layout planner.
 
 - **Coordinates are the map's:** x is east, z is north (upriver), in metres. Heights follow
   the real lowest lock head, measured from the guide wall top: ledge +6.4 m, bridge and pier
@@ -248,8 +248,18 @@ the project files), with the first-pass guards W, L, L2 and P from the guard vis
   solid; the rest are 0.3 m slabs with 2.4-2.9 m of headroom. Rails on the outer edge and between
   the lanes.
 - **Bridge:** a 15.6 m, four-lane road (3.9 m lanes) from x -40 to 66, over chamber 1 (centre x -17), the pier, and the
-  east bank. Lampposts on both edges. The west end is two Humvees with their headlights down the
-  road; the east end is a wall. Both ends are walled off past the climb limit.
+  east bank. Both ends are walled off past the climb limit.
+- **Road layout:** built exactly from the road layout planner (`design/tutorial-gatehouse/road/road-layout-v1.json`
+  in the project files; `LayoutProps` and `LayoutLamps` in the builder). Two Humvees with headlights
+  at x -25 light the road eastward, behind a line of four jersey barriers held by guards R1-R3.
+  Mid-road: a wrecked truck (cab and flatbed trailer, crawl under the trailer), containers, crates,
+  cars, and a third Humvee with a swivelling guard (R4). The east end is a container yard.
+  On the pier deck: three boom gates east of the gatehouse, a Humvee, and guards G1-G4 round the
+  gatehouse. Patrols: T1 loops round the truck and the first container; T2 walks the road's north
+  edge from the west end to the gatehouse and back.
+- **Vehicle sizes:** 40/20 ft containers 12.2/6.1 x 2.44 x 2.6 m; truck cab 6.2 x 2.5 m (3.2 m cab,
+  1.2 m chassis); flatbed trailer 12.5 x 2.5 m, deck 1.0-1.4 m up; Humvee 4.9 x 2.2 x 1.9 m; car
+  3.8 x 2.6 x 1.6 m; jersey barrier 3 x 0.6 x 0.8 m; boom gate arm at about 1 m.
 - **Pier deck:** the gatehouse (15 x 13 m) against the chamber edge, a small box between it and
   the bridge, open deck to the east and an outbuilding further north.
 - **Goal:** the gatehouse door, on its south face.
