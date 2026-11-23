@@ -253,12 +253,12 @@ the project files), with the first-pass guards W, L and L2 from the guard vision
   in the project files; `LayoutProps` and `LayoutLamps` in the builder). Two Humvees with headlights
   at x -25 light the road eastward, behind a line of four jersey barriers held by guards R1-R3.
   Mid-road: a wrecked truck (cab and flatbed trailer, crawl under the trailer), containers, crates,
-  cars, and a third Humvee with a swivelling guard (R4). The east end is a container yard.
+  cars, and a third Humvee with a guard standing in its open back, swivelling (R4). The east end is a container yard.
   On the pier deck: three boom gates east of the gatehouse, a Humvee, and guards G1-G4 round the
   gatehouse. Patrols: T1 loops round the truck and the first container; T2 walks the road's north
   edge from the west end to the gatehouse and back.
 - **Vehicle sizes:** 40/20 ft containers 12.2/6.1 x 2.44 x 2.6 m; truck cab 6.2 x 2.5 m (3.2 m cab,
-  1.2 m chassis); flatbed trailer 12.5 x 2.5 m, deck 1.0-1.4 m up; Humvee 4.9 x 2.2 x 1.9 m; car
+  1.2 m chassis); flatbed trailer 12.5 x 2.5 m, deck 1.0-1.4 m up; Humvee 4.9 x 2.2 m, a two-door pickup (cab 1.9 m, open bed with its floor at 0.9 m); car
   3.8 x 2.6 x 1.6 m; jersey barrier 3 x 0.6 x 0.8 m; boom gate arm at about 1 m.
 - **Pier deck:** the gatehouse (15 x 13 m) against the chamber edge, a small box between it and
   the bridge, open deck to the east and an outbuilding further north.

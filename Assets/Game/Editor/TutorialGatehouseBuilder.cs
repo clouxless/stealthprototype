@@ -520,6 +520,12 @@ namespace StealthProto.EditorTools
             ("cab", -0.5f, 12.5f, 136f, 1),
         };
 
+        const float HumveeBedFloor = 0.9f;
+
+        /// <summary>The middle of a Humvee's open bed, on its floor (for a guard riding in the back).</summary>
+        static Vector3 HumveeBed(float x, float z, float yaw)
+            => new Vector3(x, DeckTop, z) + Quaternion.Euler(0f, yaw, 0f) * new Vector3(-1.43f, HumveeBedFloor, 0f);
+
         /// <summary>
         /// The road's vehicles and cover. Sizes match the planner. Trucks are a cab plus a flatbed
         /// trailer whose deck sits 1 m up, so you can crawl underneath. Humvees have headlights.
@@ -551,7 +557,13 @@ namespace StealthProto.EditorTools
                         Part("PH_BoomArm", -2.6f, 3f, 0.95f, 1.1f, -0.08f, 0.08f);
                         break;
                     case "humvee":
-                        Part("PH_Humvee", -2.45f, 2.45f, 0f, 1.9f, -1.1f, 1.1f);
+                        // Two-door pickup: hood, cab, and an open bed at the back (floor 0.9 m, sides to 1.3 m).
+                        Part("PH_HumveeHood", 1f, 2.45f, 0f, 1.2f, -1.1f, 1.1f);
+                        Part("PH_HumveeCab", -0.5f, 1f, 0f, 1.9f, -1.1f, 1.1f);
+                        Part("PH_HumveeBedFloor", -2.45f, -0.5f, 0f, HumveeBedFloor, -1.1f, 1.1f);
+                        Part("PH_HumveeBedSide", -2.45f, -0.5f, HumveeBedFloor, 1.3f, -1.1f, -1f);
+                        Part("PH_HumveeBedSide", -2.45f, -0.5f, HumveeBedFloor, 1.3f, 1f, 1.1f);
+                        Part("PH_HumveeTailgate", -2.45f, -2.35f, HumveeBedFloor, 1.3f, -1f, 1f);
                         // Headlights: one wide beam out of the front, Lit down the road ahead.
                         Vector3 hl = c + rot * new Vector3(2.65f, 1f, 0f);
                         G.SpotLamp(lights, "PH_HumveeHeadlight", hl, hl + rot * new Vector3(12f, -1f, 0f), 34f, 14f);
@@ -616,12 +628,12 @@ namespace StealthProto.EditorTools
             Post("L2", new Vector3(3f, DeckTop, 7.8f), 180f);
 
             // Road guards from the layout planner (road-layout-v1.json). R1-R3 hold the jersey-barrier
-            // line at the west end, facing east. R4 swivels by the eastern Humvee. G1-G3 watch the
+            // line at the west end, facing east. R4 stands in the back of the mid-road Humvee, swivelling. G1-G3 watch the
             // gatehouse and the boom gates; G4 stands still by the gatehouse's east side.
             Post("R1", D(-13.5f, 9.5f), 90f, 0f);
             Post("R2", D(-13.5f, 13.5f), 90f, 0f);
             Post("R3", D(-13.5f, 17f), 90f, 0f);
-            Post("R4", D(37.5f, 11.5f), 275f, 120f);
+            Post("R4", HumveeBed(37.5f, 12.5f, 217f), 275f, 120f); // in the back of the mid-road Humvee
             Post("G1", D(4.5f, 24.5f), 240f, 115f);
             Post("G2", D(4.5f, 26.5f), 255f, 90f);
             Post("G3", D(32.5f, 30f), 180f, 80f);
