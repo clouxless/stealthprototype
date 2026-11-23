@@ -500,10 +500,10 @@ namespace StealthProto.EditorTools
         {
             var zones = new GameObject("PH_CameraZones").transform; // outside PH_Level: triggers stay off the NavMesh
 
-            // Along the wall (spawn at z -118): 16 m of plain top-down, the dam view (z -102..-70),
-            // 12 m of plain top-down again, then the lock-head crane (z -58..-22).
+            // Along the wall (spawn at z -118): 16 m of plain top-down, the dam view (z -102..-52, 50 m),
+            // 12 m of plain top-down again, then the lock-head crane (z -40..-22, 18 m).
             // Dam view: tracks alongside you, 9 m to your right (east), looking west past you over the river.
-            var dam = Zone(zones, "PH_Cam_DamView", CameraZone.Kind.Track, new Vector3(1.5f, 0.5f, -86f), new Vector3(10f, 8f, 32f), 1.8f);
+            var dam = Zone(zones, "PH_Cam_DamView", CameraZone.Kind.Track, new Vector3(1.5f, 0.5f, -77f), new Vector3(10f, 8f, 50f), 1.8f);
             dam.eyeRelativeToPlayer = true;
             dam.eyeStart = dam.eyeEnd = new Vector3(9f, 3.5f, -2f);
             dam.lookStart = dam.lookEnd = new Vector3(-30f, 4f, 8f);
@@ -514,8 +514,8 @@ namespace StealthProto.EditorTools
             dam.controlYaw = 0f;
 
             // Lock view: starts at your shoulder, then slowly cranes back and up until the head fills the frame.
-            var lockView = Zone(zones, "PH_Cam_LockView", CameraZone.Kind.Crane, new Vector3(1.5f, 0.5f, -40f), new Vector3(10f, 8f, 36f), 2.5f);
-            lockView.progressStart = new Vector3(1.5f, 0f, -58f);
+            var lockView = Zone(zones, "PH_Cam_LockView", CameraZone.Kind.Crane, new Vector3(1.5f, 0.5f, -31f), new Vector3(10f, 8f, 18f), 2.5f);
+            lockView.progressStart = new Vector3(1.5f, 0f, -40f);
             lockView.progressEnd = new Vector3(1.5f, 0f, -22f);
             lockView.easePower = 2f;
             lockView.eyeRelativeToPlayer = true;
