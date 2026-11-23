@@ -240,8 +240,6 @@ the project files), with the first-pass guards W, L, L2 and P from the guard vis
 - **Lower stairs:** four flights of 1.6 m on the front face of the lower block, east of where the
   wall lands. Step east off the end of the wall onto it. It tops out on the **ledge** (22 x 11 m)
   next to a small hut.
-- **Terrace:** the ledge carries on east at the same height (x 22..46) along the pier face, with a
-  low beam across it and a rim wall round its edges.
 - **Upper stairs:** seven flights of 1.37 m against the pier face at the ledge's east end. It
   comes out on the bridge through a gap in the south parapet.
 - **How the stairs are built:** like the real ones, the flights zig-zag up the wall in two 1.3 m

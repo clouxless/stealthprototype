@@ -49,13 +49,12 @@ namespace StealthProto.EditorTools
         const float UpperLength = LandingDepth * 2f + UpperRun;           // 6.4 m
 
         // The ledge (top of the lower block) is 22 x 11 m, from the block front up to the pier face
-        // under the bridge, with a terrace at the same height running east of it. Lower stairs on the
+        // under the bridge. Lower stairs on the
         // block's front face, from where the guide wall lands; upper stairs against the pier face at
         // the ledge's east end, topping out by the bridge lamp.
         const float PierFace = 7f;
         const float LedgeDepth = 11f;
         const float BlockFront = PierFace - LedgeDepth;          // -4
-        const float TerraceX1 = 46f;
         const float LowerX0 = 3f;
         const float UpperX0 = 21.5f - UpperLength;               // 15.1
         const float LowerZ0 = BlockFront - 2f * Lane;            // -6.6..-4
@@ -287,25 +286,17 @@ namespace StealthProto.EditorTools
 
         const float DolphinDiameter = 2.8f;
 
-        /// <summary>
-        /// The lower block of the lock head: its top is the ledge (22 x 11 m), with a small hut, and a
-        /// terrace at the same height carries on east under the bridge's south side (x 22..46), with a
-        /// low beam across it and a rim wall round its edges (photo 29).
-        /// </summary>
+        /// <summary>The lower block of the lock head: its top is the ledge (22 x 11 m), with a small hut.</summary>
         static void BuildLowerBlock(Transform parent)
         {
             Box(parent, "PH_LowerBlock", 0f, 22f, Base, LedgeTop, BlockFront, PierFace);
-            Box(parent, "PH_Terrace", 22f, TerraceX1, Base, LedgeTop, BlockFront, PierFace);
-            Box(parent, "PH_TerraceBeam", 31f, 32f, LedgeTop, LedgeTop + 0.9f, BlockFront + 2f, PierFace);
 
-            // Railings: the front edge (gap at the top of the lower stairs) and the west end; a rim wall
-            // round the terrace's front and east end.
+            // Ledge railings: the front edge (gap at the top of the lower stairs), the west and east ends.
             float gap0 = LowerTopX0, gap1 = LowerTopX0 + LandingDepth;
             RailX(parent, 0f, gap0, BlockFront + 0.05f, LedgeTop);
             RailX(parent, gap1, 22f, BlockFront + 0.05f, LedgeTop);
             RailZ(parent, BlockFront, PierFace, 0.05f, LedgeTop);
-            RailX(parent, 22f, TerraceX1, BlockFront + ParapetThick * 0.5f, LedgeTop, ParapetThick);
-            RailZ(parent, BlockFront, PierFace, TerraceX1 - ParapetThick * 0.5f, LedgeTop, ParapetThick);
+            RailZ(parent, BlockFront, PierFace, 21.95f, LedgeTop);
 
             // Hut near the top of the lower stairs: natural cover.
             Box(parent, "PH_Hut", 0.6f, 4.6f, LedgeTop, LedgeTop + 2.5f, 3.6f, 6.6f);
