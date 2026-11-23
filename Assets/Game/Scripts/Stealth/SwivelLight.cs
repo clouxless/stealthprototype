@@ -12,7 +12,7 @@ namespace StealthProto
         [Tooltip("Total sweep, degrees (half each side of the starting direction).")]
         public float sweepAngle = 80f;
         [Tooltip("Seconds for one sweep from one side to the other.")]
-        public float sweepTime = 8f;
+        public float sweepTime = 11f;
         [Tooltip("0..1 offset into the cycle.")]
         [Range(0f, 1f)] public float phase;
         [Tooltip("Seconds it rests at each end of the sweep.")]

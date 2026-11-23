@@ -38,6 +38,10 @@ namespace StealthProto
         public float slowTime = 4f;
         public float verySlowTime = 10f;
 
+        [Header("Searchlights")]
+        [Tooltip("Lights this guard operates (swivel spotlights). A player standing in one's Lit beam is spotted at once (zone S), wherever the guard's own eyes point.")]
+        public StealthLight[] searchlights = new StealthLight[0];
+
         [Header("Player movement")]
         [Tooltip("Below this speed a standing player counts as still.")]
         public float stillSpeed = 0.2f;
@@ -90,7 +94,7 @@ namespace StealthProto
 
         /// <summary>This frame's meter rate for the target.</summary>
         public DetectRate Rate { get; private set; }
-        /// <summary>Which zone set the rate: 'A'..'F', or '-' when unseen.</summary>
+        /// <summary>Which zone set the rate: 'A'..'F', 'S' for one of this guard's searchlights, or '-' when unseen.</summary>
         public char Zone { get; private set; } = '-';
         /// <summary>1 while the target registers at all this frame, else 0.</summary>
         public float Visibility => Rate == DetectRate.None ? 0f : 1f;
@@ -146,6 +150,16 @@ namespace StealthProto
             zone = '-';
             if (target == null || eye == null) return DetectRate.None;
             if (targetHealth != null && targetHealth.IsDead) return DetectRate.None;
+
+            // A searchlight on the player is the guard's eyes: Instant, wherever the guard is looking.
+            if (searchlights != null && targetExposure != null)
+                foreach (var light in searchlights)
+                    if (light != null && light.isActiveAndEnabled && light.TierAt(targetExposure.SamplePoint, target) == LightTier.Lit)
+                    {
+                        zone = 'S';
+                        NormalizedDistance = 1f;
+                        return DetectRate.Instant;
+                    }
 
             Vector3 eyePos = eye.position;
             Vector3 toTarget = TargetCenter - eyePos;

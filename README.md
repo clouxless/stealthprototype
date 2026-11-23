@@ -66,7 +66,7 @@ While hanging: the stick shimmies along the edge, E climbs up, Space or C lets g
 
 - **Light in three tiers.** Only the floor under your feet counts: Dark, Dim or Lit.
   Lamp pools have a crisp Lit core and a Dim ring. A guard's flashlight makes you Lit inside
-  their sight cone out to Mid. Swivel spotlights sweep a fixed arc; their beam is Lit.
+  their sight cone out to Mid. Swivel spotlights sweep a fixed arc (80 degrees over 11 s); standing in the beam gets you spotted at once by the guard who works it.
   Your character's tint shows the tier.
 - **Guard vision model** (`design/guard-vision/guard-vision-spec.md`). Three overlapping zones
   around each guard, by 3D distance: the sight cone (70 degrees, to Far: A Mid–Far, B Near–Mid,
@@ -213,11 +213,11 @@ the menu item again to try a variation.
 
 **Stealth Prototype > Build Tutorial Gatehouse Scene** builds `PH_TutorialGatehouse`, the
 first stretch of the tutorial from map A (`design/tutorial-gatehouse/versions/map-A-labeled` in
-the project files). It's geometry and lights only for now: **no guards yet**.
+the project files), with the first-pass guards W, L, L2 and P from the guard vision spec.
 
-- **Coordinates are the map's:** x is east, z is north (upriver), in metres. Heights follow
-  the real lowest lock head, measured from the guide wall top: ledge +6.4 m, bridge and pier
-  deck +16 m, all in flights of 3.2 m.
+- **Coordinates are the map's:** x is east, z is north (upriver), in metres. Heights, from the
+  guide wall top: ledge +9.6 m (3 flights), bridge and pier deck +22.4 m (4 more), all in
+  flights of 3.2 m.
 - **Guide wall:** 3 m wide, 120 m long, with buttresses under its river side (step down onto
   them) and four mooring dolphins carrying on downstream. No railings: a low lip marks each edge,
   and the edge rules keep you on. You start at its downstream tip.
@@ -230,13 +230,16 @@ the project files). It's geometry and lights only for now: **no guards yet**.
   top-down 20 m before the end of the wall. Each stair has a fixed camera out over the water,
   looking at it side-on. Any suspicious or alert guard snaps the camera back to top-down. The
   shots are `CameraZone` boxes under `PH_CameraZones` (tweak them in the inspector).
-  Movement follows the camera, but when the view turns, the stick keeps its old directions until
-  you let go of it or swing it more than 45 degrees.
-- **Lower stairs:** a scissor stair (two flights) on the front face of the lower block, east of
-  where the wall lands. Step east off the end of the wall onto it. It tops out on the **ledge**
-  (22 x 7 m) next to a small hut.
-- **Upper stairs:** three flights against the upper pier face, side by side in three 1.4 m lanes,
-  with 2.8 m of open ledge in front. It comes out on the bridge through a gap in the south parapet.
+  On the stairs, movement follows the camera, but when the view turns the stick keeps its old
+  directions until you let go of it or swing it more than 45 degrees. Along the wall (the river
+  view and the crane) up on the stick always walks north along the wall, however the camera looks,
+  so stopping or turning round never changes your controls (`CameraZone.fixedControls`).
+- **Lower stairs:** a scissor stair (three flights in 1.5 m lanes) on the front face of the
+  lower block, east of where the wall lands. Step east off the end of the wall onto it. It tops
+  out at its east end on the **ledge** (22 x 8.4 m), which has a small hut at its west end.
+- **Upper stairs:** four flights against the upper pier face, side by side in four 1.4 m lanes,
+  with 2.8 m of open ledge in front. The first flight starts at the east end. It comes out on the
+  bridge through a gap in the south parapet.
 - **How the stairs are built:** each flight is 8 m long and rises 3.2 m (22 degrees), with a
   1.5 m landing at each end to turn round on. Every flight is solid down to the floor below it (so
   there's no gap to fall through), and no flight runs over another (so the camera always sees you).

@@ -326,7 +326,12 @@ namespace StealthProto
             // Which way the stick points: the camera's facing once a zone mostly has the view,
             // otherwise the top-down yaw (the cover view never turns the controls).
             float desired = yaw;
-            if (notZone < 0.5f)
+            if (active != null && active.fixedControls)
+            {
+                // A walking shot: the stick always means the same directions here (see CameraZone).
+                desired = active.controlYaw;
+            }
+            else if (notZone < 0.5f)
             {
                 Vector3 f = rot * Vector3.forward;
                 f.y = 0f;
