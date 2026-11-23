@@ -224,10 +224,10 @@ the project files), with the first-pass guards W, L, L2 and P from the guard vis
 - **Dolphins:** dash off the tip to jump out to them: gaps of 3.6, 3.2 and 3.2 m, then 4.2 m to
   the last one, where a short jump ends in a ledge catch. A placeholder item marker sits on the
   last one.
-- **Cameras along the wall:** top-down at the spawn. About 10 m in, the camera swoops round to
-  your right for a view over the river (where the dam will go). From the halfway point it starts
-  slowly craning back and up behind you until the lock head fills the frame, then drops back to
-  top-down 20 m before the end of the wall. Each stair has a fixed camera out over the water,
+- **Cameras along the wall:** top-down at the spawn. About 16 m in, the camera swoops round to
+  your right for a view over the river (where the dam will go) for 32 m, then goes back to
+  top-down for 12 m. Then it starts slowly craning back and up behind you until the lock head
+  fills the frame, and drops back to top-down 22 m before the end of the wall. Each stair has a fixed camera out over the water,
   looking at it side-on. Any suspicious or alert guard snaps the camera back to top-down. The
   shots are `CameraZone` boxes under `PH_CameraZones` (tweak them in the inspector).
   On the stairs, movement follows the camera, but when the view turns the stick keeps its old
