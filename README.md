@@ -84,6 +84,10 @@ While hanging: the stick shimmies along the edge, E climbs up, Space or C lets g
   a short visible wind-up (0.3 s) and always hit unless you break line of sight first. Once the
   "!" freeze ends, an alerted guard who can see you within 20 m fires about every 0.8 s, so
   being seen in the open is deadly fast.
+- **Radio.** A guard who spots you radios everyone within 22 m, but only the nearest two come
+  running (plus anyone who saw you or got hit). The rest hold their ground facing your last
+  known position, fire if they see you, look round where they stand, then go back to their
+  posts. Gunfire heard counts the same way. So an alert doesn't empty the bridge down one stair.
 - **Short hunts.** When a guard loses you, a marker shows where they'll search: your last
   known position, then one step further along your heading. Break line of sight or lure
   them with noise and the hunt ends quickly. The lasting cost is the room: after the

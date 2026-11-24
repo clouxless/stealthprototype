@@ -78,6 +78,8 @@ namespace StealthProto
         [Tooltip("Safety net if a point can't be reached.")]
         public float investigateTimeout = 12f;
         public float radioRadius = 22f;
+        [Tooltip("At most this many guards run down an alert they didn't see for themselves (radio, gunfire); the rest hold their ground, facing it, and fire if they see you. Nearest answer first.")]
+        public int maxResponders = 2;
 
         [Header("Head sweep")]
         public float sweepAngle = 45f;
@@ -264,6 +266,7 @@ namespace StealthProto
         {
             if (State == s) return;
             State = s;
+            if (s == GuardState.Patrol || s == GuardState.Down) holding = false;
             StateChanged?.Invoke(s);
         }
 
@@ -318,7 +321,7 @@ namespace StealthProto
             IsGrabbed = false;
             if (State == GuardState.Down) return;
             Awareness = 1f;
-            EnterAlert(attackerPosition, true, secondhandTellTime);
+            FirsthandAlert(attackerPosition, secondhandTellTime);
         }
 
         public void CompleteTakedown(GameObject attacker)
@@ -405,7 +408,7 @@ namespace StealthProto
             Awareness = Mathf.Clamp01(Awareness);
 
             if (State == GuardState.Alert) return;
-            if (Awareness >= 1f) EnterAlert(lastKnown, true, alertTellTime);
+            if (Awareness >= 1f) FirsthandAlert(lastKnown, alertTellTime);
             else if (State == GuardState.Patrol && Awareness >= suspiciousThreshold) EnterSuspicious(lastKnown);
             else if (State == GuardState.Suspicious && v > 0f) EnterSuspicious(lastKnown);
         }
@@ -564,6 +567,33 @@ namespace StealthProto
 
         // ---------- alert: "!" tell, radio, chase, shoot ----------
 
+        /// <summary>True while answering an alert by holding ground rather than running it down.</summary>
+        public bool HoldingPosition => holding;
+        bool holding;
+
+        bool Responding => !holding && (State == GuardState.Alert || State == GuardState.Search);
+
+        static int Responders()
+        {
+            int n = 0;
+            foreach (var g in All) if (g.Responding) n++;
+            return n;
+        }
+
+        /// <summary>An alert he didn't see himself: run it down if there's room, else hold ground.</summary>
+        void JoinAlert(Vector3 point, bool broadcast)
+        {
+            if (!Responding) holding = Responders() >= maxResponders;
+            EnterAlert(point, broadcast, secondhandTellTime);
+        }
+
+        /// <summary>He saw or felt it himself: always runs it down.</summary>
+        void FirsthandAlert(Vector3 point, float tellTime)
+        {
+            holding = false;
+            EnterAlert(point, true, tellTime);
+        }
+
         void EnterAlert(Vector3 point, bool broadcast, float tellTime)
         {
             lastKnown = point;
@@ -584,12 +614,17 @@ namespace StealthProto
 
         void Radio(Vector3 point)
         {
+            // Nearest first, so the nearest guards are the ones who come running.
             float r2 = radioRadius * radioRadius;
+            var heard = new List<GuardBrain>();
             foreach (var g in All)
             {
                 if (g == this || g.State == GuardState.Down) continue;
-                if ((g.transform.position - transform.position).sqrMagnitude <= r2) g.ReceiveRadio(point);
+                if ((g.transform.position - point).sqrMagnitude <= r2 || (g.transform.position - transform.position).sqrMagnitude <= r2)
+                    heard.Add(g);
             }
+            heard.Sort((a, b) => (a.transform.position - point).sqrMagnitude.CompareTo((b.transform.position - point).sqrMagnitude));
+            foreach (var g in heard) g.ReceiveRadio(point);
         }
 
         public void ReceiveRadio(Vector3 point)
@@ -600,7 +635,7 @@ namespace StealthProto
                 if (lostTimer > 0f) lastKnown = point;
                 return;
             }
-            EnterAlert(point, false, secondhandTellTime);
+            JoinAlert(point, false);
         }
 
         void TickAlert(float dt)
@@ -644,6 +679,13 @@ namespace StealthProto
                 SetStopped(true);
                 FaceTowards(t.position, dt);
                 TickShooting(dt);
+            }
+            else if (holding)
+            {
+                // Holding ground: stay put, face it, wait to see you.
+                windingUp = false;
+                SetStopped(true);
+                FaceTowards(lastKnown, dt);
             }
             else
             {
@@ -732,6 +774,12 @@ namespace StealthProto
         void BuildSearchPattern(Vector3 center)
         {
             searchPoints.Clear();
+            if (holding)
+            {
+                // Holding ground: look round where he stands, then back to his post.
+                searchPoints.Add(transform.position);
+                return;
+            }
             searchPoints.Add(center);
             Vector3 heading = Flat(center - transform.position, transform.forward);
             if (NavMesh.SamplePosition(center + heading * searchStep, out NavMeshHit hit, 1.5f, NavMesh.AllAreas))
@@ -783,12 +831,12 @@ namespace StealthProto
                         lastKnown = position;
                     return;
                 case GuardState.Search:
-                    if (gunfire) { EnterAlert(position, true, secondhandTellTime); return; }
+                    if (gunfire) { JoinAlert(position, true); return; }
                     // Same response every time: restart the short pattern at the noise.
                     EnterSearch(position);
                     return;
                 default:
-                    if (gunfire) { EnterAlert(position, true, secondhandTellTime); return; }
+                    if (gunfire) { JoinAlert(position, true); return; }
                     Awareness = Mathf.Max(Awareness, suspiciousThreshold + 0.1f + 0.3f * loudness);
                     EnterSuspicious(position, true);
                     return;
@@ -806,7 +854,7 @@ namespace StealthProto
             if (AgentReady) agent.Move(info.direction * 0.4f);
             Vector3 source = info.source != null ? info.source.transform.position : transform.position;
             lookUpTimer = lookUpAfterGunfire;
-            EnterAlert(source, true, secondhandTellTime);
+            FirsthandAlert(source, secondhandTellTime);
         }
 
         void OnDied(DamageInfo info)
