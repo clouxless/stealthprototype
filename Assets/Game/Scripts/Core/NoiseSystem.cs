@@ -11,7 +11,7 @@ namespace StealthProto
         void HearNoise(Vector3 position, float loudness);
     }
 
-    public enum SoundKind { Movement, Footstep, Impact, Gunshot, Shout, Knock, Struggle }
+    public enum SoundKind { Movement, Footstep, Impact, Gunshot, Shout, Knock, Struggle, Breathing }
 
     public struct SoundEvent
     {

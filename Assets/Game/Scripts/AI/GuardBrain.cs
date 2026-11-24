@@ -96,6 +96,9 @@ namespace StealthProto
         [Tooltip("Seconds between footstep sounds. Guard footsteps are ambient (only Focus shows them), so this sets the ripple rhythm.")]
         public float walkStepInterval = 1.1f;
         public float runStepInterval = 0.6f;
+        [Tooltip("A guard standing still breathes instead: a small, quiet ripple this often (Focus only).")]
+        public float breathInterval = 2.6f;
+        public float breathRadius = 2.5f;
 
         [Header("State colours")]
         // The world renders in black and white except reds and ambers (see LookSetup), so these
@@ -167,7 +170,7 @@ namespace StealthProto
         float flashBaseIntensity;
         float sweepTimer;
         bool wasSweeping;
-        float stepTimer;
+        float stepTimer, breathTimer;
         SuspiciousPhase suspiciousPhase;
         Vector3 investigatePoint;
         Vector3 lastKnown;
@@ -368,7 +371,16 @@ namespace StealthProto
         {
             if (!AgentReady) return;
             float speed = agent.velocity.magnitude;
-            if (speed < 0.3f) return;
+            if (speed < 0.3f)
+            {
+                // Standing still: breathing, so Focus still finds a guard who isn't moving.
+                breathTimer -= dt;
+                if (breathTimer > 0f) return;
+                breathTimer = breathInterval;
+                NoiseSystem.Ambient(transform.position + Vector3.up * 1.5f, breathRadius, 0.15f, SoundKind.Breathing, gameObject);
+                return;
+            }
+            breathTimer = UnityEngine.Random.Range(0.3f, 1f) * breathInterval; // first breath soon after stopping
             stepTimer -= dt;
             if (stepTimer > 0f) return;
             stepTimer = speed > walkSpeed + 0.5f ? runStepInterval : walkStepInterval;

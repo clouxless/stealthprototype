@@ -10,7 +10,8 @@ namespace StealthProto
     ///   tier 1 (from the start): loud, nearby sounds
     ///   tier 2 (after detailTime): every sound in range, so footstep rhythm shows
     ///   tier 3 (after identifyTime): which guard made it and their state
-    /// Focus only shows sound: still guards, lights and sightlines stay hidden. Sounds off screen
+    /// Focus only shows sound: lights and sightlines stay hidden. A guard standing still still shows,
+    /// by his breathing (a small, quiet ripple every few seconds, from tier 2). Sounds off screen
     /// get no marker, but their ripples still sweep in across the screen edge.
     /// Moving, attacking, aiming, dashing or interacting breaks it. Cues linger, then fade.
     /// Like guards, you only pick up sounds from the space you're in (SoundGrid).
@@ -270,6 +271,7 @@ namespace StealthProto
             SoundKind.Impact => new Color(1f, 0.6f, 0.3f),
             SoundKind.Struggle => new Color(1f, 0.6f, 0.3f),
             SoundKind.Footstep => new Color(0.85f, 0.95f, 1f),
+            SoundKind.Breathing => new Color(0.75f, 0.8f, 0.95f),
             _ => new Color(0.6f, 0.85f, 1f)
         };
 

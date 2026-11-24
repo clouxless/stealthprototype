@@ -8,12 +8,12 @@ namespace StealthProto
     /// 1. Takedown: close behind a guard who isn't alert. Hold the button through a choke that takes
     ///    a few seconds (Arkham-style). You're locked in place and exposed the whole time; let go
     ///    early and the guard breaks free, alerted. The struggle makes a little noise.
-    /// 2. Clamber / Climb: facing a ledge between minClimbHeight and maxClimbHeight with room to
-    ///    stand on top. Up to clamberMaxHeight is a quick clamber, above that a slower climb.
+    /// 2. Clamber: facing a ledge between minClimbHeight and clamberMaxHeight (1.6 m) with room to
+    ///    stand on top, a quick clamber. There is no taller climb: anything higher is out of reach.
     /// 3. Hang (MGS2-style): at a drop of at least minHangDrop with nothing in front, lower yourself
     ///    over the edge. Shimmy along it with the stick, E to climb back up, Space / C to let go.
     ///    Grip runs out after gripTime and you fall.
-    /// Priority: takedown, then clamber/climb, then hang.
+    /// Priority: takedown, then clamber, then hang.
     /// Edges (EdgeRules): walking into a drop of minHangDrop or more lowers you into the hang by
     /// itself, and over a deadly drop (water, a pit) you can't let go: when your grip gives out
     /// you pull yourself back up. A dash into a gap jumps it if there's a platform in range
@@ -22,7 +22,7 @@ namespace StealthProto
     [RequireComponent(typeof(PlayerMotor), typeof(PlayerInputReader), typeof(CharacterController))]
     public class PlayerContextActions : MonoBehaviour
     {
-        public enum ContextAction { None, Takedown, Clamber, Climb, Hang }
+        public enum ContextAction { None, Takedown, Clamber, Hang }
         /// <summary>Which surface sets the light tier while hanging (open design question).</summary>
         public enum HangLightSource { FloorBelow, Ledge }
 
@@ -39,13 +39,14 @@ namespace StealthProto
         public float struggleNoiseInterval = 0.6f;
         public float takedownNoiseRadius = 1.5f;
 
-        [Header("Climb")]
+        [Header("Clamber")]
         public float minClimbHeight = 0.5f;
+        [Tooltip("The highest ledge you can get up onto. There is no taller climb.")]
         public float clamberMaxHeight = 1.6f;
-        public float maxClimbHeight = 4.2f;
         [Tooltip("How far in front of the player a wall can be.")]
         public float wallReach = 0.9f;
         public float clamberTime = 0.3f;
+        [Tooltip("Pulling up from a hang.")]
         public float climbTimePerMetre = 0.16f;
         public float climbNoiseRadius = 2f;
 
@@ -95,7 +96,6 @@ namespace StealthProto
         {
             ContextAction.Takedown => "Takedown (hold)",
             ContextAction.Clamber => "Clamber",
-            ContextAction.Climb => "Climb",
             ContextAction.Hang => "Hang off edge",
             _ => null
         };
@@ -216,7 +216,7 @@ namespace StealthProto
             }
             else if (controller.isGrounded && FindLedge(facing, out ledge))
             {
-                Available = ledge.height <= clamberMaxHeight ? ContextAction.Clamber : ContextAction.Climb;
+                Available = ContextAction.Clamber;
                 PromptPosition = ledge.standPoint + Vector3.up * 0.4f;
             }
             else if (!inCover && controller.isGrounded && FindEdge(transform.forward, out edge))
@@ -330,7 +330,7 @@ namespace StealthProto
             if (d.sqrMagnitude > 0.001f) transform.rotation = Quaternion.LookRotation(d);
         }
 
-        // ---------------------------------------------------------------- climb
+        // ---------------------------------------------------------------- clamber
 
         bool FindLedge(Vector3 forward, out Ledge result)
         {
@@ -359,14 +359,14 @@ namespace StealthProto
             inward.Normalize();
             float wallDistance = Vector3.Dot(wall.point - origin, inward);
 
-            // 2. A walkable top surface just past the wall face, within climbing height.
+            // 2. A walkable top surface just past the wall face, within clamber height.
             Vector3 probe = wall.point + inward * 0.35f;
-            probe.y = origin.y + maxClimbHeight + 0.3f;
-            float probeLength = maxClimbHeight + 0.3f - minClimbHeight;
+            probe.y = origin.y + clamberMaxHeight + 0.3f;
+            float probeLength = clamberMaxHeight + 0.3f - minClimbHeight;
             if (!Occlusion.Raycast(probe, Vector3.down, probeLength, transform, null, out RaycastHit top)) return false;
             if (top.normal.y < 0.7f) return false;
             float height = top.point.y - origin.y;
-            if (height < minClimbHeight || height > maxClimbHeight) return false;
+            if (height < minClimbHeight || height > clamberMaxHeight) return false;
 
             // 3. Room to stand up there.
             Vector3 stand = new Vector3(probe.x, top.point.y, probe.z) + inward * 0.2f;
@@ -381,19 +381,18 @@ namespace StealthProto
             return true;
         }
 
-        IEnumerator ClimbRoutine(Ledge l)
+        IEnumerator ClimbRoutine(Ledge l) // clamber
         {
             Busy = true;
             motor.ExternalControl = true;
             controller.enabled = false;
             transform.rotation = Quaternion.LookRotation(l.inward);
 
-            bool clamber = l.height <= clamberMaxHeight;
             Vector3 start = transform.position;
             Vector3 hug = start + l.inward * Mathf.Max(0f, l.wallDistance - controller.radius - 0.02f);
             Vector3 raised = new Vector3(hug.x, l.standPoint.y + 0.05f, hug.z);
-            float riseTime = clamber ? clamberTime * 0.6f : 0.15f + climbTimePerMetre * l.height;
-            float overTime = clamber ? clamberTime * 0.4f : 0.2f;
+            float riseTime = clamberTime * 0.6f;
+            float overTime = clamberTime * 0.4f;
 
             yield return Move(start, hug, 0.05f);
             yield return Move(hug, raised, riseTime);

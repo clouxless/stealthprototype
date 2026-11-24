@@ -96,7 +96,9 @@ While hanging: the stick shimmies along the edge, E climbs up, Space or C lets g
   sound's full radius down to a fifth of it after 9 s of holding (slower than the camera's
   pull-out, which ends at 5 s), so it gets easier to pinpoint who
   made them (`FocusMode.ripple*` to tune). Ripples from sounds
-  off screen drift in across the screen edge. Only sound shows. Critical sounds (gunshots,
+  off screen drift in across the screen edge. Only sound shows, but guards standing still
+  breathe: a small, quiet ripple every 2.6 s (from 0.75 s of holding), so Focus finds them too
+  (`GuardBrain.breath*`). Critical sounds (gunshots,
   shouts) always draw a ring, focus or not.
 - **Walking is the sneaking.** There's one walking speed and no sneak button. Walking is
   silent, and a guard never notices you outside his vision cone, so walking up behind one
@@ -151,8 +153,9 @@ While hanging: the stick shimmies along the edge, E climbs up, Space or C lets g
   appears. Hold E through the choke (2.5 s). You're locked in place and visible the
   whole time, and the struggle makes a little noise. Let go early and the guard breaks
   free and raises the alarm.
-- **Climbing.** Face a ledge and a `Clamber` (up to 1.6 m) or `Climb` (up to 4.2 m)
-  prompt appears. Press E (also from cover). Guards can't climb, so high ground is an
+- **Clambering.** Face a ledge up to 1.6 m high and a `Clamber` prompt appears. Press E
+  (also from cover). There's no taller climb: anything higher is out of reach (you can still
+  pull yourself back up from a hang). Guards can't clamber, so low walls and crates are an
   escape route.
 - **Scale.** Characters are placeholder mannequins at human proportions (about 1.75 m,
   0.3 m collider radius), so level metrics match the final art.
