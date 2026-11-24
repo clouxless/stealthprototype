@@ -424,7 +424,7 @@ namespace StealthProto
                 Transform p = route.GetPoint(routeIndex);
                 FaceTowards(transform.position + p.forward, dt);
             }
-            if (waitTimer >= route.WaitAt(routeIndex))
+            if (waitTimer >= route.WaitAt(routeIndex) && (mayLeavePoint == null || mayLeavePoint(routeIndex)))
             {
                 waitTimer = 0f;
                 AdvanceRoute();
@@ -448,6 +448,15 @@ namespace StealthProto
             }
             routeIndex = next;
         }
+
+        /// <summary>
+        /// Optional hold at waypoints: asked with the waypoint index once the wait there is up; the
+        /// guard stays until it says yes. Used by StairWatch (the patroller waits for the searchlight).
+        /// </summary>
+        public Func<int, bool> mayLeavePoint;
+
+        /// <summary>The waypoint of route he's heading to or standing at.</summary>
+        public int RouteIndex => routeIndex;
 
         /// <summary>
         /// Swap this guard onto another route (a shift change), starting at startIndex. A guard on

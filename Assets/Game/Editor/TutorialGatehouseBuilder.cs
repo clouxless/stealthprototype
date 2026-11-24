@@ -305,8 +305,11 @@ namespace StealthProto.EditorTools
             Box(parent, "PH_Hut", 0.6f, 4.6f, LedgeTop, LedgeTop + 2.5f, 3.6f, 6.6f);
         }
 
+        /// <summary>The upper stair's first flight climbs west from the foot at the east end.</summary>
+        const bool UpperFirstEast = false;
+
         /// <summary>West end of the upper stair's top landing (the gap in the bridge parapet).</summary>
-        static float UpperTopX0 => UpperFlights % 2 == 1 ? UpperX0 + UpperLength - LandingDepth : UpperX0;
+        static float UpperTopX0 => (UpperFlights % 2 == 1) == UpperFirstEast ? UpperX0 + UpperLength - LandingDepth : UpperX0;
 
         /// <summary>West end of the lower stair's top landing (where it opens onto the ledge).</summary>
         static float LowerTopX0 => LowerFlights % 2 == 0 ? LowerX0 : LowerX0 + LowerLength - LandingDepth;
@@ -320,15 +323,24 @@ namespace StealthProto.EditorTools
             => StackedStair(parent, LowerX0, LowerZ0, LowerFlights, LowerRise, LowerRun, WallTop, true, Base);
 
         /// <summary>
-        /// Upper stairs: seven flights of 1.37 m against the pier face (x 15.1..21.5, z 4.4..7), starting
-        /// on the ledge at the west end. The top landing at the east end opens north onto the bridge
-        /// through a gap in its south parapet. Its second flight (inner lane, against the wall) is a
-        /// slab rather than solid, so there's a hiding space under the stairs: walk in at the west end
-        /// (2.4 m of headroom), and it narrows east to crawl height under the low end. Used by the
-        /// shift change on the ledge (ShiftChange).
+        /// Upper stairs: seven flights of 1.37 m against the pier face (x 15.1..21.5, z 4.4..7). The foot
+        /// is at the EAST end (x 20..21.5), entered from the south; the top landing at the west end
+        /// opens north onto the bridge through a gap in its south parapet (x 15.1..16.6).
+        ///
+        /// Hiding space: the inner lane under the second flight is hollow and walled off from the
+        /// stair, open only at the WEST end through a crawl hole (1.3 m wide, 1.07 m high) facing along
+        /// the pier face. Inside it rises to 2.4 m headroom at the east end. It's dark, guards can't fit
+        /// (no NavMesh in it), and nobody on the stairs or the ledge can see in except straight down
+        /// the hole. So from the ledge the hole is the near, easy target; the stair foot is 5 m further
+        /// east, round the far end, under the searchlight (StairWatch). Used by the shift change.
         /// </summary>
         static void BuildUpperStairs(Transform parent)
-            => StackedStair(parent, UpperX0, UpperZ0, UpperFlights, UpperRise, UpperRun, LedgeTop, true, LedgeTop, hollowUnder: true);
+        {
+            StackedStair(parent, UpperX0, UpperZ0, UpperFlights, UpperRise, UpperRun, LedgeTop, UpperFirstEast, LedgeTop, hollowUnder: true);
+            // Fill the strip between the stair's east end and the ledge's east rail, so the only way
+            // onto the foot is from the south (where the searchlight holds).
+            Box(parent, "PH_UpperStair_EndFill", UpperX0 + UpperLength, 22f, LedgeTop, LedgeTop + 2f * UpperRise - SlabThick, UpperZ0, PierFace);
+        }
 
         /// <summary>
         /// A zig-zag stair up a wall face, two lanes deep (z0 outer, z0 + Lane inner, wall at z0 + 2 Lane).
@@ -336,6 +348,11 @@ namespace StealthProto.EditorTools
         /// `run`, with LandingDepth landings across both lanes at each end. So flight i + 2 runs straight
         /// over flight i. The bottom landing, the first two flights and the first turn are solid down to
         /// floorY (nothing is under them); the rest are slabs.
+        ///
+        /// hollowUnder: a hiding space in the inner lane under flight 2. Flight 2 is a slab; the first
+        /// turn is solid only in the outer lane (a slab over the inner one, so the hiding space opens
+        /// under it at that end, crawl height); a wall on the lane divider closes it off from the
+        /// stair, and a wall at the foot end closes that end.
         /// </summary>
         static void StackedStair(Transform parent, float x0, float z0, int flights, float rise, float run,
             float yBottom, bool firstEast, float floorY, bool hollowUnder = false)
@@ -365,11 +382,33 @@ namespace StealthProto.EditorTools
                 bool top = i == flights - 1;
                 float lx0 = east ? fx1 : x0, lx1 = east ? x1 : fx0;
                 string lname = top ? "PH_Landing_Top" : $"PH_Landing_Turn{i + 1}";
-                if (i == 0) Landing(parent, lname, lx0, lx1, z0, zWall, yb, floorY);
+                if (i == 0 && hollowUnder)
+                {
+                    Landing(parent, lname, lx0, lx1, z0, zMid, yb, floorY);
+                    Box(parent, lname + "_Over", lx0, lx1, yb - SlabThick, yb, zMid, zWall);
+                }
+                else if (i == 0) Landing(parent, lname, lx0, lx1, z0, zWall, yb, floorY);
                 else Box(parent, lname, lx0, lx1, yb - SlabThick, yb, z0, zWall);
                 // Rails on its open sides: the far end and the outer (south) edge.
                 RailZ(parent, z0, zWall, east ? x1 - 0.05f : x0 + 0.05f, yb);
                 RailX(parent, lx0, lx1, z0 + 0.05f, yb);
+            }
+
+            if (hollowUnder && flights > 1)
+            {
+                // Under flight 2 (from the first turn's end back to the foot end): the divider wall up
+                // into the slab's underside, then the same under the second turn, and a wall across
+                // the inner lane at the foot end.
+                const float Wall = 0.15f, Bury = 0.1f;
+                bool firstGoesEast = firstEast;
+                float turnEdge = firstGoesEast ? fx1 : fx0;   // flight 2 starts here, low
+                float footEdge = firstGoesEast ? fx0 : fx1;   // and ends here, high
+                float footEnd = firstGoesEast ? x0 : x1;
+                float lowTop = yBottom + rise - SlabThick + Bury, highTop = yBottom + 2f * rise - SlabThick + Bury;
+                Wedge(parent, "PH_HideWall_Divider", turnEdge, footEdge, lowTop, highTop, floorY, zMid, zMid + Wall);
+                Box(parent, "PH_HideWall_Divider", Mathf.Min(footEdge, footEnd), Mathf.Max(footEdge, footEnd), floorY, highTop, zMid, zMid + Wall);
+                float capA = firstGoesEast ? footEnd : footEnd - Wall;
+                Box(parent, "PH_HideWall_End", capA, capA + Wall, floorY, highTop, zMid, zWall);
             }
         }
 
@@ -632,34 +671,72 @@ namespace StealthProto.EditorTools
             Post("L", new Vector3(8f, DeckTop, 7.6f), 180f);
             Post("L2", new Vector3(3f, DeckTop, 7.8f), 180f);
 
-            // Shift change on the ledge (landing planner): S1 walks a loop in front of the upper stair;
-            // S2 stands at the top, on the bridge by the stair. When you step onto the ledge, S2 comes
-            // down the stairs to relieve S1: they meet in the middle of the ledge, swap, and S1 goes up
-            // to the post. Then it repeats every 35 s with roles swapped. Hide under the upper stair
-            // (its west end) while the relief comes down past you.
+            // Shift change on the ledge (landing planner). S1 walks a loop in front of the upper stair;
+            // S2 stands at the post on the bridge (east of the stair's top, by his searchlight).
+            // Nothing happens until you step onto the ledge: then S2 comes down the stairs to relieve
+            // S1. They meet in the middle of the ledge, swap, and S1 walks back up to the post. Then
+            // it repeats every 45 s with roles swapped.
+            //
+            // The stair foot (east end) is always covered before the swap (StairWatch): S1's loop
+            // starts at a watch point facing it (his flashlight on it, 4.6 m away). While he stands
+            // there the post searchlight sweeps the ledge once; it holds on the foot the rest of the
+            // time. So the way up is shut, and the way in is the crawl hole under the stair's west end,
+            // along the pier face, which neither light reaches. After the swap the searchlight parks
+            // off the foot until the new post guard is up: that's your gap to follow S1 up.
             Vector3 Ld(float x, float z) => new Vector3(x, LedgeTop, z);
-            Vector3[] loopPts = { Ld(12f, -2.5f), Ld(19f, -2.5f), Ld(20.5f, -1f), Ld(19f, 0.5f), Ld(12f, 0.5f), Ld(10.5f, -1f) };
+            Vector3 stairFoot = Ld(20.7f, 5f);
+            Vector3[] loopPts = { Ld(18.5f, 1f), Ld(12f, 0.5f), Ld(10.5f, -1f), Ld(12f, -2.5f), Ld(19f, -2.5f), Ld(20.5f, -1f) };
             var loopPoints = new (Vector3 pos, float yaw)[loopPts.Length];
             for (int i = 0; i < loopPts.Length; i++)
             {
-                Vector3 to = loopPts[(i + 1) % loopPts.Length] - loopPts[i];
+                Vector3 to = (i == 0 ? stairFoot : loopPts[(i + 1) % loopPts.Length]) - loopPts[i];
                 loopPoints[i] = (loopPts[i], Mathf.Atan2(to.x, to.z) * Mathf.Rad2Deg);
             }
+            Vector3 postPos = D(22.5f, 7.8f);
             var shiftLoop = G.Route(routes, "PH_Route_Shift_Loop", true, 0.5f, loopPoints);
-            var shiftPost = G.Route(routes, "PH_Route_Shift_Post", true, 3f, (D(16f, 7.6f), 180f));
+            var shiftPost = G.Route(routes, "PH_Route_Shift_Post", true, 3f, (postPos, 200f));
             var shiftMeet = G.Route(routes, "PH_Route_Shift_Meet", true, 3f, (Ld(11f, 1.5f), 90f));
             var shiftPartner = G.Route(routes, "PH_Route_Shift_Partner", true, 3f, (Ld(12.3f, 1.5f), 270f));
             G.BuildGuard("PH_Guard_S1", loopPts[0], loopPoints[0].yaw, shiftLoop, player);
-            G.BuildGuard("PH_Guard_S2", D(16f, 7.6f), 180f, shiftPost, player);
+            G.BuildGuard("PH_Guard_S2", postPos, 200f, shiftPost, player);
+            var s1 = GameObject.Find("PH_Guard_S1").GetComponent<GuardBrain>();
+            var s2 = GameObject.Find("PH_Guard_S2").GetComponent<GuardBrain>();
+            s1.sweepAngle = s2.sweepAngle = 0f; // heads still: the flashlight stays on what he faces
             var shift = new GameObject("PH_ShiftChange").AddComponent<ShiftChange>();
-            shift.patrolling = GameObject.Find("PH_Guard_S1").GetComponent<GuardBrain>();
-            shift.onPost = GameObject.Find("PH_Guard_S2").GetComponent<GuardBrain>();
+            shift.patrolling = s1;
+            shift.onPost = s2;
             shift.patrolRoute = shiftLoop;
             shift.postRoute = shiftPost;
             shift.meetRoute = shiftMeet;
             shift.partnerRoute = shiftPartner;
+            shift.reliefInterval = 45f;
+            shift.handoverStartIndex = 2; // the newcomer starts the loop at its west end
             shift.player = player;
             shift.startZone = new Bounds(new Vector3(11f, LedgeTop + 1.5f, (BlockFront + PierFace) * 0.5f), new Vector3(22f, 3f, LedgeDepth));
+
+            // The post searchlight: on a bracket off the bridge parapet east of the stair (clear of
+            // it), sweeping from the apron in front of the stair foot west across the ledge.
+            var postLights = G.Group(root, "PH_PostLight");
+            Box(postLights, "PH_PostLight_Mast", 23.85f, 24.15f, DeckTop, DeckTop + 2.8f, RoadZ0, RoadZ0 + ParapetThick);
+            Box(postLights, "PH_PostLight_Arm", 23.9f, 24.1f, DeckTop + 2.6f, DeckTop + 2.8f, 4.8f, RoadZ0 + ParapetThick);
+            Vector3 lampPos = new Vector3(24f, DeckTop + 2.4f, 5f);
+            Vector3 aimFoot = Ld(19.8f, 3.2f), aimLedge = Ld(9f, -1.5f);
+            var postLamp = G.SpotLamp(postLights, "PH_Swivel_Post", lampPos, aimFoot, 24f, 24f, 40f);
+            var postBeam = postLamp.GetComponent<StealthLight>();
+            postBeam.litFraction = 1f;
+            postBeam.litRangeFraction = 1f;
+            var postSwivel = postLamp.gameObject.AddComponent<SwivelLight>();
+            postSwivel.useAimPoints = true;
+            postSwivel.aimFrom = aimFoot;
+            postSwivel.aimTo = aimLedge;
+            postSwivel.sweepTime = 5f;
+            postSwivel.pauseAtEnds = 0.5f;
+            postSwivel.hold = true; // StairWatch drives it
+            var watch = shift.gameObject.AddComponent<StairWatch>();
+            watch.shift = shift;
+            watch.searchlight = postSwivel;
+            watch.beam = postBeam;
+            watch.watchIndex = 0;
 
             // Road guards from the layout planner (road-layout-v1.json). R1-R3 hold the jersey-barrier
             // line at the west end, facing east. R4 stands in the back of the mid-road Humvee, swivelling. G1-G3 watch the
@@ -787,6 +864,18 @@ namespace StealthProto.EditorTools
             upper.eyeStart = upper.eyeEnd = new Vector3((ux0 + ux1) * 0.5f, LedgeTop + 6.5f, BlockFront - 11f);
             upper.lookStart = upper.lookEnd = new Vector3(0f, 1.2f, 0f);
             upper.fovStart = upper.fovEnd = 45f;
+
+            // Under the upper stair (the hiding space): nothing outside can see in, so a low shot
+            // from the ledge looking in through the crawl hole at the west end. Wins over the stair shot.
+            float hz0 = UpperZ0 + Lane, hx0 = UpperX0 - 0.3f, hx1 = UpperX0 + UpperLength;
+            var hide = Zone(zones, "PH_Cam_UnderStairs", CameraZone.Kind.Fixed,
+                new Vector3((hx0 + hx1) * 0.5f, LedgeTop, (hz0 + PierFace) * 0.5f),
+                new Vector3(hx1 - hx0, 1f, PierFace - hz0), 0.6f);
+            hide.priority = 1;
+            hide.eyeRelativeToPlayer = false;
+            hide.eyeStart = hide.eyeEnd = new Vector3(UpperX0 - 2.6f, LedgeTop + 0.9f, hz0 + Lane * 0.5f);
+            hide.lookStart = hide.lookEnd = new Vector3(0f, 0.4f, 0f);
+            hide.fovStart = hide.fovEnd = 55f;
         }
 
         static CameraZone Zone(Transform parent, string name, CameraZone.Kind kind, Vector3 centre, Vector3 size, float blendTime)

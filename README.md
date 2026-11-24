@@ -66,7 +66,7 @@ While hanging: the stick shimmies along the edge, E climbs up, Space or C lets g
 
 - **Light in three tiers.** Only the floor under your feet counts: Dark, Dim or Lit.
   Lamp pools have a crisp Lit core and a Dim ring. A guard's flashlight makes you Lit inside
-  their sight cone out to Mid. Swivel spotlights sweep a fixed arc (80 degrees over 11 s); standing in the beam gets you spotted at once by the guard who works it.
+  their sight cone out to Mid. Swivel spotlights sweep a fixed arc (80 degrees over 11 s), or between two aim points; standing in the beam gets you spotted at once by the guard who works it.
   Your character's tint shows the tier.
 - **Guard vision model** (`design/guard-vision/guard-vision-spec.md`). Three overlapping zones
   around each guard, by 3D distance: the sight cone (70 degrees, to Far: A Mid–Far, B Near–Mid,
@@ -243,15 +243,24 @@ the project files), with the first-pass guards W, L and L2 from the guard vision
 - **Lower stairs:** four flights of 1.6 m on the front face of the lower block, east of where the
   wall lands. Step east off the end of the wall onto it. It tops out on the **ledge** (22 x 11 m)
   next to a small hut.
-- **Upper stairs:** seven flights of 1.37 m against the pier face at the ledge's east end. It
-  comes out on the bridge through a gap in the south parapet. Its second flight is a slab, so there's a
-  hiding space **under the stairs**: in at the west end (2.4 m headroom), narrowing to crawl
-  height at the east end.
+- **Upper stairs:** seven flights of 1.37 m against the pier face at the ledge's east end. The
+  foot is at the stair's **east** end, entered from the south; it comes out at the west end onto
+  the bridge through a gap in the south parapet. Under it there's a **hiding space**: the inner
+  lane under the second flight is hollow and walled off, open only through a **crawl hole**
+  (1.3 m wide, 1.07 m high) at the stair's west end, along the pier face. Inside it rises to 2.4 m
+  at the east end. It's dark, guards can't get in, and nobody outside can see in except straight
+  down the hole. A low camera looks in through the hole while you're inside.
 - **Shift change on the ledge:** guard S1 walks a loop in front of the upper stair; S2 stands at
-  the top, on the bridge. As soon as you step onto the ledge, S2 comes down the stairs to relieve
-  S1: they meet mid-ledge, stand a moment, swap, and S1 walks up to the post. It repeats every
-  35 s with the roles swapped, and pauses while either is off patrol (`ShiftChange`). The way
-  through is to hide under the stairs while the relief comes down past you.
+  the post on the bridge, east of the stair's top, working a searchlight. Nothing happens until
+  you step onto the ledge: then S2 comes down the stairs to relieve S1. They meet mid-ledge, stand
+  a moment, swap, and S1 walks up to the post. After that it repeats every 45 s with the roles
+  swapped, and pauses while either is off patrol (`ShiftChange`).
+- **The stair foot is always covered before the swap** (`StairWatch`): S1's loop starts at a
+  watch point facing the foot, his flashlight on it. While he stands there the post searchlight
+  sweeps the ledge once, out and back, and he doesn't leave until it's back on the foot; the rest
+  of the time it holds on the foot. So the way up is shut, and the easy way in is the crawl hole,
+  nearer and out of both lights. After the swap the searchlight parks off the foot until the new
+  post guard is up: that's the gap to follow S1 up the stairs (stay a couple of flights behind him).
 - **How the stairs are built:** like the real ones, the flights zig-zag up the wall in two 1.3 m
   lanes (2.6 m deep in all), each flight running straight over the one two below it. Flights are
   22 degrees, with a 1.5 m landing across both lanes at each end. The lowest flight in each lane is
@@ -320,6 +329,7 @@ The layout lives in `Editor/TutorialGatehouseBuilder.cs`, one method per area.
 | `Scripts/Stealth/SwivelLight.cs` | Sweeping spotlight |
 | `Scripts/AI/GuardBrain.cs` | State machine, tells, hearing, radio, search, shooting |
 | `Scripts/AI/ShiftChange.cs` | Two guards trading a patrol and a post (shift change) |
+| `Scripts/AI/StairWatch.cs` | Keeps the stair foot covered by the patroller or the post searchlight |
 | `Scripts/AI/LastKnownMarker.cs` | Marker where hunting guards will search |
 | `Scripts/AI/VisionConeMesh.cs` | Vision drawn on the surfaces it covers |
 | `Scripts/Level/SandboxGoal.cs`, `FallHazard.cs` | Exit trigger with run stats, fall hazard |
