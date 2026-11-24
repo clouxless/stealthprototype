@@ -322,10 +322,13 @@ namespace StealthProto.EditorTools
         /// <summary>
         /// Upper stairs: seven flights of 1.37 m against the pier face (x 15.1..21.5, z 4.4..7), starting
         /// on the ledge at the west end. The top landing at the east end opens north onto the bridge
-        /// through a gap in its south parapet.
+        /// through a gap in its south parapet. Its second flight (inner lane, against the wall) is a
+        /// slab rather than solid, so there's a hiding space under the stairs: walk in at the west end
+        /// (2.4 m of headroom), and it narrows east to crawl height under the low end. Used by the
+        /// shift change on the ledge (ShiftChange).
         /// </summary>
         static void BuildUpperStairs(Transform parent)
-            => StackedStair(parent, UpperX0, UpperZ0, UpperFlights, UpperRise, UpperRun, LedgeTop, true, LedgeTop);
+            => StackedStair(parent, UpperX0, UpperZ0, UpperFlights, UpperRise, UpperRun, LedgeTop, true, LedgeTop, hollowUnder: true);
 
         /// <summary>
         /// A zig-zag stair up a wall face, two lanes deep (z0 outer, z0 + Lane inner, wall at z0 + 2 Lane).
@@ -335,7 +338,7 @@ namespace StealthProto.EditorTools
         /// floorY (nothing is under them); the rest are slabs.
         /// </summary>
         static void StackedStair(Transform parent, float x0, float z0, int flights, float rise, float run,
-            float yBottom, bool firstEast, float floorY)
+            float yBottom, bool firstEast, float floorY, bool hollowUnder = false)
         {
             float x1 = x0 + LandingDepth * 2f + run;
             float fx0 = x0 + LandingDepth, fx1 = x1 - LandingDepth;
@@ -352,7 +355,7 @@ namespace StealthProto.EditorTools
                 float ya = yBottom + i * rise, yb = ya + rise;
                 float from = east ? fx0 : fx1, to = east ? fx1 : fx0;
                 string name = $"PH_Flight_{i + 1}";
-                if (i < 2) Wedge(parent, name, from, to, ya, yb, floorY, za, zb);
+                if (i == 0 || (i == 1 && !hollowUnder)) Wedge(parent, name, from, to, ya, yb, floorY, za, zb);
                 else SlopedSlab(parent, name, from, to, ya, yb, za, zb);
                 // Rails: the outer edge (outer lane) and the lane divider (every flight).
                 if (outer) SlopedRail(parent, new Vector3(from, ya, z0 + 0.05f), new Vector3(to, yb, z0 + 0.05f));
@@ -628,6 +631,35 @@ namespace StealthProto.EditorTools
             Post("W", new Vector3(0.6f, WallTop, BlockFront - 1.8f), 270f);
             Post("L", new Vector3(8f, DeckTop, 7.6f), 180f);
             Post("L2", new Vector3(3f, DeckTop, 7.8f), 180f);
+
+            // Shift change on the ledge (landing planner): S1 walks a loop in front of the upper stair;
+            // S2 stands at the top, on the bridge by the stair. When you step onto the ledge, S2 comes
+            // down the stairs to relieve S1: they meet in the middle of the ledge, swap, and S1 goes up
+            // to the post. Then it repeats every 35 s with roles swapped. Hide under the upper stair
+            // (its west end) while the relief comes down past you.
+            Vector3 Ld(float x, float z) => new Vector3(x, LedgeTop, z);
+            Vector3[] loopPts = { Ld(12f, -2.5f), Ld(19f, -2.5f), Ld(20.5f, -1f), Ld(19f, 0.5f), Ld(12f, 0.5f), Ld(10.5f, -1f) };
+            var loopPoints = new (Vector3 pos, float yaw)[loopPts.Length];
+            for (int i = 0; i < loopPts.Length; i++)
+            {
+                Vector3 to = loopPts[(i + 1) % loopPts.Length] - loopPts[i];
+                loopPoints[i] = (loopPts[i], Mathf.Atan2(to.x, to.z) * Mathf.Rad2Deg);
+            }
+            var shiftLoop = G.Route(routes, "PH_Route_Shift_Loop", true, 0.5f, loopPoints);
+            var shiftPost = G.Route(routes, "PH_Route_Shift_Post", true, 3f, (D(16f, 7.6f), 180f));
+            var shiftMeet = G.Route(routes, "PH_Route_Shift_Meet", true, 3f, (Ld(11f, 1.5f), 90f));
+            var shiftPartner = G.Route(routes, "PH_Route_Shift_Partner", true, 3f, (Ld(12.3f, 1.5f), 270f));
+            G.BuildGuard("PH_Guard_S1", loopPts[0], loopPoints[0].yaw, shiftLoop, player);
+            G.BuildGuard("PH_Guard_S2", D(16f, 7.6f), 180f, shiftPost, player);
+            var shift = new GameObject("PH_ShiftChange").AddComponent<ShiftChange>();
+            shift.patrolling = GameObject.Find("PH_Guard_S1").GetComponent<GuardBrain>();
+            shift.onPost = GameObject.Find("PH_Guard_S2").GetComponent<GuardBrain>();
+            shift.patrolRoute = shiftLoop;
+            shift.postRoute = shiftPost;
+            shift.meetRoute = shiftMeet;
+            shift.partnerRoute = shiftPartner;
+            shift.player = player;
+            shift.startZone = new Bounds(new Vector3(11f, LedgeTop + 1.5f, (BlockFront + PierFace) * 0.5f), new Vector3(22f, 3f, LedgeDepth));
 
             // Road guards from the layout planner (road-layout-v1.json). R1-R3 hold the jersey-barrier
             // line at the west end, facing east. R4 stands in the back of the mid-road Humvee, swivelling. G1-G3 watch the

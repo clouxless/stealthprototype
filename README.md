@@ -244,7 +244,14 @@ the project files), with the first-pass guards W, L and L2 from the guard vision
   wall lands. Step east off the end of the wall onto it. It tops out on the **ledge** (22 x 11 m)
   next to a small hut.
 - **Upper stairs:** seven flights of 1.37 m against the pier face at the ledge's east end. It
-  comes out on the bridge through a gap in the south parapet.
+  comes out on the bridge through a gap in the south parapet. Its second flight is a slab, so there's a
+  hiding space **under the stairs**: in at the west end (2.4 m headroom), narrowing to crawl
+  height at the east end.
+- **Shift change on the ledge:** guard S1 walks a loop in front of the upper stair; S2 stands at
+  the top, on the bridge. As soon as you step onto the ledge, S2 comes down the stairs to relieve
+  S1: they meet mid-ledge, stand a moment, swap, and S1 walks up to the post. It repeats every
+  35 s with the roles swapped, and pauses while either is off patrol (`ShiftChange`). The way
+  through is to hide under the stairs while the relief comes down past you.
 - **How the stairs are built:** like the real ones, the flights zig-zag up the wall in two 1.3 m
   lanes (2.6 m deep in all), each flight running straight over the one two below it. Flights are
   22 degrees, with a 1.5 m landing across both lanes at each end. The lowest flight in each lane is
@@ -312,6 +319,7 @@ The layout lives in `Editor/TutorialGatehouseBuilder.cs`, one method per area.
 | `Scripts/AI/GuardVision.cs` | Vision zones, rate table, line of sight, height |
 | `Scripts/Stealth/SwivelLight.cs` | Sweeping spotlight |
 | `Scripts/AI/GuardBrain.cs` | State machine, tells, hearing, radio, search, shooting |
+| `Scripts/AI/ShiftChange.cs` | Two guards trading a patrol and a post (shift change) |
 | `Scripts/AI/LastKnownMarker.cs` | Marker where hunting guards will search |
 | `Scripts/AI/VisionConeMesh.cs` | Vision drawn on the surfaces it covers |
 | `Scripts/Level/SandboxGoal.cs`, `FallHazard.cs` | Exit trigger with run stats, fall hazard |

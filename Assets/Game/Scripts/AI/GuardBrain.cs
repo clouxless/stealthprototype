@@ -449,6 +449,24 @@ namespace StealthProto
             routeIndex = next;
         }
 
+        /// <summary>
+        /// Swap this guard onto another route (a shift change), starting at startIndex. A guard on
+        /// patrol heads there now; one that's busy (suspicious, searching) picks it up when he
+        /// returns to patrol.
+        /// </summary>
+        public void AssignRoute(PatrolRoute newRoute, int startIndex = 0)
+        {
+            route = newRoute;
+            routeIndex = newRoute != null && newRoute.Count > 0 ? Mathf.Clamp(startIndex, 0, newRoute.Count - 1) : 0;
+            routeStep = 1;
+            waitTimer = 0f;
+            if (State == GuardState.Patrol) GoToRoutePoint();
+        }
+
+        /// <summary>On patrol, standing at a route point within `slack` metres of it.</summary>
+        public bool StandingAt(Vector3 point, float slack)
+            => State == GuardState.Patrol && Arrived && (transform.position - point).sqrMagnitude <= slack * slack;
+
         void GoToRoutePoint()
         {
             if (route != null && route.Count > 0) SetDestination(route.GetPoint(routeIndex).position);
