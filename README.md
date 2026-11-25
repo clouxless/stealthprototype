@@ -233,9 +233,10 @@ the project files), with the first-pass guards W, L and L2 from the guard vision
   on the walkway right beside the hiding step: he paces himself to keep that appointment (brisk,
   1.4 to 3.2 m/s), and drops to a normal walk if you stop. From the end of the dam view you see
   his flashlight coming down the flights, then him walking straight at you. After the step he
-  carries on to a beat 35 to 60 m down the wall, clear of the stairs (`PatrolOnCue`). The last
-  buttress, 12 m short of the stairs, is the **hiding step**: narrow, 1.4 m below the walkway
-  (step down, climb back up). Lie prone against the wall face and the walkway's edge hides you
+  carries on to a beat 35 to 60 m down the wall, clear of the stairs (`PatrolOnCue`). Along the
+  approach (the last five buttresses, from z -55) the buttresses are **hiding steps**: narrow,
+  1.4 m below the walkway (step down, climb back up). He meets a straight-walking player beside
+  the last one, 12 m short of the stairs. Lie prone against the wall face and the walkway's edge hides you
   as he passes above; lie out at the step's outer edge and he can see you. Then head up the
   stairs behind him.
 - **Dolphins:** dash off the tip to jump out to them: gaps of 3.6, 3.2 and 3.2 m, then 4.2 m to

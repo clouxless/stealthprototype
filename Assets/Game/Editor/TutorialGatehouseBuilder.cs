@@ -261,12 +261,16 @@ namespace StealthProto.EditorTools
             for (float z = -118f; z + 3f <= LowerZ0 - 1f; z += 9f)
             {
                 bool last = z + 12f > LowerZ0 - 1f;
-                if (!last) { Box(parent, "PH_Buttress", 3f, 5f, Base, WallTop - 0.6f, z, z + 3f); continue; }
-                // The last one, 12 m short of the stairs, is a hiding step: narrow (1.6 m) and 1.4 m
-                // below the walkway, so you step down onto it and climb back up. Lie prone against
-                // the wall face and the walkway's edge hides you from a guard walking past above (the
-                // descending guard, W). Lie out at the step's outer edge and he can see you.
-                Box(parent, "PH_HidingStep", 3f, 3f + HideStepWidth, Base, HideStepTop, HideStepZ, HideStepZ + 4f);
+                // Along the over-the-shoulder approach (z -62 on), where guard W comes down the wall
+                // at you, the buttresses are hiding steps: narrow (1.6 m) and 1.4 m below the walkway,
+                // so you step down onto them and climb back up. Lie prone against the wall face and the
+                // walkway's edge hides you from a guard walking past above (playtest: on the old 0.6 m
+                // buttresses his flashlight lit you up). Lie out at a step's outer edge and he can see
+                // you. The last one, 12 m short of the stairs, is where he meets a player who walks
+                // straight up the wall. Further back they're the plain 0.6 m buttresses.
+                if (last) Box(parent, "PH_HidingStep", 3f, 3f + HideStepWidth, Base, HideStepTop, HideStepZ, HideStepZ + 4f);
+                else if (z >= -62f) Box(parent, "PH_HidingStep", 3f, 3f + HideStepWidth, Base, HideStepTop, z, z + 3f);
+                else Box(parent, "PH_Buttress", 3f, 5f, Base, WallTop - 0.6f, z, z + 3f);
             }
 
             // No railings: the edge rules stop you walking off (you hang instead), and the open tip
