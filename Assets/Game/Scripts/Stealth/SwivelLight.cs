@@ -35,6 +35,26 @@ namespace StealthProto
         public bool useTrack;
         public Vector3 trackFrom;
         public Vector3 trackTo;
+        [Tooltip("Optional stops in between, in order (a rail that bends): trackFrom -> these -> trackTo. Speed along the rail is even.")]
+        public Vector3[] trackStops = new Vector3[0];
+
+        /// <summary>The point a fraction t (0..1) of the way along the rail, by length.</summary>
+        Vector3 AlongTrack(float t)
+        {
+            if (trackStops == null || trackStops.Length == 0) return Vector3.Lerp(trackFrom, trackTo, t);
+            int n = trackStops.Length + 2;
+            Vector3 P(int i) => i == 0 ? trackFrom : i == n - 1 ? trackTo : trackStops[i - 1];
+            float total = 0f;
+            for (int i = 1; i < n; i++) total += Vector3.Distance(P(i - 1), P(i));
+            float d = t * total;
+            for (int i = 1; i < n; i++)
+            {
+                float seg = Vector3.Distance(P(i - 1), P(i));
+                if (d <= seg || i == n - 1) return Vector3.Lerp(P(i - 1), P(i), seg > 0f ? Mathf.Clamp01(d / seg) : 1f);
+                d -= seg;
+            }
+            return trackTo;
+        }
 
         [Header("Aim points (instead of yaw)")]
         public bool useAimPoints;
@@ -97,7 +117,7 @@ namespace StealthProto
             float e = k * k * (3f - 2f * k); // eased, so it slows into each end (readable)
             if (useTrack)
             {
-                transform.SetPositionAndRotation(Vector3.Lerp(trackFrom, trackTo, e), Quaternion.LookRotation(Vector3.down, Vector3.forward));
+                transform.SetPositionAndRotation(AlongTrack(e), Quaternion.LookRotation(Vector3.down, Vector3.forward));
                 return;
             }
             if (useAimPoints)

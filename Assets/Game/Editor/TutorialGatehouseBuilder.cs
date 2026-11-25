@@ -778,13 +778,15 @@ namespace StealthProto.EditorTools
 
         /// <summary>
         /// A ledge searchlight: hangs from a rail cantilevered off the bridge parapet, pointing straight
-        /// down, and slides along the rail between two points over the ledge (from, to: floor points),
+        /// down, and slides along the rail over the ledge (from, any stops, to: floor points),
         /// so its pool is a big circle (SearchRadius) sliding over the floor. The whole pool is Lit.
         /// </summary>
-        static StealthLight Swivel(Transform parent, string name, Vector3 from, Vector3 to, float sweepTime, float phase)
+        static StealthLight Swivel(Transform parent, string name, Vector3 from, Vector3 to, float sweepTime, float phase, params Vector3[] stops)
         {
             float y = DeckTop + 1.3f, drop = y - LedgeTop;
             Vector3 a = new Vector3(from.x, y, from.z), b = new Vector3(to.x, y, to.z);
+            var mid = new Vector3[stops.Length];
+            for (int i = 0; i < stops.Length; i++) mid[i] = new Vector3(stops[i].x, y, stops[i].z);
             float angle = 2f * Mathf.Atan(SearchRadius / drop) * Mathf.Rad2Deg;
             var light = G.SpotLamp(parent, name, a, new Vector3(a.x, LedgeTop, a.z), angle, drop * 1.25f, 40f);
             var stealth = light.GetComponent<StealthLight>();
@@ -794,11 +796,12 @@ namespace StealthProto.EditorTools
             swivel.useTrack = true;
             swivel.trackFrom = a;
             swivel.trackTo = b;
+            swivel.trackStops = mid;
             swivel.sweepTime = sweepTime;
             swivel.phase = phase;
 
             // The rail (visual only): along the track just above the lamp, then a strut back to the
-            // parapet from whichever end is nearer it.
+            // parapet from the rail point nearest it.
             Vector3 up = Vector3.up * 0.35f;
             void Beam(string beamName, Vector3 p, Vector3 q)
             {
@@ -806,8 +809,10 @@ namespace StealthProto.EditorTools
                 var go = G.Visual(PrimitiveType.Cube, parent, beamName, (p + q) * 0.5f, new Vector3(0.15f, 0.15f, d.magnitude), G.gridMat);
                 go.transform.rotation = Quaternion.LookRotation(d.normalized, Vector3.up);
             }
-            Beam(name + "_Rail", a + up, b + up);
-            Vector3 near = a.z > b.z ? a : b;
+            Vector3 prev = a, near = a;
+            foreach (var m in mid) { Beam(name + "_Rail", prev + up, m + up); prev = m; if (m.z > near.z) near = m; }
+            Beam(name + "_Rail", prev + up, b + up);
+            if (b.z > near.z) near = b;
             Beam(name + "_Strut", near + up, new Vector3(near.x, DeckTop + 1.1f, RoadZ0 + ParapetThick * 0.5f));
             return stealth;
         }
