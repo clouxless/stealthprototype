@@ -3,13 +3,13 @@ using UnityEngine;
 namespace StealthProto
 {
     /// <summary>
-    /// A gun mounted on a track searchlight (SwivelLight), worked by the guard who owns the light.
-    /// Get caught in the beam (Lit in it) and it locks on: the light leaves its rail and follows you
+    /// A gun mounted on a searchlight (SwivelLight, track or track-aim), worked by the guard who owns the light.
+    /// Get caught in the beam (Lit in it) and it locks on: the light leaves its path and follows you
     /// (SwivelLight.follow, a little slower than a run), and
     /// while the owner is alert and you're still in the beam it fires fully automatic from the
     /// lamp, straight down the beam: a short wind-up, then a round every fireInterval. A round hits
     /// unless something solid is between the lamp and you. Out of the beam for releaseAfter
-    /// seconds, or the owner not alert any more, and it lets go and returns to its rail.
+    /// seconds, or the owner not alert any more, and it lets go and goes back to its path.
     /// </summary>
     public class SearchlightGun : MonoBehaviour
     {

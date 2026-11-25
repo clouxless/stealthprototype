@@ -11,7 +11,7 @@ namespace StealthProto
     /// - Yaw (default): turns side to side about the vertical axis, sweepAngle in all, centred on
     ///   the direction it starts in.
     /// - Track (useTrack): the light slides along a rail between two points, pointing straight
-    ///   down, so its pool is a circle sliding over the floor. With trackLoop it goes round the
+    ///   down (or, with trackAim, stays put and swivels to aim at a point moving along that path), so its pool is a circle sliding over the floor. With trackLoop it goes round the
     ///   rail (trackTo runs on back to trackFrom) at an even speed instead of turning back.
     /// - Aim points (useAimPoints): the beam's aim slides along the line aimFrom -> aimTo (world
     ///   points), so it can tilt as well as turn and its pool tracks a path on the floor.
@@ -38,6 +38,8 @@ namespace StealthProto
         public Vector3 trackTo;
         [Tooltip("Optional stops in between, in order (a rail that bends): trackFrom -> these -> trackTo. Speed along the rail is even.")]
         public Vector3[] trackStops = new Vector3[0];
+        [Tooltip("Track aim: the light stays where it is (held by a guard) and swivels to aim at the point moving along the rail, instead of riding the rail pointing down. The rail points are then floor points.")]
+        public bool trackAim;
         [Tooltip("Go round: after trackTo the rail runs on back to trackFrom and the light keeps going the same way, at an even speed, with no pauses. sweepTime is one full lap.")]
         public bool trackLoop;
 
@@ -113,6 +115,15 @@ namespace StealthProto
                 // Locked on (or coming back): k is frozen, so it carries on from there afterwards.
                 float e = Looping ? k : k * k * (3f - 2f * k);
                 Vector3 goal = AlongTrack(e);
+                if (trackAim)
+                {
+                    // Swivel the aim point onto the target (at its feet), or back onto the path.
+                    if (follow != null) goal = follow.position;
+                    aimNow = Vector3.MoveTowards(aimNow, goal, followSpeed * Time.deltaTime);
+                    AimAt(aimNow);
+                    OffRail = follow != null || (aimNow - goal).sqrMagnitude > 0.0001f;
+                    return;
+                }
                 if (follow != null) goal = new Vector3(follow.position.x, goal.y, follow.position.z);
                 Vector3 p = Vector3.MoveTowards(transform.position, goal, followSpeed * Time.deltaTime);
                 transform.SetPositionAndRotation(p, Quaternion.LookRotation(Vector3.down, Vector3.forward));
@@ -146,10 +157,24 @@ namespace StealthProto
             Apply();
         }
 
+        Vector3 aimNow;
+
+        void AimAt(Vector3 point)
+        {
+            Vector3 dir = point - transform.position;
+            if (dir.sqrMagnitude > 0.0001f) transform.rotation = Quaternion.LookRotation(dir, Mathf.Abs(dir.normalized.y) > 0.95f ? Vector3.forward : Vector3.up);
+        }
+
         void Apply()
         {
             // Eased, so it slows into each end (readable); a loop has no ends, so it runs evenly.
             float e = Looping ? k : k * k * (3f - 2f * k);
+            if (useTrack && trackAim)
+            {
+                aimNow = AlongTrack(e);
+                AimAt(aimNow);
+                return;
+            }
             if (useTrack)
             {
                 transform.SetPositionAndRotation(AlongTrack(e), Quaternion.LookRotation(Vector3.down, Vector3.forward));

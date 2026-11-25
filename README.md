@@ -280,18 +280,18 @@ the project files), with the first-pass guards W, L and L2 from the guard vision
   when he comes to relieve him: he walks to the ledge spot, finds nobody, and raises the alarm
   (full alert, radioed). While the
   relief walks back up, the post is empty: that's the gap to follow him up the stairs.
-- **Ledge searchlights (L, L2):** each hangs from a rail cantilevered off the bridge parapet,
-  pointing straight down, so its pool is a big circle moving over the ledge. Both rails are
-  loops (triangles, from the landing planner) that the light goes round at an even speed, half a
-  lap out of step. L's (3.2 m circle, 12 s a lap): east of mid-ledge, west, then north toward the
-  upper stair's foot. L2's (3 m, 18 s): off the lower stair's top, north-east, then mid-ledge.
-  (`StairWatch`, which kept L's light in step with S1's old beat, is no longer used here.)
+- **Ledge searchlights (L, L2):** each is a spotlight in the hands of its guard up on the bridge,
+  held out past the parapet. He stands still and swivels it so the pool runs round a looped path
+  over the ledge (triangles, from the landing planner) at an even speed, the two half a lap out of
+  step. L's (3.2 m pool, 12 s a lap): east of mid-ledge, west, then north toward the upper stair's
+  foot. L2's (3 m, 18 s): off the lower stair's top, north-east, then mid-ledge. The pools stretch a
+  little where the beam hits the floor at a slant. (`StairWatch` is no longer used here.)
 - **Searchlight guns** (`SearchlightGun`): each ledge light carries its guard's gun. Get caught in
-  the beam and it locks on: the light leaves its rail and follows you at 3.8 m/s, and once he's
-  alert it fires fully automatic straight down the beam, 0.5 s after lock-on and then 10 rounds a
+  the beam and it locks on: the guard swivels the light off its path to follow you at 3.8 m/s, and once he's
+  alert it fires fully automatic from the lamp straight down the beam, 0.5 s after lock-on and then 10 rounds a
   second. With one hit point, that half second is your window: dash out of the beam or get
-  something solid over you. Out of the beam for 0.6 s and it lets go and slides back
-  to its rail.
+  something solid over you. Out of the beam for 0.6 s and it lets go and swings back
+  to its path.
 - **Ledge lamp:** on a post south-west of the upper stair's entrance, over S1: a 4.2 m pool, all Lit, no Dim ring.
 - **Ledge crates:** three 1.2 m crates by the ledge's east end (landing planner).
 - **Round the back of the upper stairs:** along the ledge's south rail (1.35 m clear south of the crates), then north up the east side (1.35-1.85 m past the crates) to the 1.95 m gap behind the stairs. It passes behind S1 and stays out of the lamp's pool.

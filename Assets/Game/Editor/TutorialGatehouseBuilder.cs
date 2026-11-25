@@ -777,15 +777,15 @@ namespace StealthProto.EditorTools
             Patrol("T1", D(14.5f, 9f), D(17.5f, 20f), D(10.5f, 17.5f), D(14.5f, 8.5f));
             Patrol("T2", D(-30f, 21.5f), D(9.5f, 21.5f), D(16f, 27f), D(18f, 24.5f), D(10f, 20f), D(-3f, 21.5f));
 
-            // Swivel spotlights for L and L2: on the parapet's outer face, aimed down at the ledge.
+            // Swivel spotlights for L and L2: in their hands at the parapet, aimed down at the ledge.
             // Each is its guard's eyes: standing in the beam gets you spotted at once (GuardVision.searchlights).
             var lights = G.Group(root, "PH_GuardLights");
-            // Both slide a big circle round a looped rail over the ledge (landing planner, v51), at
+            // Each swivels its pool round a looped path over the ledge (landing planner, v51), at
             // about the speeds they had before (L 1.3 m/s, L2 1 m/s), half a lap out of step.
             // L's triangle: east of mid-ledge -> west -> north toward the upper stair's foot.
             // L2's triangle: off the lower stair's top -> north-east -> mid-ledge.
-            var swivelL = Swivel(lights, "PH_Swivel_L", Ld(13.5f, -0.5f), Ld(11f, 4f), 12f, 0f, true, 3.2f, Ld(7.5f, 1f));
-            var swivelL2 = Swivel(lights, "PH_Swivel_L2", Ld(2f, -3.5f), Ld(7f, 0f), 18f, 0.5f, true, 3f, Ld(4.5f, 4f));
+            var swivelL = Swivel(lights, "PH_Swivel_L", new Vector3(8f, DeckTop, 7.6f), Ld(13.5f, -0.5f), Ld(11f, 4f), 12f, 0f, true, 3.2f, Ld(7.5f, 1f));
+            var swivelL2 = Swivel(lights, "PH_Swivel_L2", new Vector3(3f, DeckTop, 7.8f), Ld(2f, -3.5f), Ld(7f, 0f), 18f, 0.5f, true, 3f, Ld(4.5f, 4f));
             GameObject.Find("PH_Guard_L").GetComponent<GuardVision>().searchlights = new[] { swivelL };
             GameObject.Find("PH_Guard_L2").GetComponent<GuardVision>().searchlights = new[] { swivelL2 };
             // Each light carries its guard's gun: caught in the beam, it locks on, follows you, and
@@ -820,45 +820,39 @@ namespace StealthProto.EditorTools
         }
 
         /// <summary>
-        /// A ledge searchlight: hangs from a rail cantilevered off the bridge parapet, pointing straight
-        /// down, and slides along the rail over the ledge (from, any stops, to: floor points),
-        /// so its pool is a big circle (radius) sliding over the floor. The whole pool is Lit.
+        /// A ledge searchlight in a guard's hands: held at chest height, reaching out past the bridge
+        /// parapet in front of him (holder = his feet), it stays there and swivels so its aim point runs along a
+        /// path on the ledge floor (from, any stops, to; looped or back and forth). The beam is sized
+        /// so its pool is about radius across at the path's average distance (it stretches a little
+        /// where it hits the floor at a slant). The whole beam is Lit.
         /// </summary>
-        static StealthLight Swivel(Transform parent, string name, Vector3 from, Vector3 to, float sweepTime, float phase, bool loop, float radius, params Vector3[] stops)
+        static StealthLight Swivel(Transform parent, string name, Vector3 holder, Vector3 from, Vector3 to, float sweepTime, float phase, bool loop, float radius, params Vector3[] stops)
         {
-            float y = DeckTop + 1.3f, drop = y - LedgeTop;
-            Vector3 a = new Vector3(from.x, y, from.z), b = new Vector3(to.x, y, to.z);
-            var mid = new Vector3[stops.Length];
-            for (int i = 0; i < stops.Length; i++) mid[i] = new Vector3(stops[i].x, y, stops[i].z);
-            float angle = 2f * Mathf.Atan(radius / drop) * Mathf.Rad2Deg;
-            var light = G.SpotLamp(parent, name, a, new Vector3(a.x, LedgeTop, a.z), angle, drop * 1.25f, 40f);
+            // Held out past the parapet's outer face, so the parapet never cuts the beam.
+            Vector3 lamp = new Vector3(holder.x, DeckTop + 1.45f, RoadZ0 - 0.2f);
+            Vector3 F(Vector3 p) => new Vector3(p.x, LedgeTop, p.z);
+            var path = new System.Collections.Generic.List<Vector3> { F(from) };
+            foreach (var p in stops) path.Add(F(p));
+            path.Add(F(to));
+            float mean = 0f, far = 0f;
+            foreach (var p in path) { float d = Vector3.Distance(lamp, p); mean += d; far = Mathf.Max(far, d); }
+            mean /= path.Count;
+            float angle = 2f * Mathf.Atan(radius / mean) * Mathf.Rad2Deg;
+            var light = G.SpotLamp(parent, name, lamp, F(from), angle, far * 1.4f, 40f);
             var stealth = light.GetComponent<StealthLight>();
             stealth.litFraction = 1f;       // the whole beam is Lit
             stealth.litRangeFraction = 1f;
             var swivel = light.gameObject.AddComponent<SwivelLight>();
             swivel.useTrack = true;
-            swivel.trackFrom = a;
-            swivel.trackTo = b;
+            swivel.trackAim = true;
+            swivel.trackFrom = F(from);
+            swivel.trackTo = F(to);
+            var mid = new Vector3[stops.Length];
+            for (int i = 0; i < stops.Length; i++) mid[i] = F(stops[i]);
             swivel.trackStops = mid;
             swivel.trackLoop = loop;
             swivel.sweepTime = sweepTime;
             swivel.phase = phase;
-
-            // The rail (visual only): along the track just above the lamp, then a strut back to the
-            // parapet from the rail point nearest it.
-            Vector3 up = Vector3.up * 0.35f;
-            void Beam(string beamName, Vector3 p, Vector3 q)
-            {
-                Vector3 d = q - p;
-                var go = G.Visual(PrimitiveType.Cube, parent, beamName, (p + q) * 0.5f, new Vector3(0.15f, 0.15f, d.magnitude), G.gridMat);
-                go.transform.rotation = Quaternion.LookRotation(d.normalized, Vector3.up);
-            }
-            Vector3 prev = a, near = a;
-            foreach (var m in mid) { Beam(name + "_Rail", prev + up, m + up); prev = m; if (m.z > near.z) near = m; }
-            Beam(name + "_Rail", prev + up, b + up);
-            if (loop) Beam(name + "_Rail", b + up, a + up); // closes the loop
-            if (b.z > near.z) near = b;
-            Beam(name + "_Strut", near + up, new Vector3(near.x, DeckTop + 1.1f, RoadZ0 + ParapetThick * 0.5f));
             return stealth;
         }
 
