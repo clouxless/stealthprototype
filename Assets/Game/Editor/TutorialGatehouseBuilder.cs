@@ -788,6 +788,18 @@ namespace StealthProto.EditorTools
             var swivelL2 = Swivel(lights, "PH_Swivel_L2", Ld(2f, -3.5f), Ld(7f, 0f), 18f, 0.5f, true, 3f, Ld(4.5f, 4f));
             GameObject.Find("PH_Guard_L").GetComponent<GuardVision>().searchlights = new[] { swivelL };
             GameObject.Find("PH_Guard_L2").GetComponent<GuardVision>().searchlights = new[] { swivelL2 };
+            // Each light carries its guard's gun: caught in the beam, it locks on, follows you, and
+            // fires fully automatic down the beam while he's alert (SearchlightGun).
+            void Gun(StealthLight beam, string guard)
+            {
+                var gun = beam.gameObject.AddComponent<SearchlightGun>();
+                gun.beam = beam;
+                gun.swivel = beam.GetComponent<SwivelLight>();
+                gun.owner = GameObject.Find(guard).GetComponent<GuardBrain>();
+                gun.target = player;
+            }
+            Gun(swivelL, "PH_Guard_L");
+            Gun(swivelL2, "PH_Guard_L2");
 
             // Ledge lamp, south-west of the upper stair's entrance, over S1: all Lit, no Dim ring
             // (v57), a 4.2 m pool (the Lit core it had before). The cone is set to that radius on

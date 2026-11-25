@@ -68,6 +68,14 @@ namespace StealthProto
         public Vector3 aimFrom;
         public Vector3 aimTo;
 
+        [Header("Follow (track mode): locked onto a target")]
+        [Tooltip("While set, a track light leaves its rail and slides to stay right over this (at followSpeed). Cleared, it slides back to the rail and carries on from where it left.")]
+        public Transform follow;
+        public float followSpeed = 3.8f;
+
+        /// <summary>Off the rail: following, or sliding back to it.</summary>
+        public bool OffRail { get; private set; }
+
         [Header("Held by script")]
         [Tooltip("While on, the light goes to holdK and stays there.")]
         public bool hold;
@@ -100,6 +108,17 @@ namespace StealthProto
 
         void Update()
         {
+            if (useTrack && (follow != null || OffRail))
+            {
+                // Locked on (or coming back): k is frozen, so it carries on from there afterwards.
+                float e = Looping ? k : k * k * (3f - 2f * k);
+                Vector3 goal = AlongTrack(e);
+                if (follow != null) goal = new Vector3(follow.position.x, goal.y, follow.position.z);
+                Vector3 p = Vector3.MoveTowards(transform.position, goal, followSpeed * Time.deltaTime);
+                transform.SetPositionAndRotation(p, Quaternion.LookRotation(Vector3.down, Vector3.forward));
+                OffRail = follow != null || (p - goal).sqrMagnitude > 0.0001f;
+                return;
+            }
             float step = Time.deltaTime / Mathf.Max(0.01f, sweepTime);
             if (hold)
             {
