@@ -817,6 +817,17 @@ namespace StealthProto
 
         // ---------- hearing ----------
 
+        /// <summary>
+        /// Something's wrong at point (a scripted cue, e.g. the guard he was meeting isn't there):
+        /// he gets suspicious and goes to look, the same as for a noise, then back to his route.
+        /// </summary>
+        public void Investigate(Vector3 point)
+        {
+            if (IsGrabbed || State == GuardState.Down || State == GuardState.Alert || State == GuardState.Search) return;
+            Awareness = Mathf.Max(Awareness, suspiciousThreshold + 0.1f);
+            EnterSuspicious(point);
+        }
+
         public void HearNoise(Vector3 position, float loudness)
         {
             if (IsGrabbed) return;

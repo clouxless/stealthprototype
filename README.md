@@ -276,7 +276,9 @@ the project files), with the first-pass guards W, L and L2 from the guard vision
   before the swap), stand a moment, swap, and S1 walks up to a post 3 m west of S2's old one, facing south-south-west with the
   stair's exit behind him, while S2 goes to the ledge's
   south-east edge, facing out over the water (`handoverRoute`). After that it repeats every
-  45 s with the roles swapped, and pauses while either is off patrol (`ShiftChange`). While the
+  45 s with the roles swapped, and pauses while either is off patrol (`ShiftChange`). If you take out the ledge guard, the post guard finds out
+  when he comes to relieve him: he walks to the ledge spot, gets suspicious and looks round, then
+  takes over the spot. While the
   relief walks back up, the post is empty: that's the gap to follow him up the stairs.
 - **Ledge searchlights (L, L2):** each hangs from a rail cantilevered off the bridge parapet,
   pointing straight down, so its pool is a big circle moving over the ledge. Both rails are

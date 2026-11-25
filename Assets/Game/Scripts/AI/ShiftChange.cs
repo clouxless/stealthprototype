@@ -12,6 +12,10 @@ namespace StealthProto
     /// Nothing happens until the player steps into startZone: the first relief starts startDelay
     /// later, so it always plays out while they're there. It pauses while either guard is off
     /// patrol (suspicious, searching, alert) and stops for good if either is down.
+    ///
+    /// If the patrolling guard is down, the post guard finds out when he comes to relieve him (at
+    /// once if he's already on his way): he walks to the patrol spot, gets suspicious there and
+    /// looks round, then stays on that spot as its new guard.
     /// </summary>
     public class ShiftChange : MonoBehaviour
     {
@@ -61,6 +65,7 @@ namespace StealthProto
         }
 
         float timer;
+        bool partnerLost;
 
         void Start()
         {
@@ -71,7 +76,21 @@ namespace StealthProto
         void Update()
         {
             if (patrolling == null || onPost == null) return;
-            if (patrolling.State == GuardState.Down || onPost.State == GuardState.Down) { enabled = false; return; }
+            if (onPost.State == GuardState.Down) { enabled = false; return; }
+            if (patrolling.State == GuardState.Down)
+            {
+                // Relief due (or under way): he finds nobody there and goes to see.
+                if (!Started && player != null && startZone.Contains(player.position)) { Started = true; timer = startDelay; }
+                bool due = CurrentPhase != Phase.Waiting || (Started && (timer -= Time.deltaTime) <= 0f);
+                if (!due || partnerLost) return;
+                if (onPost.State != GuardState.Patrol) return; // busy: notice when he's back
+                partnerLost = true;
+                Vector3 spot = patrolRoute.GetPoint(0).position;
+                onPost.AssignRoute(patrolRoute);
+                onPost.Investigate(spot);
+                enabled = false;
+                return;
+            }
             bool bothOnPatrol = patrolling.State == GuardState.Patrol && onPost.State == GuardState.Patrol;
             Vector3 meet = meetRoute.GetPoint(0).position;
 
