@@ -281,14 +281,15 @@ the project files), with the first-pass guards W, L and L2 from the guard vision
   (full alert, radioed). While the
   relief walks back up, the post is empty: that's the gap to follow him up the stairs.
 - **Ledge searchlights (L, L2):** each is a spotlight in the hands of its guard up on the bridge,
-  held out past the parapet. He stands still and swivels it so the pool runs round a looped path
-  over the ledge (triangles, from the landing planner) at an even speed, the two half a lap out of
-  step. L's (3.2 m pool, 12 s a lap): east of mid-ledge, west, then north toward the upper stair's
-  foot. L2's (3 m, 18 s): off the lower stair's top, north-east, then mid-ledge. The pools stretch a
-  little where the beam hits the floor at a slant. (`StairWatch` is no longer used here.)
+  held out past the parapet. He stands still and swivels it to follow its pool, a crisp circle
+  that runs round a looped path over the ledge (triangles, from the landing planner) at an even
+  speed, the two half a lap out of step. (The circle is cast by an unseen light straight above it,
+  so it stays round; the lamp in his hands just points at it: `HeldSearchlight`.) L's (3.2 m, 12 s
+  a lap): east of mid-ledge, west, then north toward the upper stair's foot. L2's (3 m, 18 s): off
+  the lower stair's top, north-east, then mid-ledge. (`StairWatch` is no longer used here.)
 - **Searchlight guns** (`SearchlightGun`): each ledge light carries its guard's gun. Get caught in
   the beam and it locks on: the guard swivels the light off its path to follow you at 3.8 m/s, and once he's
-  alert it fires fully automatic from the lamp straight down the beam, 0.5 s after lock-on and then 10 rounds a
+  alert it fires fully automatic from the lamp in his hands, 0.5 s after lock-on and then 10 rounds a
   second. With one hit point, that half second is your window: dash out of the beam or get
   something solid over you. Out of the beam for 0.6 s and it lets go and swings back
   to its path.

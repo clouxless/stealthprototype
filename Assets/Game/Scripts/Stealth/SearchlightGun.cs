@@ -17,6 +17,8 @@ namespace StealthProto
         public StealthLight beam;
         public GuardBrain owner;
         public Transform target;
+        [Tooltip("Where the rounds come from (the lamp in the guard's hands). Default: the light itself.")]
+        public Transform muzzle;
         [Tooltip("Seconds from lock-on to the first round.")]
         public float windup = 0.5f;
         [Tooltip("Seconds between rounds (fully automatic).")]
@@ -76,15 +78,15 @@ namespace StealthProto
 
         void Fire()
         {
-            Vector3 origin = beam.transform.position;
+            Vector3 origin = muzzle != null ? muzzle.position : beam.transform.position;
             Vector3 aim = target.position + Vector3.up * (motor != null ? motor.CenterHeight : 1.1f);
             Vector3 end = aim;
-            if (!Occlusion.Blocked(origin, aim, target, swivel.transform))
+            if (!Occlusion.Blocked(origin, aim, target, muzzle != null ? muzzle : swivel.transform))
             {
                 if (targetHealth != null)
                     targetHealth.TakeDamage(new DamageInfo { amount = damage, point = aim, direction = (aim - origin).normalized, source = owner.gameObject });
             }
-            else if (Occlusion.Raycast(origin, (aim - origin).normalized, 40f, swivel.transform, target, out RaycastHit hit))
+            else if (Occlusion.Raycast(origin, (aim - origin).normalized, 40f, muzzle != null ? muzzle : swivel.transform, target, out RaycastHit hit))
             {
                 end = hit.point;
             }

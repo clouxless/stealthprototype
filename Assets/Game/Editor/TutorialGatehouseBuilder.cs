@@ -797,6 +797,7 @@ namespace StealthProto.EditorTools
                 gun.swivel = beam.GetComponent<SwivelLight>();
                 gun.owner = GameObject.Find(guard).GetComponent<GuardBrain>();
                 gun.target = player;
+                gun.muzzle = GameObject.Find(beam.name + "_Held").transform; // fires from the lamp in his hands
             }
             Gun(swivelL, "PH_Guard_L");
             Gun(swivelL2, "PH_Guard_L2");
@@ -820,39 +821,44 @@ namespace StealthProto.EditorTools
         }
 
         /// <summary>
-        /// A ledge searchlight in a guard's hands: held at chest height, reaching out past the bridge
-        /// parapet in front of him (holder = his feet), it stays there and swivels so its aim point runs along a
-        /// path on the ledge floor (from, any stops, to; looped or back and forth). The beam is sized
-        /// so its pool is about radius across at the path's average distance (it stretches a little
-        /// where it hits the floor at a slant). The whole beam is Lit.
+        /// A ledge searchlight in a guard's hands. The pool is a crisp circle (radius) that runs along
+        /// a path on the ledge floor (from, any stops, to; looped or back and forth): it's cast by an
+        /// unseen light straight above it (a track SwivelLight pointing down, no fixture, no rails),
+        /// which also does the Lit test. The guard (holder = his feet) holds the lamp you see, at chest
+        /// height reaching out past the parapet, and swivels it to point at the pool
+        /// (HeldSearchlight). The whole pool is Lit.
         /// </summary>
         static StealthLight Swivel(Transform parent, string name, Vector3 holder, Vector3 from, Vector3 to, float sweepTime, float phase, bool loop, float radius, params Vector3[] stops)
         {
-            // Held out past the parapet's outer face, so the parapet never cuts the beam.
-            Vector3 lamp = new Vector3(holder.x, DeckTop + 1.45f, RoadZ0 - 0.2f);
-            Vector3 F(Vector3 p) => new Vector3(p.x, LedgeTop, p.z);
-            var path = new System.Collections.Generic.List<Vector3> { F(from) };
-            foreach (var p in stops) path.Add(F(p));
-            path.Add(F(to));
-            float mean = 0f, far = 0f;
-            foreach (var p in path) { float d = Vector3.Distance(lamp, p); mean += d; far = Mathf.Max(far, d); }
-            mean /= path.Count;
-            float angle = 2f * Mathf.Atan(radius / mean) * Mathf.Rad2Deg;
-            var light = G.SpotLamp(parent, name, lamp, F(from), angle, far * 1.4f, 40f);
+            float y = DeckTop + 1.3f, drop = y - LedgeTop;
+            Vector3 A(Vector3 p) => new Vector3(p.x, y, p.z);
+            float angle = 2f * Mathf.Atan(radius / drop) * Mathf.Rad2Deg;
+            var light = G.SpotLamp(parent, name, A(from), new Vector3(from.x, LedgeTop, from.z), angle, drop * 1.25f, 40f);
+            var bulb = light.transform.Find("PH_LampBulb");
+            if (bulb != null) Object.DestroyImmediate(bulb.gameObject); // the light itself is unseen
             var stealth = light.GetComponent<StealthLight>();
             stealth.litFraction = 1f;       // the whole beam is Lit
             stealth.litRangeFraction = 1f;
             var swivel = light.gameObject.AddComponent<SwivelLight>();
             swivel.useTrack = true;
-            swivel.trackAim = true;
-            swivel.trackFrom = F(from);
-            swivel.trackTo = F(to);
+            swivel.trackFrom = A(from);
+            swivel.trackTo = A(to);
             var mid = new Vector3[stops.Length];
-            for (int i = 0; i < stops.Length; i++) mid[i] = F(stops[i]);
+            for (int i = 0; i < stops.Length; i++) mid[i] = A(stops[i]);
             swivel.trackStops = mid;
             swivel.trackLoop = loop;
             swivel.sweepTime = sweepTime;
             swivel.phase = phase;
+
+            // The lamp in his hands, held out past the parapet's outer face.
+            var held = new GameObject(name + "_Held").transform;
+            held.SetParent(parent, false);
+            held.position = new Vector3(holder.x, DeckTop + 1.45f, RoadZ0 - 0.2f);
+            var lens = G.Visual(PrimitiveType.Cube, held, "PH_HeldLamp", Vector3.zero, new Vector3(0.4f, 0.4f, 0.5f), G.lampMat);
+            lens.GetComponent<Renderer>().shadowCastingMode = ShadowCastingMode.Off;
+            var aim = held.gameObject.AddComponent<HeldSearchlight>();
+            aim.source = light.transform;
+            aim.floorY = LedgeTop;
             return stealth;
         }
 
