@@ -7,7 +7,7 @@ namespace StealthProto
     /// <summary>
     /// Placeholder debug HUD drawn with IMGUI. Everything is labelled [PH] so it is never
     /// mistaken for final UI (see ASSETS.md).
-    /// F1 vision cones, F2 noise rings, F3 help, F4 x-ray (guards through walls), R restart.
+    /// F1 vision cones, F2 noise rings, F3 debug panel and help, F4 x-ray (guards through walls), R restart.
     /// </summary>
     public class DebugHUD : MonoBehaviour
     {
@@ -79,6 +79,37 @@ namespace StealthProto
                 prompt.normal.textColor = Color.white;
             }
 
+            if (showHelp) DrawStatusPanel(); // F3 hides the debug panel along with the controls
+
+            DrawGuardMarkers();
+            DrawContextPrompt();
+
+            if (showHelp)
+            {
+                const string help =
+                    "[PH] CONTROLS (F3 hides these and the debug panel)\n" +
+                    "Move WASD / left stick (silent)    Crawl C / B\n" +
+                    "Dash Space / A (into a gap: jumps it if a ring shows a landing)   Melee LMB / X\n" +
+                    "Context E / Y: takedown (behind an unalerted guard), clamber, climb, hang off edges\n" +
+                    "Cover: hold Shift / LB by a wall, slide along it; near the end the camera looks round the corner\n" +
+                    "Knock (in cover, or in a vent / grate): hold LMB / X to see its reach, release to knock\n" +
+                    "Edges: walk into one to hang from it. Hanging: stick shimmies, E climbs up, Space / C lets go\n" +
+                    "  (not over water or a pit: there a spent grip pulls you back up)\n" +
+                    "Focus (hold, can't move) Q / L3: see sounds\n" +
+                    "Aim RMB / LT, fire LMB / RT\n" +
+                    "First-person look V / R3  (can't move, fire along view)\n" +
+                    "Zoom mouse wheel / d-pad   F1 vision cones   F2 all noise rings   F4 x-ray   R restart";
+                GUI.Label(new Rect(324, Screen.height - 196, 760, 186), help, label); // beside the 300-wide status panel
+            }
+
+            if (health != null && health.IsDead)
+            {
+                GUI.Label(new Rect(0, Screen.height * 0.4f, Screen.width, 60), "[PH] DOWN. Restarting...", marker);
+            }
+        }
+
+        void DrawStatusPanel()
+        {
             GUILayout.BeginArea(new Rect(12, 12, 300, 400), GUI.skin.box);
             GUILayout.Label("[PH] DEBUG HUD", label);
             if (health != null) GUILayout.Label($"HP  {health.Current} / {health.maxHealth}", label);
@@ -107,32 +138,6 @@ namespace StealthProto
                 Bar(g.Awareness, g.CurrentColor);
             }
             GUILayout.EndArea();
-
-            DrawGuardMarkers();
-            DrawContextPrompt();
-
-            if (showHelp)
-            {
-                const string help =
-                    "[PH] CONTROLS (F3 hide)\n" +
-                    "Move WASD / left stick (silent)    Crawl C / B\n" +
-                    "Dash Space / A (into a gap: jumps it if a ring shows a landing)   Melee LMB / X\n" +
-                    "Context E / Y: takedown (behind an unalerted guard), clamber, climb, hang off edges\n" +
-                    "Cover: hold Shift / LB by a wall, slide along it; near the end the camera looks round the corner\n" +
-                    "Knock (in cover, or in a vent / grate): hold LMB / X to see its reach, release to knock\n" +
-                    "Edges: walk into one to hang from it. Hanging: stick shimmies, E climbs up, Space / C lets go\n" +
-                    "  (not over water or a pit: there a spent grip pulls you back up)\n" +
-                    "Focus (hold, can't move) Q / L3: see sounds\n" +
-                    "Aim RMB / LT, fire LMB / RT\n" +
-                    "First-person look V / R3  (can't move, fire along view)\n" +
-                    "Zoom mouse wheel / d-pad   F1 vision cones   F2 all noise rings   F4 x-ray   R restart";
-                GUI.Label(new Rect(324, Screen.height - 196, 760, 186), help, label); // beside the 300-wide status panel
-            }
-
-            if (health != null && health.IsDead)
-            {
-                GUI.Label(new Rect(0, Screen.height * 0.4f, Screen.width, 60), "[PH] DOWN. Restarting...", marker);
-            }
         }
 
         [Header("Awareness meter")]
