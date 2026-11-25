@@ -103,7 +103,8 @@ namespace StealthProto
             float step = Time.deltaTime / Mathf.Max(0.01f, sweepTime);
             if (hold)
             {
-                k = Mathf.MoveTowards(k, holdK, step);
+                if (Looping) k = Mathf.Repeat(k + Mathf.Min(step, Mathf.Repeat(holdK - k, 1f)), 1f); // round the loop, forwards
+                else k = Mathf.MoveTowards(k, holdK, step);
                 // Let go and it carries on away from where it was held.
                 direction = holdK >= 0.5f ? -1 : 1;
                 pauseTimer = 0f;

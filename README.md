@@ -263,22 +263,19 @@ the project files), with the first-pass guards W, L and L2 from the guard vision
 - **Upper stairs:** seven flights of 1.37 m against the pier face at the ledge's east end (x 13.6..20).
   The foot is at the west end; it comes out at the east end onto the bridge through a gap in the
   south parapet. (The crawl-in hiding space under it was removed.)
-- **Shift change on the ledge:** guard S1 paces a short beat west of the stair foot; S2 stands at
-  the post on the bridge, west of the stair's top. Nothing happens until you step onto the ledge:
-  then S2 comes down the stairs to relieve S1. They meet mid-ledge, stand a moment, swap, and S1
-  walks up to the post. After that it repeats every 45 s with the roles swapped, and pauses while
-  either is off patrol (`ShiftChange`).
-- **The stair foot is covered until the swap** (`StairWatch`): at his watch point S1 faces the
-  foot, flashlight on it, while guard L's searchlight sweeps from the foot across the ledge and
-  back; he doesn't move on until it's back, and while he walks his beat the light rests on the
-  foot. After the swap they fall out of step
-  (L's light sweeps freely, S1 doesn't wait) until the new post guard is up: that's the gap to
-  follow S1 up the stairs. They also fall out of step whenever either guard is off patrol.
+- **Shift change on the ledge:** guard S1 stands just south of the upper stair's foot, looking
+  north-west across the ledge; S2 stands at the post on the bridge, west of the stair's top.
+  Nothing happens until you step onto the ledge: then S2 comes down the stairs to relieve S1. They
+  meet mid-ledge, stand a moment, swap, and S1 walks up to the post. After that it repeats every
+  45 s with the roles swapped, and pauses while either is off patrol (`ShiftChange`). While the
+  relief walks back up, the post is empty: that's the gap to follow him up the stairs.
 - **Ledge searchlights (L, L2):** each hangs from a rail cantilevered off the bridge parapet,
-  pointing straight down, and slides back and forth, so its pool is a big circle (3.2 m radius)
-  moving over the ledge. L's runs from the upper stair's foot west across the ledge (in step
-  with S1). L2's runs north from the top of the lower stairs: at that end it covers the stair's
-  top landing, so you can't wait there; step out onto the ledge.
+  pointing straight down, so its pool is a big circle moving over the ledge. Both rails are
+  loops (triangles, from the landing planner) that the light goes round at an even speed, half a
+  lap out of step. L's (3.2 m circle, 12 s a lap): east of mid-ledge, west, then north toward the
+  upper stair's foot. L2's (3 m, 18 s): off the lower stair's top, north-east, then mid-ledge.
+  (`StairWatch`, which kept L's light in step with S1's old beat, is no longer used here.)
+- **Ledge lamp:** on a post east of the upper stair's foot, range 3.5 m.
 - **Guards on stairs:** the NavMesh is baked for a 0.3 m-radius, 1.8 m agent (`RuntimeNavMeshBaker`),
   not the default 0.5 m Humanoid, which left almost nothing of the 1.3 m railed stair lanes, so
   guards couldn't path up or down them.

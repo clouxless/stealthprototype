@@ -33,7 +33,6 @@ namespace StealthProto.EditorTools
         const float LowerRise = (LedgeTop - WallTop) / LowerFlights;   // 1.6 m
         const float UpperRise = (DeckTop - LedgeTop) / UpperFlights;   // 1.37 m
         const float Base = -8f;           // where the concrete meets the water (well under the surface)
-        const float SearchRadius = 3.2f;  // ledge searchlights: the pool's radius on the ledge
         const float HideStepTop = WallTop - 1.4f, HideStepWidth = 1.6f;
         const float HideStepZ = -19f;     // the last buttress: z -19..-16
         const float WaterY = -5f;         // visual only
@@ -338,8 +337,8 @@ namespace StealthProto.EditorTools
         /// Upper stairs: seven flights of 1.37 m against the pier face (x 13.6..20, z 4.4..7). The foot is
         /// at the west end; the top landing at the east end opens north onto the bridge through a gap
         /// in its south parapet (x 18.5..20). Solid under the first two flights (the crawl-in hiding
-        /// space was removed after playtest). The foot is covered by guard S1 and L's searchlight
-        /// (StairWatch). 1.9 m clear between its east end and the ledge's east rail.
+        /// space was removed after playtest). The foot is watched by guard S1 and L's searchlight.
+        /// 1.9 m clear between its east end and the ledge's east rail.
         /// </summary>
         static void BuildUpperStairs(Transform parent)
             => StackedStair(parent, UpperX0, UpperZ0, UpperFlights, UpperRise, UpperRun, LedgeTop, UpperFirstEast, LedgeTop);
@@ -640,7 +639,7 @@ namespace StealthProto.EditorTools
         ///   L, L2  bridge south parapet, 9.6 m above the ledge, facing south, each with a swivel
         ///          spotlight sweeping the ledge, out of step so a gap opens.
         ///   Road guards (R, G, T): from the road layout planner, see below.
-        /// Plus a lamp on the ledge by the hut. Open in the design: which way W and L2 face, and
+        /// Plus a lamp on the ledge east of the upper stair's foot. Open in the design: which way W and L2 face, and
         /// whether the Humvee light wall gets a guard (it doesn't yet).
         /// </summary>
         static void BuildGuards(Transform player)
@@ -701,22 +700,18 @@ namespace StealthProto.EditorTools
             Post("L", new Vector3(8f, DeckTop, 7.6f), 180f);
             Post("L2", new Vector3(3f, DeckTop, 7.8f), 180f);
 
-            // Shift change on the ledge (landing planner). S1 paces a short beat west of the upper
-            // stair's foot; S2 stands at the post on the bridge, west of the stair's top. Nothing
+            // Shift change on the ledge (landing planner). S1 stands south of the upper stair's foot,
+            // looking north-west across the ledge; S2 stands at the post on the bridge, west of the stair's top. Nothing
             // happens until you step onto the ledge: then S2 comes down the stairs to relieve S1.
             // They meet mid-ledge, swap, and S1 walks back up to the post. Then it repeats every 45 s
             // with roles swapped.
             //
-            // Until the swap, the stair foot is always covered (StairWatch): at S1's watch point he
-            // faces it (flashlight on it, 4 m away) while guard L's searchlight sweeps the ledge out
-            // and back; while he walks the rest of his beat, L's light rests on the foot. After the swap they fall out of step until the new post guard is up
-            // (L's light sweeps freely, S1 doesn't wait for it): that's your gap to follow S1 up.
+            // (Planner edit, v51: S1 no longer walks a beat, and L's light loops on its own rather than
+            // being kept in step with him by StairWatch.) While the relief walks back up, the ledge
+            // post is empty: that's your gap to follow S1 up.
             Vector3 Ld(float x, float z) => new Vector3(x, LedgeTop, z);
-            Vector3 stairFoot = Ld(UpperX0 + 0.5f, UpperZ0 + 0.6f);
-            Vector3 watchPos = Ld(10.3f, 3f), beatPos = Ld(6.8f, 3f);
-            Vector3 toFoot = stairFoot - watchPos;
-            var shiftLoop = G.Route(routes, "PH_Route_Shift_Loop", true, 0.5f,
-                (watchPos, Mathf.Atan2(toFoot.x, toFoot.z) * Mathf.Rad2Deg), (beatPos, 90f));
+            Vector3 watchPos = Ld(16f, 1f);
+            var shiftLoop = G.Route(routes, "PH_Route_Shift_Loop", true, 3f, (watchPos, 301f));
             Vector3 postPos = D(14f, 7.8f);
             var shiftPost = G.Route(routes, "PH_Route_Shift_Post", true, 3f, (postPos, 160f));
             var shiftMeet = G.Route(routes, "PH_Route_Shift_Meet", true, 3f, (Ld(9.5f, 0.5f), 90f));
@@ -734,7 +729,7 @@ namespace StealthProto.EditorTools
             shift.meetRoute = shiftMeet;
             shift.partnerRoute = shiftPartner;
             shift.reliefInterval = 45f;
-            shift.handoverStartIndex = 1; // the newcomer starts by walking west, away from the stair
+            shift.handoverStartIndex = 0; // the newcomer walks to the ledge post
             shift.player = player;
             shift.startZone = new Bounds(new Vector3(11f, LedgeTop + 1.5f, (BlockFront + PierFace) * 0.5f), new Vector3(22f, 3f, LedgeDepth));
 
@@ -757,37 +752,36 @@ namespace StealthProto.EditorTools
             // Swivel spotlights for L and L2: on the parapet's outer face, aimed down at the ledge.
             // Each is its guard's eyes: standing in the beam gets you spotted at once (GuardVision.searchlights).
             var lights = G.Group(root, "PH_GuardLights");
-            // Both slide a big circle over the ledge. L's runs from the upper stair's foot west across
-            // the ledge, in step with S1 (StairWatch). L2's runs north from the top of the lower stairs:
-            // at that end the circle covers the stair's top landing, so you can't wait there; you
-            // have to step out onto the ledge.
-            var swivelL = Swivel(lights, "PH_Swivel_L", Ld(UpperX0 - 0.6f, UpperZ0 - 1.1f), Ld(5.5f, 0.5f), 6f, 0f, false);
-            var swivelL2 = Swivel(lights, "PH_Swivel_L2", Ld(LowerX0 + LandingDepth * 0.5f, LowerZ0 + Lane), Ld(LowerX0 + LandingDepth * 0.5f, 2f), 7f, 0.5f, false);
-            var swivelLMove = swivelL.GetComponent<SwivelLight>();
-            var watch = shift.gameObject.AddComponent<StairWatch>();
-            watch.shift = shift;
-            watch.searchlight = swivelLMove;
-            watch.watchIndex = 0;
+            // Both slide a big circle round a looped rail over the ledge (landing planner, v51), at
+            // about the speeds they had before (L 1.3 m/s, L2 1 m/s), half a lap out of step.
+            // L's triangle: east of mid-ledge -> west -> north toward the upper stair's foot.
+            // L2's triangle: off the lower stair's top -> north-east -> mid-ledge.
+            var swivelL = Swivel(lights, "PH_Swivel_L", Ld(13.5f, -0.5f), Ld(11f, 4f), 12f, 0f, true, 3.2f, Ld(7.5f, 1f));
+            var swivelL2 = Swivel(lights, "PH_Swivel_L2", Ld(2f, -3.5f), Ld(7f, 0f), 18f, 0.5f, true, 3f, Ld(4.5f, 4f));
             GameObject.Find("PH_Guard_L").GetComponent<GuardVision>().searchlights = new[] { swivelL };
             GameObject.Find("PH_Guard_L2").GetComponent<GuardVision>().searchlights = new[] { swivelL2 };
 
-            // Ledge lamp by the hut: its Dim ring is Slow walking, Very slow crawling; the ledge's
+            // Ledge lamp: its Dim ring is Slow walking, Very slow crawling; the ledge's
             // front edge stays dark.
-            G.Lamp(lights, new Vector3(8f, LedgeTop + 3.4f, 5.6f), 6f);
+            // (Planner, v51: moved east of the upper stair's foot, smaller.)
+            Vector3 lampAt = new Vector3(17f, LedgeTop + 3.4f, 0f);
+            G.Lamp(lights, lampAt, 3.5f);
+            G.Visual(PrimitiveType.Cylinder, lights, "PH_LampPost",
+                new Vector3(lampAt.x, LedgeTop + 1.7f, lampAt.z), new Vector3(0.15f, 1.7f, 0.15f), G.gridMat);
         }
 
         /// <summary>
         /// A ledge searchlight: hangs from a rail cantilevered off the bridge parapet, pointing straight
         /// down, and slides along the rail over the ledge (from, any stops, to: floor points),
-        /// so its pool is a big circle (SearchRadius) sliding over the floor. The whole pool is Lit.
+        /// so its pool is a big circle (radius) sliding over the floor. The whole pool is Lit.
         /// </summary>
-        static StealthLight Swivel(Transform parent, string name, Vector3 from, Vector3 to, float sweepTime, float phase, bool loop, params Vector3[] stops)
+        static StealthLight Swivel(Transform parent, string name, Vector3 from, Vector3 to, float sweepTime, float phase, bool loop, float radius, params Vector3[] stops)
         {
             float y = DeckTop + 1.3f, drop = y - LedgeTop;
             Vector3 a = new Vector3(from.x, y, from.z), b = new Vector3(to.x, y, to.z);
             var mid = new Vector3[stops.Length];
             for (int i = 0; i < stops.Length; i++) mid[i] = new Vector3(stops[i].x, y, stops[i].z);
-            float angle = 2f * Mathf.Atan(SearchRadius / drop) * Mathf.Rad2Deg;
+            float angle = 2f * Mathf.Atan(radius / drop) * Mathf.Rad2Deg;
             var light = G.SpotLamp(parent, name, a, new Vector3(a.x, LedgeTop, a.z), angle, drop * 1.25f, 40f);
             var stealth = light.GetComponent<StealthLight>();
             stealth.litFraction = 1f;       // the whole beam is Lit
