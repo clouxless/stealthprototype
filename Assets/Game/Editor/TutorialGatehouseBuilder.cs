@@ -123,6 +123,8 @@ namespace StealthProto.EditorTools
             player.transform.rotation = Quaternion.identity; // facing north, up the wall
             player.GetComponent<Health>().maxHealth = 1;     // tutorial rule: one shot kills
             player.GetComponent<PlayerMotor>().dashNoiseRadius = 0f; // tutorial rule: silent dash (for now)
+            player.GetComponent<PlayerCombat>().allowGun = false;               // tutorial rule: no gun
+            player.GetComponent<PlayerContextActions>().allowTakedown = false;  // tutorial rule: no takedowns
             G.BuildCamera(player);
             LookSetup.Apply(Camera.main);
             BuildGuards(player.transform);

@@ -21,6 +21,8 @@ namespace StealthProto
         public float meleeHitStop = 0.07f;
 
         [Header("Gun")]
+        [Tooltip("Off: no gun in this level (aiming and firing do nothing).")]
+        public bool allowGun = true;
         public int fireDamage = 1;
         public float fireRange = 35f;
         public float fireCooldown = 0.28f;
@@ -61,7 +63,7 @@ namespace StealthProto
         void Update()
         {
             bool firstPerson = rig != null && rig.IsFirstPerson;
-            IsAiming = firstPerson || input.AimHeld;
+            IsAiming = allowGun && (firstPerson || input.AimHeld);
             AimDirection = ComputeAim(firstPerson);
 
             if (!firstPerson && IsAiming) motor.SetFacingOverride(Flat(AimDirection));

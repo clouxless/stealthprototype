@@ -315,7 +315,8 @@ the project files), with the first-pass guards W, L and L2 from the guard vision
 - **Pier deck:** the gatehouse (15 x 13 m) against the chamber edge, a small box between it and
   the bridge, open deck to the east and an outbuilding further north.
 - **Goal:** the gatehouse door, on its south face.
-- **Rules here:** one hit point (one shot kills), and a silent dash and dash-jump.
+- **Rules here:** one hit point (one shot kills), a silent dash and dash-jump, and no gun or
+  takedowns (`PlayerCombat.allowGun`, `PlayerContextActions.allowTakedown`); melee is still there.
 - **Stark lights:** every lamp, headlight and searchlight here is drawn like the guard
   flashlights: the real light isn't rendered, and its pool is a crisp flat overlay, bright where
   it makes you Lit and faint where Dim (`LightFootprintMesh`, set up by `StarkLights` in the builder).

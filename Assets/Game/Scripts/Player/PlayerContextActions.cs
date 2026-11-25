@@ -84,6 +84,8 @@ namespace StealthProto
         public float jumpLandNoiseRadius = 0f;
         [Tooltip("Show a ring where a dash would land when you stand near an edge.")]
         public bool showJumpTarget = true;
+        [Tooltip("Off: no takedowns in this level.")]
+        public bool allowTakedown = true;
         public float jumpRingShowDistance = 1.2f;
 
         public ContextAction Available { get; private set; }
@@ -195,7 +197,7 @@ namespace StealthProto
             if (Busy || motor.IsDashing || (motor.ExternalControl && !inCover) || motor.AttackLock || motor.IsProne) return;
             if (rig != null && rig.IsFirstPerson) return;
 
-            takedownTarget = inCover ? null : FindTakedownTarget();
+            takedownTarget = inCover || !allowTakedown ? null : FindTakedownTarget();
             Vector3 facing = inCover ? -cover.WallNormal : transform.forward;
 
             // Walked into an edge: lower yourself over it. After a hang ends, you have to stop pushing
