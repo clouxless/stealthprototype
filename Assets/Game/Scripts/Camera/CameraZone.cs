@@ -37,6 +37,12 @@ namespace StealthProto
         public Vector3 eyeStart = new Vector3(8f, 3f, 0f);
         public Vector3 eyeEnd = new Vector3(8f, 3f, 0f);
 
+        [Header("Rail follow (Track / Crane)")]
+        [Tooltip("Follow the player's progress north only: offsets are from (railPoint.x, railPoint.y, player z), and the shot holds still until the player is north of holdUntilZ.")]
+        public bool railFollow;
+        public Vector3 railPoint;
+        public float holdUntilZ = float.NegativeInfinity;
+
         [Header("Look at")]
         [Tooltip("Look offsets are from the player's feet; otherwise world positions.")]
         public bool lookRelativeToPlayer = true;
@@ -84,6 +90,7 @@ namespace StealthProto
         /// <summary>The shot for a player at this position.</summary>
         public void Evaluate(Vector3 player, out Vector3 eye, out Quaternion rotation, out float fov)
         {
+            if (railFollow) player = new Vector3(railPoint.x, railPoint.y, Mathf.Max(player.z, holdUntilZ));
             float t = Progress(player);
             Vector3 e = Vector3.Lerp(eyeStart, eyeEnd, t);
             Vector3 l = Vector3.Lerp(lookStart, lookEnd, t);

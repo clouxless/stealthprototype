@@ -247,7 +247,7 @@ the project files), with the first-pass guards W, L and L2 from the guard vision
 - **Dolphins:** dash off the tip to jump out to them: gaps of 3.6, 3.2 and 3.2 m, then 4.2 m to
   the last one, where a short jump ends in a ledge catch. A placeholder item marker sits on the
   last one.
-- **Cameras along the wall:** the level opens (no zoom-in) on a pulled-back view up the wall that also takes in about half of the first dolphin behind you; walk a metre north and it eases back to top-down, centred on you (and back to the wide view out on the dolphins). About 22 m in, the camera swoops round to
+- **Cameras along the wall:** the level opens (no zoom) on a high, pulled-back view up the wall with you in the bottom third of the frame and about half of the first dolphin at the bottom edge. It holds still until you walk north, then follows you up the wall the same way until the dam view. About 22 m in, the camera swoops round to
   your right for a view over the river (where the dam will go) for 34 m. From there to the end
   of the wall it's one over-the-shoulder shot looking up the wall at the lock head: it starts a
   little high and wide behind your right shoulder and slowly pushes in tight as you near the

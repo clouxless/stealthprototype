@@ -891,22 +891,28 @@ namespace StealthProto.EditorTools
         {
             var zones = new GameObject("PH_CameraZones").transform; // outside PH_Level: triggers stay off the NavMesh
 
-            // Opening shot (the level starts in it, no blend; and out over the dolphins): still looking
-            // north up the wall, but pulled back and lower than the normal top-down, so the bottom of
-            // the frame reaches about 8.3 m behind you and takes in about half of the first dolphin
-            // (8.5 m south of the spawn). Its north edge is 1 m north of the spawn: start walking up
-            // the wall and it eases back to the normal top-down, centred on you.
-            const float openingNorth = -115.5f, openingSouth = -150f;
+            // Opening shot (the level starts in it, no blend; also out over the dolphins), up to the
+            // dam view: looking north up the wall, high and pulled back, with you in the bottom third
+            // of the frame and about half of the first dolphin (8.5 m south of the spawn) at the
+            // bottom edge. It holds still until you walk north of the spawn, then follows you up the
+            // wall (along the wall only, so climbing onto the walkway doesn't shift it). After the
+            // walk's shots (this, the dam view, the over-the-shoulder approach) it's the normal top-down.
+            const float openingNorth = -96f, openingSouth = -150f;
             var opening = Zone(zones, "PH_Cam_Opening", CameraZone.Kind.Track,
                 new Vector3(1.5f, 0.5f, (openingNorth + openingSouth) * 0.5f), new Vector3(10f, 8f, openingNorth - openingSouth), 1.5f);
             opening.eyeRelativeToPlayer = opening.lookRelativeToPlayer = true;
-            opening.eyeStart = opening.eyeEnd = new Vector3(0f, 13f, -14f);
-            opening.lookStart = opening.lookEnd = new Vector3(0f, 0.5f, 1f);
-            opening.fovStart = opening.fovEnd = 50f;
+            opening.railFollow = true;
+            opening.railPoint = new Vector3(1.5f, WallTop, 0f);
+            opening.holdUntilZ = -116.5f; // the spawn
+            // Pitched 35 degrees down with a 55 degree lens: the wall at you sits 0.4 of the way from
+            // the centre to the bottom edge, and the bottom edge meets the dolphin tops 8.5 m behind.
+            opening.eyeStart = opening.eyeEnd = new Vector3(0f, 20.9f, -19.6f);
+            opening.lookStart = opening.lookEnd = new Vector3(0f, 0f, 10.3f);
+            opening.fovStart = opening.fovEnd = 55f;
             opening.fixedControls = true;
             opening.controlYaw = 0f;
 
-            // Along the wall (spawn at z -116.5): the opening shot, top-down from 1 m north of the spawn, the dam view (z -96..-62, 34 m),
+            // Along the wall (spawn at z -116.5): the opening shot to z -96, the dam view (z -96..-62, 34 m),
             // then the over-the-shoulder approach (z -62 to the wall's end).
             // Dam view: tracks alongside you, 9 m to your right (east), looking west past you over the river.
             var dam = Zone(zones, "PH_Cam_DamView", CameraZone.Kind.Track, new Vector3(1.5f, 0.5f, -79f), new Vector3(10f, 8f, 34f), 1.8f);
