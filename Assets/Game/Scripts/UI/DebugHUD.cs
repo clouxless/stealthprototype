@@ -23,6 +23,15 @@ namespace StealthProto
         /// <summary>Testing aid: draw guards through walls. Off by default.</summary>
         public static bool XRay;
         static readonly int XRayId = Shader.PropertyToID("_PH_XRay");
+
+        // Each press of Play starts with x-ray off, even with domain reload disabled (statics and
+        // shader globals would otherwise carry over from the last session). R restart keeps it.
+        [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.SubsystemRegistration)]
+        static void ResetStatics()
+        {
+            XRay = false;
+            Shader.SetGlobalFloat(XRayId, 0f);
+        }
         GUIStyle label, marker, prompt;
 
         void Start()
@@ -88,6 +97,7 @@ namespace StealthProto
                     : cover != null && cover.InCover ? "COVER"
                     : player.IsProne ? "CRAWLING" : "TOP-DOWN";
                 GUILayout.Label($"Mode  {mode}", label);
+                if (XRay) GUILayout.Label("X-RAY ON  (F4): guards drawn through walls", label);
             }
             GUILayout.Space(6);
             foreach (var g in GuardBrain.All)
