@@ -10,6 +10,8 @@ namespace StealthProto
     /// Two ways to sweep:
     /// - Yaw (default): turns side to side about the vertical axis, sweepAngle in all, centred on
     ///   the direction it starts in.
+    /// - Track (useTrack): the light slides along a rail between two points, pointing straight
+    ///   down, so its pool is a circle sliding over the floor.
     /// - Aim points (useAimPoints): the beam's aim slides along the line aimFrom -> aimTo (world
     ///   points), so it can tilt as well as turn and its pool tracks a path on the floor.
     ///
@@ -27,6 +29,12 @@ namespace StealthProto
         [Range(0f, 1f)] public float phase;
         [Tooltip("Seconds it rests at each end of the sweep.")]
         public float pauseAtEnds = 0.5f;
+
+        [Header("Track (instead of yaw): slides along a rail, pointing straight down")]
+        [Tooltip("The light moves between trackFrom and trackTo (world points) pointing straight down, so its pool is a circle that slides along the floor.")]
+        public bool useTrack;
+        public Vector3 trackFrom;
+        public Vector3 trackTo;
 
         [Header("Aim points (instead of yaw)")]
         public bool useAimPoints;
@@ -87,6 +95,11 @@ namespace StealthProto
         void Apply()
         {
             float e = k * k * (3f - 2f * k); // eased, so it slows into each end (readable)
+            if (useTrack)
+            {
+                transform.SetPositionAndRotation(Vector3.Lerp(trackFrom, trackTo, e), Quaternion.LookRotation(Vector3.down, Vector3.forward));
+                return;
+            }
             if (useAimPoints)
             {
                 Vector3 dir = Vector3.Lerp(aimFrom, aimTo, e) - transform.position;

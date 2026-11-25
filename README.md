@@ -66,7 +66,7 @@ While hanging: the stick shimmies along the edge, E climbs up, Space or C lets g
 
 - **Light in three tiers.** Only the floor under your feet counts: Dark, Dim or Lit.
   Lamp pools have a crisp Lit core and a Dim ring. A guard's flashlight makes you Lit inside
-  their sight cone out to Mid. Swivel spotlights sweep a fixed arc (80 degrees over 11 s), or between two aim points; standing in the beam gets you spotted at once by the guard who works it.
+  their sight cone out to Mid. Swivel spotlights sweep a fixed arc (80 degrees over 11 s), or between two aim points, or slide along a rail pointing straight down (a circle on the floor); standing in the beam gets you spotted at once by the guard who works it.
   Your character's tint shows the tier.
 - **Guard vision model** (`design/guard-vision/guard-vision-spec.md`). Three overlapping zones
   around each guard, by 3D distance: the sight cone (70 degrees, to Far: A Mid–Far, B Near–Mid,
@@ -279,6 +279,11 @@ the project files), with the first-pass guards W, L and L2 from the guard vision
   foot. So the easy way in is the crawl hole at the far end. After the swap they fall out of step
   (L's light sweeps freely, S1 doesn't wait) until the new post guard is up: that's the gap to
   follow S1 up the stairs. They also fall out of step whenever either guard is off patrol.
+- **Ledge searchlights (L, L2):** each hangs from a rail cantilevered off the bridge parapet,
+  pointing straight down, and slides back and forth, so its pool is a big circle (3.2 m radius)
+  moving over the ledge. L's runs from the upper stair's foot west across the ledge (in step
+  with S1). L2's runs north from the top of the lower stairs: at that end it covers the stair's
+  top landing, so you can't wait there; step out onto the ledge.
 - **Guards on stairs:** the NavMesh is baked for a 0.3 m-radius, 1.8 m agent (`RuntimeNavMeshBaker`),
   not the default 0.5 m Humanoid, which left almost nothing of the 1.3 m railed stair lanes, so
   guards couldn't path up or down them.

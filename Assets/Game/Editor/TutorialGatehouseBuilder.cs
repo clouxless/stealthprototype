@@ -33,6 +33,7 @@ namespace StealthProto.EditorTools
         const float LowerRise = (LedgeTop - WallTop) / LowerFlights;   // 1.6 m
         const float UpperRise = (DeckTop - LedgeTop) / UpperFlights;   // 1.37 m
         const float Base = -8f;           // where the concrete meets the water (well under the surface)
+        const float SearchRadius = 3.2f;  // ledge searchlights: the pool's radius on the ledge
         const float HideStepTop = WallTop - 1.4f, HideStepWidth = 1.6f;
         const float HideStepZ = -19f;     // the last buttress: z -19..-16
         const float WaterY = -5f;         // visual only
@@ -764,18 +765,17 @@ namespace StealthProto.EditorTools
             // Swivel spotlights for L and L2: on the parapet's outer face, aimed down at the ledge.
             // Each is its guard's eyes: standing in the beam gets you spotted at once (GuardVision.searchlights).
             var lights = G.Group(root, "PH_GuardLights");
-            var swivelL = Swivel(lights, "PH_Swivel_L", new Vector3(8f, DeckTop + 1.3f, 6.8f), 0f);
-            // L's light sweeps from the upper stair's foot west across the ledge, in step with S1.
+            // Both slide a big circle over the ledge. L's runs from the upper stair's foot west across
+            // the ledge, in step with S1 (StairWatch). L2's runs north from the top of the lower stairs:
+            // at that end the circle covers the stair's top landing, so you can't wait there; you
+            // have to step out onto the ledge.
+            var swivelL = Swivel(lights, "PH_Swivel_L", Ld(UpperX0 - 0.6f, UpperZ0 - 1.1f), Ld(5.5f, 0.5f), 6f, 0f);
+            var swivelL2 = Swivel(lights, "PH_Swivel_L2", Ld(LowerX0 + LandingDepth * 0.5f, LowerZ0 + Lane), Ld(LowerX0 + LandingDepth * 0.5f, 2f), 7f, 0.5f);
             var swivelLMove = swivelL.GetComponent<SwivelLight>();
-            swivelLMove.useAimPoints = true;
-            swivelLMove.aimFrom = Ld(UpperX0, UpperZ0 - 0.8f);
-            swivelLMove.aimTo = Ld(5.5f, 0.5f);
-            swivelLMove.sweepTime = 6f;
             var watch = shift.gameObject.AddComponent<StairWatch>();
             watch.shift = shift;
             watch.searchlight = swivelLMove;
             watch.watchIndex = 0;
-            var swivelL2 = Swivel(lights, "PH_Swivel_L2", new Vector3(3f, DeckTop + 1.3f, 6.8f), 0.5f);
             GameObject.Find("PH_Guard_L").GetComponent<GuardVision>().searchlights = new[] { swivelL };
             GameObject.Find("PH_Guard_L2").GetComponent<GuardVision>().searchlights = new[] { swivelL2 };
 
@@ -784,17 +784,39 @@ namespace StealthProto.EditorTools
             G.Lamp(lights, new Vector3(8f, LedgeTop + 3.4f, 5.6f), 6f);
         }
 
-        static StealthLight Swivel(Transform parent, string name, Vector3 position, float phase)
+        /// <summary>
+        /// A ledge searchlight: hangs from a rail cantilevered off the bridge parapet, pointing straight
+        /// down, and slides along the rail between two points over the ledge (from, to: floor points),
+        /// so its pool is a big circle (SearchRadius) sliding over the floor. The whole pool is Lit.
+        /// </summary>
+        static StealthLight Swivel(Transform parent, string name, Vector3 from, Vector3 to, float sweepTime, float phase)
         {
-            // About a 3.5 m pool on the ledge (30 degrees from ~14 m up).
-            var light = G.SpotLamp(parent, name, position, new Vector3(position.x, LedgeTop, 1.5f), 30f, 20f, 40f);
+            float y = DeckTop + 1.3f, drop = y - LedgeTop;
+            Vector3 a = new Vector3(from.x, y, from.z), b = new Vector3(to.x, y, to.z);
+            float angle = 2f * Mathf.Atan(SearchRadius / drop) * Mathf.Rad2Deg;
+            var light = G.SpotLamp(parent, name, a, new Vector3(a.x, LedgeTop, a.z), angle, drop * 1.25f, 40f);
             var stealth = light.GetComponent<StealthLight>();
             stealth.litFraction = 1f;       // the whole beam is Lit
             stealth.litRangeFraction = 1f;
             var swivel = light.gameObject.AddComponent<SwivelLight>();
-            swivel.sweepAngle = 80f;
-            swivel.sweepTime = 11f; // slowed from 8 s after playtest
+            swivel.useTrack = true;
+            swivel.trackFrom = a;
+            swivel.trackTo = b;
+            swivel.sweepTime = sweepTime;
             swivel.phase = phase;
+
+            // The rail (visual only): along the track just above the lamp, then a strut back to the
+            // parapet from whichever end is nearer it.
+            Vector3 up = Vector3.up * 0.35f;
+            void Beam(string beamName, Vector3 p, Vector3 q)
+            {
+                Vector3 d = q - p;
+                var go = G.Visual(PrimitiveType.Cube, parent, beamName, (p + q) * 0.5f, new Vector3(0.15f, 0.15f, d.magnitude), G.gridMat);
+                go.transform.rotation = Quaternion.LookRotation(d.normalized, Vector3.up);
+            }
+            Beam(name + "_Rail", a + up, b + up);
+            Vector3 near = a.z > b.z ? a : b;
+            Beam(name + "_Strut", near + up, new Vector3(near.x, DeckTop + 1.1f, RoadZ0 + ParapetThick * 0.5f));
             return stealth;
         }
 
