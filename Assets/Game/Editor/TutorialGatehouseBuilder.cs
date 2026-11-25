@@ -34,7 +34,7 @@ namespace StealthProto.EditorTools
         const float UpperRise = (DeckTop - LedgeTop) / UpperFlights;   // 1.37 m
         const float Base = -8f;           // where the concrete meets the water (well under the surface)
         const float HideStepTop = WallTop - 1.4f, HideStepWidth = 1.6f;
-        const float HideStepZ = -19f;     // the last buttress slot: z -19..-15
+        const float HideStepZ = -19f;     // the last buttress: z -19..-16
         const float WaterY = -5f;         // visual only
         const float HazardY = -12f;       // falling in the water kills you
 
@@ -118,7 +118,8 @@ namespace StealthProto.EditorTools
             BuildGoal();
             BuildCameraZones();
 
-            var player = G.BuildPlayer(new Vector3(1.6f, WallTop, -118f));
+            // Start on the first buttress (z -118..-115), below the walkway: clamber up to begin.
+            var player = G.BuildPlayer(new Vector3(3f + HideStepWidth * 0.5f, HideStepTop, -116.5f));
             player.transform.rotation = Quaternion.identity; // facing north, up the wall
             player.GetComponent<Health>().maxHealth = 1;     // tutorial rule: one shot kills
             player.GetComponent<PlayerMotor>().dashNoiseRadius = 0f; // tutorial rule: silent dash (for now)
@@ -260,17 +261,13 @@ namespace StealthProto.EditorTools
             Box(parent, "PH_GuideWall", 0f, 3f, Base, WallTop, -120f, BlockFront);
             for (float z = -118f; z + 3f <= LowerZ0 - 1f; z += 9f)
             {
-                bool last = z + 12f > LowerZ0 - 1f;
-                // Along the over-the-shoulder approach (z -62 on), where guard W comes down the wall
-                // at you, the buttresses are hiding steps: narrow (1.6 m) and 1.4 m below the walkway,
-                // so you step down onto them and climb back up. Lie prone against the wall face and the
-                // walkway's edge hides you from a guard walking past above (playtest: on the old 0.6 m
-                // buttresses his flashlight lit you up). Lie out at a step's outer edge and he can see
-                // you. The last one, 12 m short of the stairs, is where he meets a player who walks
-                // straight up the wall. Further back they're the plain 0.6 m buttresses.
-                if (last) Box(parent, "PH_HidingStep", 3f, 3f + HideStepWidth, Base, HideStepTop, HideStepZ, HideStepZ + 4f);
-                else if (z >= -62f) Box(parent, "PH_HidingStep", 3f, 3f + HideStepWidth, Base, HideStepTop, z, z + 3f);
-                else Box(parent, "PH_Buttress", 3f, 5f, Base, WallTop - 0.6f, z, z + 3f);
+                // Buttresses, every 9 m: steps 1.6 m wide and 1.4 m below the walkway. You start on
+                // the first one, so you learn straight away that they're walkable and that you climb
+                // back up (clamber). They're hiding steps: lie prone against the wall face and the
+                // walkway's edge hides you from a guard walking past above; lie out at the outer edge
+                // and he can see you. The last one (HideStepZ), 12 m short of the stairs, is where
+                // guard W meets a player who walks straight up the wall.
+                Box(parent, "PH_Buttress", 3f, 3f + HideStepWidth, Base, HideStepTop, z, z + 3f);
             }
 
             // No railings: the edge rules stop you walking off (you hang instead), and the open tip
@@ -694,7 +691,7 @@ namespace StealthProto.EditorTools
             var wWalk = G.RouteTimed(routes, "PH_Route_W_Walk", 0f,
                 (new Vector3(LowerX0 + LandingDepth * 0.5f, WallTop, LowerZ0 + Lane), 225f, 0f), // bottom landing
                 (Wk(1.5f, LowerZ0 - 1f), 180f, 0f),
-                (Wk(1.5f, HideStepZ + 2f), 180f, 0f),                                           // beside the hiding step
+                (Wk(1.5f, HideStepZ + 1.5f), 180f, 0f),                                           // beside the hiding step
                 (Wk(1.5f, -38f), 180f, 1f));
             var wBeat = G.Route(routes, "PH_Route_W_Beat", true, 2f, (Wk(1.5f, -62f), 0f), (Wk(1.5f, -38f), 180f));
             var wCue = new GameObject("PH_W_Cue").AddComponent<PatrolOnCue>();
@@ -703,6 +700,8 @@ namespace StealthProto.EditorTools
             wCue.thenRoute = wBeat;
             wCue.player = player;
             wCue.meetIndex = 2;
+            // Once he's walked past you, the over-the-shoulder shot ends and it's top-down again.
+            wCue.zoneUntilPassed = GameObject.Find("PH_Cam_Approach").GetComponent<CameraZone>();
             wCue.cueZone = new Bounds(new Vector3(2.5f, WallTop + 1f, (-120f + HideStepZ) * 0.5f), new Vector3(12f, 6f, HideStepZ + 120f)); // the wall, south of the step
             Post("L", new Vector3(8f, DeckTop, 7.6f), 180f);
             Post("L2", new Vector3(3f, DeckTop, 7.8f), 180f);

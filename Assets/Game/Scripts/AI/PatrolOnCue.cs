@@ -39,6 +39,10 @@ namespace StealthProto
         [Tooltip("The player's walking speed; 0 = read it from PlayerMotor.")]
         public float playerSpeed;
 
+        [Header("Camera")]
+        [Tooltip("Optional: switched off for good once he's on the walk (from walk point 1 on) and has walked past the player, so the view goes back to top-down.")]
+        public CameraZone zoneUntilPassed;
+
         enum Phase { Waiting, Delay, Walking, Done }
         Phase phase;
         float timer;
@@ -95,7 +99,9 @@ namespace StealthProto
         void Update()
         {
             if (guard == null || walk == null || walk.Count == 0) { enabled = false; return; }
-            if (guard.State == GuardState.Down) { Finish(); return; }
+            if (guard.State == GuardState.Down) { DropZone(); Finish(); return; }
+            if (phase >= Phase.Walking && zoneUntilPassed != null && player != null && HasPassedPlayer()) DropZone();
+            if (phase == Phase.Done) return;
             bool rendezvous = meetIndex >= 0 && meetIndex < walk.Count && legLengths != null;
             switch (phase)
             {
@@ -137,7 +143,23 @@ namespace StealthProto
         {
             if (guard != null && normalWalkSpeed > 0f) guard.walkSpeed = normalWalkSpeed;
             phase = Phase.Done;
-            enabled = false;
+            if (zoneUntilPassed == null) enabled = false; // else keep watching for the pass
+        }
+
+        /// <summary>On the walk past point 0, and the player is behind him (he's walking away from them).</summary>
+        bool HasPassedPlayer()
+        {
+            if (guard.route == walk && guard.RouteIndex < 1) return false;
+            Vector3 toPlayer = player.position - guard.transform.position;
+            toPlayer.y = 0f;
+            return Vector3.Dot(toPlayer, guard.transform.forward) < -0.5f;
+        }
+
+        void DropZone()
+        {
+            if (zoneUntilPassed != null) zoneUntilPassed.gameObject.SetActive(false);
+            zoneUntilPassed = null;
+            if (phase == Phase.Done) enabled = false;
         }
 
         void OnDrawGizmosSelected()

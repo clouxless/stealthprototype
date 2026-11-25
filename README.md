@@ -225,20 +225,21 @@ the project files), with the first-pass guards W, L and L2 from the guard vision
 - **Coordinates are the map's:** x is east, z is north (upriver), in metres. Heights follow
   the real lowest lock head, measured from the guide wall top: ledge +6.4 m, bridge and pier
   deck +16 m. Flight counts follow photo 29: 4 on the lower stair, 7 on the upper one.
-- **Guide wall:** 3 m wide, 120 m long, with buttresses along its east side, away from the shipping channel (step down onto
-  them) and four mooring dolphins carrying on downstream. No railings: a low lip marks each edge,
-  and the edge rules keep you on. You start at its downstream tip.
-- **Guard W and the hiding step:** W stands at the top of the lower stairs. While you're still
-  in the dam view he starts down, timed so that if you walk straight up the wall you meet him
-  on the walkway right beside the hiding step: he paces himself to keep that appointment (brisk,
-  1.4 to 3.2 m/s), and drops to a normal walk if you stop. From the end of the dam view you see
-  his flashlight coming down the flights, then him walking straight at you. After the step he
-  carries on to a beat 35 to 60 m down the wall, clear of the stairs (`PatrolOnCue`). Along the
-  approach (the last five buttresses, from z -55) the buttresses are **hiding steps**: narrow,
-  1.4 m below the walkway (step down, climb back up). He meets a straight-walking player beside
-  the last one, 12 m short of the stairs. Lie prone against the wall face and the walkway's edge hides you
-  as he passes above; lie out at the step's outer edge and he can see you. Then head up the
-  stairs behind him.
+- **Guide wall:** 3 m wide, 120 m long, with buttresses every 9 m along its east side, away from
+  the shipping channel, and four mooring dolphins carrying on downstream. No railings: a low lip
+  marks each edge, and the edge rules keep you on. You start at its downstream end **on the first
+  buttress**, 1.4 m below the walkway, so the first thing you do is clamber up: the buttresses
+  are walkable and you can get back up from them.
+- **Guard W and the hiding steps:** every buttress is a hiding step (1.6 m wide, 1.4 m below the
+  walkway): lie prone against the wall face and the walkway's edge hides you from a guard
+  walking past above; lie out at the step's outer edge and he can see you. W stands at the top
+  of the lower stairs. While you're still in the dam view he starts down, timed so that if you
+  walk straight up the wall you meet him on the walkway right beside the last buttress, 12 m
+  short of the stairs: he paces himself to keep that appointment (brisk, 1.4 to 3.2 m/s), and
+  drops to a normal walk if you stop. From the over-the-shoulder shot you see his flashlight
+  coming down the flights, then him walking straight at you. Once he's walked past you the
+  camera goes back to top-down. He carries on to a beat 35 to 60 m down the wall, clear of the
+  stairs (`PatrolOnCue`). Then head up the stairs behind him.
 - **Dolphins:** dash off the tip to jump out to them: gaps of 3.6, 3.2 and 3.2 m, then 4.2 m to
   the last one, where a short jump ends in a ledge catch. A placeholder item marker sits on the
   last one.
@@ -246,7 +247,8 @@ the project files), with the first-pass guards W, L and L2 from the guard vision
   your right for a view over the river (where the dam will go) for 34 m. From there to the end
   of the wall it's one over-the-shoulder shot looking up the wall at the lock head: it starts a
   little high and wide behind your right shoulder and slowly pushes in tight as you near the
-  hiding step, so you watch guard W come down the stairs and walk straight at you. Each stair has a fixed camera out over the water,
+  hiding step, so you watch guard W come down the stairs and walk straight at you. Once he's
+  walked past you it's top-down again. Each stair has a fixed camera out over the water,
   looking at it side-on. On the lower stair it covers the first two flights (half the climb): from
   the second turn it's top-down again, so you see the ledge's searchlights before you get there.
   On the upper stair it lasts until halfway up the last flight, then it's top-down for the
