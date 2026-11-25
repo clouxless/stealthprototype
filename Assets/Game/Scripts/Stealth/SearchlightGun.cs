@@ -5,7 +5,7 @@ namespace StealthProto
     /// <summary>
     /// A gun mounted on a track searchlight (SwivelLight), worked by the guard who owns the light.
     /// Get caught in the beam (Lit in it) and it locks on: the light leaves its rail and follows you
-    /// (SwivelLight.follow, a little slower than a run, so you can break away; a dash does it), and
+    /// (SwivelLight.follow, a little slower than a run), and
     /// while the owner is alert and you're still in the beam it fires fully automatic from the
     /// lamp, straight down the beam: a short wind-up, then a round every fireInterval. A round hits
     /// unless something solid is between the lamp and you. Out of the beam for releaseAfter

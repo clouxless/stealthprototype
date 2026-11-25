@@ -287,9 +287,10 @@ the project files), with the first-pass guards W, L and L2 from the guard vision
   upper stair's foot. L2's (3 m, 18 s): off the lower stair's top, north-east, then mid-ledge.
   (`StairWatch`, which kept L's light in step with S1's old beat, is no longer used here.)
 - **Searchlight guns** (`SearchlightGun`): each ledge light carries its guard's gun. Get caught in
-  the beam and it locks on: the light leaves its rail and follows you at 3.8 m/s (a run or a dash
-  breaks away), and once he's alert it fires fully automatic straight down the beam, 0.5 s after
-  lock-on and then 10 rounds a second. Out of the beam for 0.6 s and it lets go and slides back
+  the beam and it locks on: the light leaves its rail and follows you at 3.8 m/s, and once he's
+  alert it fires fully automatic straight down the beam, 0.5 s after lock-on and then 10 rounds a
+  second. With one hit point, that half second is your window: dash out of the beam or get
+  something solid over you. Out of the beam for 0.6 s and it lets go and slides back
   to its rail.
 - **Ledge lamp:** on a post south-west of the upper stair's entrance, over S1: a 4.2 m pool, all Lit, no Dim ring.
 - **Ledge crates:** three 1.2 m crates by the ledge's east end (landing planner).
