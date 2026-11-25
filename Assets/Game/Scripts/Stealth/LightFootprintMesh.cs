@@ -9,7 +9,9 @@ namespace StealthProto
     /// draped style as the vision cones, instead of a soft rendered beam. Each cell shows exactly
     /// the tier the light gives there (StealthLight.TierAt): bright where Lit, faint where Dim,
     /// nothing where Dark or shadowed. So what you see is what the guards get. Tinted with the
-    /// light's colour (guard state for flashlights).
+    /// light's colour (guard state for flashlights). A light pointing straight down (a lamp) gets a
+    /// full circle. A light that hasn't moved is only re-sampled once a second (it's cheap to keep
+    /// dozens of static lamps this way); a moving one (flashlight, swivel) every updateInterval.
     /// </summary>
     [RequireComponent(typeof(MeshFilter), typeof(MeshRenderer))]
     public class LightFootprintMesh : MonoBehaviour
@@ -22,6 +24,8 @@ namespace StealthProto
         [Range(0f, 1f)] public float dimAlpha = 0.14f;
         public float heightOffset = 0.05f;
         public float maxStepInCell = 0.4f;
+        [Tooltip("Re-sample a light that hasn't moved this often, seconds.")]
+        public float staticInterval = 1f;
 
         Mesh mesh;
         Light lightComponent;
@@ -31,8 +35,11 @@ namespace StealthProto
         readonly List<Vector3> verts = new List<Vector3>();
         readonly List<Color> colors = new List<Color>();
         readonly List<int> tris = new List<int>();
-        int rows;
-        float timer;
+        int rows, cols;
+        float timer, staticTimer;
+        Vector3 lastPos;
+        Quaternion lastRot;
+        Color lastColor;
 
         void Awake()
         {
@@ -53,8 +60,21 @@ namespace StealthProto
             transform.localScale = Vector3.one;
 
             timer -= Time.deltaTime;
+            staticTimer -= Time.deltaTime;
             if (timer > 0f) return;
             timer = updateInterval;
+            if (source != null)
+            {
+                Transform t = source.transform;
+                Color c = lightComponent != null ? lightComponent.color : Color.white;
+                bool moved = (t.position - lastPos).sqrMagnitude > 1e-6f || Quaternion.Angle(t.rotation, lastRot) > 0.05f
+                             || c != lastColor; // flashlights change colour with guard state
+                if (!moved && staticTimer > 0f) return;
+                lastPos = t.position;
+                lastRot = t.rotation;
+                lastColor = c;
+            }
+            staticTimer = staticInterval;
             Rebuild();
         }
 
@@ -64,27 +84,32 @@ namespace StealthProto
             if (source == null || lightComponent == null || !lightComponent.enabled || lightComponent.intensity <= 0f) return;
 
             float range = lightComponent.range;
+            Vector3 origin = source.transform.position;
+            Vector3 forward = source.transform.forward;
+            forward.y = 0f;
+            // Pointing (nearly) straight down: sample the full circle round the lamp.
+            bool down = forward.sqrMagnitude < 0.01f;
+            if (down) forward = Vector3.forward;
+            forward.Normalize();
+            float half = down ? 180f : lightComponent.spotAngle * 0.5f + 2f;
+            int segs = down ? segments * 2 : segments;
+            float castTop = origin.y + 0.5f;
+            float castDepth = Mathf.Max(12f, range + 1f);
+
             int r = Mathf.Max(2, Mathf.CeilToInt(range / rowStep) + 1);
-            if (points == null || r != rows)
+            if (points == null || r != rows || segs != cols)
             {
                 rows = r;
-                int n = (segments + 1) * rows;
+                cols = segs;
+                int n = (segs + 1) * rows;
                 points = new Vector3[n];
                 tiers = new LightTier[n];
                 valid = new bool[n];
             }
 
-            Vector3 origin = source.transform.position;
-            Vector3 forward = source.transform.forward;
-            forward.y = 0f;
-            if (forward.sqrMagnitude < 0.0001f) return;
-            forward.Normalize();
-            float half = lightComponent.spotAngle * 0.5f + 2f;
-            float castTop = origin.y + 0.5f;
-
-            for (int i = 0; i <= segments; i++)
+            for (int i = 0; i <= segs; i++)
             {
-                Vector3 dir = Quaternion.Euler(0f, Mathf.Lerp(-half, half, i / (float)segments), 0f) * forward;
+                Vector3 dir = Quaternion.Euler(0f, Mathf.Lerp(-half, half, i / (float)segs), 0f) * forward;
                 for (int j = 0; j < rows; j++)
                 {
                     int v = i * rows + j;
@@ -92,7 +117,7 @@ namespace StealthProto
                     Vector3 column = new Vector3(origin.x, castTop, origin.z) + dir * dist;
                     valid[v] = false;
                     tiers[v] = LightTier.Dark;
-                    if (Occlusion.Raycast(column, Vector3.down, 12f, source.ignoreRoot, null, out RaycastHit hit) && hit.normal.y > 0.6f)
+                    if (Occlusion.Raycast(column, Vector3.down, castDepth, source.ignoreRoot, null, out RaycastHit hit) && hit.normal.y > 0.6f)
                     {
                         points[v] = hit.point + Vector3.up * heightOffset;
                         tiers[v] = source.TierAt(hit.point + Vector3.up * 0.05f, null);
@@ -105,7 +130,7 @@ namespace StealthProto
             colors.Clear();
             tris.Clear();
             Color tint = lightComponent.color;
-            for (int i = 0; i < segments; i++)
+            for (int i = 0; i < segs; i++)
                 for (int j = 0; j < rows - 1; j++)
                 {
                     int a = i * rows + j, b = (i + 1) * rows + j, c = (i + 1) * rows + j + 1, d = i * rows + j + 1;

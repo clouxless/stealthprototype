@@ -27,6 +27,9 @@ namespace StealthProto
         [Tooltip("Directional lights only: the tier they give where not blocked.")]
         public LightTier directionalTier = LightTier.Dim;
 
+        [Tooltip("Guard flashlight: when set, this light's Lit area is exactly that guard's sight cone out to Mid (zones B and C), whatever the Light's own shape. Nothing else is lit by it.")]
+        public GuardVision coneOf;
+
         [Tooltip("Colliders under this transform never block this light (e.g. the guard carrying a flashlight).")]
         public Transform ignoreRoot;
 
@@ -72,6 +75,20 @@ namespace StealthProto
                     float d = Vector3.Distance(lightPos, point);
                     if (d > lightComponent.range) return LightTier.Dark;
                     tier = d <= lightComponent.range * litFraction ? LightTier.Lit : LightTier.Dim;
+                    break;
+                }
+
+                case LightType.Spot when coneOf != null:
+                {
+                    // Flashlight: Lit within the guard's sight cone out to Mid (3D distance from the eye).
+                    Transform eye = coneOf.eye != null ? coneOf.eye : coneOf.transform;
+                    Vector3 toPoint = point - eye.position;
+                    if (toPoint.magnitude > coneOf.midDistance) return LightTier.Dark;
+                    Vector3 flatForward = eye.forward;
+                    flatForward.y = 0f;
+                    toPoint.y = 0f;
+                    if (toPoint.sqrMagnitude > 0.0001f && Vector3.Angle(flatForward, toPoint) > coneOf.EffectiveHalfAngle) return LightTier.Dark;
+                    tier = LightTier.Lit;
                     break;
                 }
 

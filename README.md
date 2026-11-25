@@ -29,7 +29,8 @@ The repo holds only our code and docs. Unity generates the project settings, so:
    and let it restart.
 5. Check **Window > Package Manager** has **Input System** and **AI Navigation**
    installed. Install either one if it's missing.
-6. Run **Stealth Prototype > Build Graybox Test Scene** (or **Build Dock Sandbox Scene**),
+6. Run **Stealth Prototype > Build Graybox Test Scene** (or **Build Dock Sandbox Scene**, or
+   **Build Tutorial Gatehouse Scene**),
    then press **Play**.
 7. Commit the template's files (`Assets/`, `Packages/`, `ProjectSettings/`, and all
    `.meta` files) so the project opens the same everywhere.
@@ -46,7 +47,7 @@ and turn on **Lighting > Additional Lights > Cast Shadows**.
 | Action | Keyboard + mouse | Gamepad |
 | --- | --- | --- |
 | Move | WASD | Left stick |
-| Dash (i-frames, a little noisy) | Space | A |
+| Dash (i-frames, a little noisy); into a gap, a dash-jump | Space | A |
 | Melee | LMB | X |
 | Context: takedown (hold), clamber, climb, hang off an edge | E | Y |
 | Cover: cling to a tall wall (hold), slide along it | Hold Shift | Hold LB |
@@ -56,28 +57,52 @@ and turn on **Lighting > Additional Lights > Cast Shadows**.
 | Aim / fire | Hold RMB, LMB to fire | Hold LT, RT to fire |
 | First-person look (can't move, fire along view) | V | R3 |
 | Zoom camera | Mouse wheel | D-pad up / down |
-| Toggle vision cones / noise rings / help | F1 / F2 / F3 | |
+| Toggle vision cones / noise rings / debug panel and help | F1 / F2 / F3 | |
 | Restart | R | |
 
 While hanging: the stick shimmies along the edge, E climbs up, Space or C lets go.
 
 ## How the stealth works
 
-- **Light in three tiers.** Only the floor under your feet counts: Dark, Dim or Lit. Each
-  tier has one fixed guard sight distance everywhere (Dark 2.5 m, Dim 6.5 m, Lit 13 m).
-  Lamp pools have a crisp Lit core and a Dim ring. A flashlight counts only if its beam
-  lights the floor you stand on. Your character's tint shows the tier; there's no meter.
+- **Light in three tiers.** Only the floor under your feet counts: Dark, Dim or Lit.
+  Lamp pools have a crisp Lit core and a Dim ring. A guard's flashlight makes you Lit inside
+  their sight cone out to Mid. Swivel spotlights sweep a fixed arc (80 degrees over 11 s), or between two aim points, or slide along a rail pointing straight down (a circle on the floor), back and forth or round a loop (`trackLoop`, even speed, no pauses); standing in the beam gets you spotted at once by the guard who works it.
+  Your character's tint shows the tier.
+- **Guard vision model** (`design/guard-vision/guard-vision-spec.md`). Three overlapping zones
+  around each guard, by 3D distance: the sight cone (70 degrees, to Far: A Mid–Far, B Near–Mid,
+  C within Near), the periphery (to 90 degrees each side, within Mid: D, E) and the rest of the
+  Far circle, behind too (F). Your light tier, movement (still, walking, dashing, crawling) and
+  height (below, level, above) pick a rate from the table: Instant, Fast (1 s), Slow (4 s),
+  Very slow (10 s) or None. The fastest zone you're in counts, and everything needs line of
+  sight. Above a guard you're unseen unless they're searching. Distances are Near 3, Mid 6,
+  Far 13 m for now (`GuardVision`). The debug HUD shows which zone and rate each guard has on you.
 - **Guards don't roll dice.** Patrols, pauses, head sweeps and searches are the same every
-  time. A "?" shows before a guard turns suspicious and a "!" before an alert. Shots have
-  a visible wind-up and always hit unless you break line of sight first.
+  time. A meter over each guard's head fills as they notice you (Dishonored-style): white
+  while it builds, with a notch where they turn suspicious, amber while suspicious or
+  searching, solid red on alert. It empties again once they lose you.
+  A "?" shows before a guard turns suspicious and a "!" before an alert. Shots have
+  a short visible wind-up (0.3 s) and always hit unless you break line of sight first. Once the
+  "!" freeze ends, an alerted guard who can see you within 20 m fires about every 0.8 s, so
+  being seen in the open is deadly fast.
+- **Radio.** A guard who spots you radios everyone within 22 m, but only the nearest two come
+  running (plus anyone who saw you or got hit). The rest hold their ground facing your last
+  known position, fire if they see you, look round where they stand, then go back to their
+  posts. Gunfire heard counts the same way. So an alert doesn't empty the bridge down one stair.
 - **Short hunts.** When a guard loses you, a marker shows where they'll search: your last
   known position, then one step further along your heading. Break line of sight or lure
   them with noise and the hunt ends quickly. The lasting cost is the room: after the
   first alert, guards stay wary (they spot you faster) and the red alarm floods stay on.
-- **Focus.** Hold Q to listen. Over about 3 seconds the world fades to pitch black, leaving
+- **Focus.** Hold Q to listen, also while clinging to a wall. Over about 3 seconds the world fades to pitch black, leaving
   only you and sounds drawn as ripples. Once it is fully black, the camera pulls out. Hold longer for more: loud
   nearby sounds, then every sound (from 0.75 s), then which guard made it and their state
-  (from 3 s). Ripples from sounds off screen sweep in across the screen edge. Only sound shows. Critical sounds (gunshots,
+  (from 3 s). Ripples are slow, soft rings with fainter rings trailing them, like water, and
+  each source makes at most one every 1.2 s. As focus deepens the ripples shrink, from the
+  sound's full radius down to a fifth of it after 9 s of holding (slower than the camera's
+  pull-out, which ends at 5 s), so it gets easier to pinpoint who
+  made them (`FocusMode.ripple*` to tune). Ripples from sounds
+  off screen drift in across the screen edge. Only sound shows, but guards standing still
+  breathe: a small, quiet ripple every 2.6 s (from 0.75 s of holding), so Focus finds them too
+  (`GuardBrain.breath*`). Critical sounds (gunshots,
   shouts) always draw a ring, focus or not.
 - **Walking is the sneaking.** There's one walking speed and no sneak button. Walking is
   silent, and a guard never notices you outside his vision cone, so walking up behind one
@@ -85,17 +110,15 @@ While hanging: the stick shimmies along the edge, E climbs up, Space or C lets g
   dashing, fighting, knocking, shooting.
 - **Crawling is the extra-sneaky option.** Press C to toggle it. It's slow (1 m/s) and does
   exactly three things, and nothing else:
-  1. **One tier darker.** Guards see you as if your light tier were one darker: a Lit floor
-     counts as Dim, and a Dim floor counts as Dark. Dark stays Dark. Your character's tint and
-     the HUD show the tier guards get.
-  2. **Low profile.** Low cover (crates, ledges, waist-high walls) hides you completely, and
-     when part of you is hidden you're spotted more slowly.
+  1. **Its own row in the rate table.** Crawling is slower to spot than walking in every zone
+     (see the guard vision model above). It no longer changes your light tier.
+  2. **Low profile.** Low cover (crates, ledges, waist-high walls) hides you completely.
   3. **Small spaces.** You fit under tables and through vents and floor grates, and you can't
      stand up where there's no head room.
 
   Crawling does not change hearing (walking is already silent) or how wide a guard's cone is.
 - **Height layers.** Floor, platform (from 0.75 m) and catwalk (from 2.75 m). Guards see
-  their own layer and one below; they only look up while searching. Vision cones are drawn
+  their own layer and any below; they only look up while searching. Vision cones are drawn
   on the surfaces they cover, so you can see whether a cone reaches the catwalk. Geometry
   above you fades out, and characters behind walls show as silhouettes.
 - **Cover.** Hold Shift (LB) next to a tall wall, or walk into one while holding it, to press
@@ -103,11 +126,15 @@ While hanging: the stick shimmies along the edge, E climbs up, Space or C lets g
   as they are on screen top-down, even when the camera swings). Near the end of the wall, in the
   last metre and short of the very edge, the camera swings low to look along the wall and round
   the corner, MGS1-style (`CameraRig.coverSwing`: 1 is the full swing, 0 stays top-down). Cover
-  is for seeing and luring, not hiding: guards still see you there.
-- **Knocking (luring).** In cover, hold LMB (X) to show the knock's reach on the floor: a 10 m
+  is for seeing and luring, not hiding: guards still see you there. Against low cover (chest high:
+  crates, sandbags, barriers) Shift crouches you behind it instead (placeholder pose: the
+  mannequin squashed), below its top, so guards on the far side can't see you over it; you can
+  slide along it crouched.
+- **Knocking (luring).** In cover, hold LMB (X) to show the knock's reach on the floor: a 16 m
   circle with any sealed-off spaces cut out. Release to knock; let go of Shift first to cancel.
-  Every guard who hears it walks to it by the shortest path, does the same look-around and goes
-  back. In a vent or a floor grate the same hold-and-release works without Shift (moving
+  Every guard who hears it stops and turns to it with a "?" for a second (`hearNoticeTime`),
+  then walks to it by the shortest path, does the same look-around and goes back. A second
+  knock while he's investigating gets the same pause before he heads to the new spot. In a vent or a floor grate the same hold-and-release works without Shift (moving
   cancels it).
 - **How noise travels.** Every noise is a straight-line circle of its radius. A guard inside
   the circle hears it if there's any open way round from the noise to him, however long. Only a
@@ -118,16 +145,24 @@ While hanging: the stick shimmies along the edge, E climbs up, Space or C lets g
   The noise rings (F2) and the knock preview stop at walls that seal the noise in. Focus follows
   the same rule, so it only shows sounds from the space you're in (and none from outside while
   you're in a vent or grate). See `SoundGrid` and `SoundDuct`.
-- **Ledge hang.** At a drop (the catwalk edge, the beam), walk to the edge and press E to
-  hang. Shimmy along, climb back up with E, or let go. Your grip lasts 6 s. While hanging,
+- **Edges.** You never walk or dash off a drop of 1.7 m or more (`PlayerMotor.edgeDrop`). Walk
+  into one and you lower yourself over it into a hang. A dash into one stops at the edge, unless
+  there's somewhere to land across the gap: then it's a **dash-jump**. Near an edge, a faint ring
+  shows where a dash would take you. Depending on the far side you land, clamber straight up onto
+  it (up to 1.6 m higher), or, if it's a little too far or too high, catch its edge and hang.
+  Landings up to 4.7 m away, far edges up to 5.2 m. The jump is silent for now.
+- **Ledge hang.** At a drop (the catwalk edge, the beam), walk into the edge (or press E) to
+  hang. Shimmy along, climb back up with E, or let go. Your grip lasts 6 s. Over a deadly drop
+  (water, a bottomless pit) you can't let go, and a spent grip pulls you back up. While hanging,
   the floor below you sets your light tier (switchable to the ledge on
   `PlayerContextActions.hangLight`).
 - **Takedowns.** Get close behind a guard who isn't alert and a `Takedown` prompt
   appears. Hold E through the choke (2.5 s). You're locked in place and visible the
   whole time, and the struggle makes a little noise. Let go early and the guard breaks
   free and raises the alarm.
-- **Climbing.** Face a ledge and a `Clamber` (up to 1.6 m) or `Climb` (up to 4.2 m)
-  prompt appears. Press E (also from cover). Guards can't climb, so high ground is an
+- **Clambering.** Face a ledge up to 1.6 m high and a `Clamber` prompt appears. Press E
+  (also from cover). There's no taller climb: anything higher is out of reach (you can still
+  pull yourself back up from a hang). Guards can't clamber, so low walls and crates are an
   escape route.
 - **Scale.** Characters are placeholder mannequins at human proportions (about 1.75 m,
   0.3 m collider radius), so level metrics match the final art.
@@ -160,7 +195,8 @@ the player and guard AI, laid out from Cloux's design on a 2 m grid (50 x 28 m):
   the start block, one down the pit-side lane under the north block. Stand on a grate and press
   E to drop in, push the stick to crawl along it, and press E again to climb out wherever there's
   room to stand. Inside you're silent, and guards walk over you without seeing you.
-- **Bottomless pit:** a hole in the west floor. Fall in and you're downed.
+- **Bottomless pit:** a hole in the west floor. You can't walk or dash into it (walk into its
+  edge and you hang from it, and you can't let go over it), but anything that gets you in downs you.
 - **Yard:** solid blocks, floor to ceiling, that block sight, with a north, middle and south lane between them. Two of the middle ones are roofed rooms (below).
   Downward lamps light the lane crossings and leave the runs between them dark.
 - **Guards:** all loops, with no sudden about-faces. A north guard holds a post in the
@@ -183,6 +219,118 @@ the player and guard AI, laid out from Cloux's design on a 2 m grid (50 x 28 m):
 The floor plan is a text map at the top of `Editor/DockSandboxBuilder.cs`. Edit it and run
 the menu item again to try a variation.
 
+## Tutorial: guide wall to the gatehouse
+
+**Stealth Prototype > Build Tutorial Gatehouse Scene** builds `PH_TutorialGatehouse`, the
+first stretch of the tutorial from map A (`design/tutorial-gatehouse/versions/map-A-labeled` in
+the project files), with the first-pass guards W, L and L2 from the guard vision spec, and the road guards from the layout planner.
+
+- **Coordinates are the map's:** x is east, z is north (upriver), in metres. Heights follow
+  the real lowest lock head, measured from the guide wall top: ledge +6.4 m, bridge and pier
+  deck +16 m. Flight counts follow photo 29: 4 on the lower stair, 7 on the upper one.
+- **Guide wall:** 3 m wide, 120 m long, with buttresses every 9 m along its east side, away from
+  the shipping channel, and four mooring dolphins carrying on downstream. No railings: a low lip
+  marks each edge, and the edge rules keep you on. You start at its downstream end **on the first
+  buttress**, 1.4 m below the walkway, so the first thing you do is clamber up: the buttresses
+  are walkable and you can get back up from them.
+- **Guard W and the hiding steps:** every buttress is a hiding step (1.6 m wide, 1.4 m below the
+  walkway): lie prone against the wall face and the walkway's edge hides you from a guard
+  walking past above; lie out at the step's outer edge and he can see you. W stands at the top
+  of the lower stairs. While you're still in the dam view he starts down, timed so that if you
+  walk straight up the wall you meet him on the walkway right beside the last buttress, 12 m
+  short of the stairs: he paces himself to keep that appointment (brisk, 1.4 to 3.2 m/s), and
+  drops to a normal walk if you stop. From the over-the-shoulder shot you see his flashlight
+  coming down the flights, then him walking straight at you. The moment he's further south
+  than you (or you reach the end of the walkway, whichever comes first) the camera goes back to
+  top-down. He carries on to a beat 35 to 60 m down the wall, clear of the
+  stairs (`PatrolOnCue`). Then head up the stairs behind him.
+- **Dolphins:** dash off the tip to jump out to them: gaps of 3.6, 3.2 and 3.2 m, then 4.2 m to
+  the last one, where a short jump ends in a ledge catch. A placeholder item marker sits on the
+  last one.
+- **Cameras along the wall:** the level opens (no zoom) on a full top-down view from high up, north at the top, with you in the bottom third of the frame and about half of the first dolphin at the bottom edge. It holds still until you walk north, then follows you up the wall the same way until the dam view. About 22 m in, the camera swoops round to
+  your right for a view over the river (where the dam will go) for 34 m. From there to the end
+  of the wall it's one over-the-shoulder shot looking up the wall at the lock head: it starts a
+  little high and wide behind your right shoulder and slowly pushes in tight as you near the
+  hiding step, so you watch guard W come down the stairs and walk straight at you. It goes top-down again the
+  moment he's further south than you, or you reach the end of the walkway. Each stair has a fixed camera out over the water,
+  looking at it side-on. The side view lasts exactly while there's stair over
+  your head: up to the turn under the last two flights (the second turn on the lower stair, the
+  fifth on the upper one). From the first step up the second-to-last flight it's top-down. Any suspicious or alert guard snaps the camera back to top-down. The
+  shots are `CameraZone` boxes under `PH_CameraZones` (tweak them in the inspector).
+  On the stairs, movement follows the camera, but when the view turns the stick keeps its old
+  directions until you let go of it or swing it more than 45 degrees. Along the wall (the river
+  view and the crane) up on the stick always walks north along the wall, however the camera looks,
+  so stopping or turning round never changes your controls (`CameraZone.fixedControls`).
+- **Lower stairs:** four flights of 1.6 m on the front face of the lower block, east of where the
+  wall lands. Step east off the end of the wall onto it. It tops out on the **ledge** (22 x 11 m)
+  next to a small hut.
+- **Upper stairs:** seven flights of 1.37 m against the pier face at the ledge's east end (x 13.6..20).
+  The foot is at the west end; it comes out at the east end onto the bridge through a gap in the
+  south parapet. (The crawl-in hiding space under it was removed.)
+- **Shift change on the ledge:** S1 and S2 walk 2.4 m/s (guards normally walk 1.4) since they only walk between posts.
+- **Shift change details:** guard S1 stands in the ledge lamp's pool, 4.7 m
+  south-south-east of the upper stair's entrance and facing it, so the far edge of his flashlight
+  covers it; S2 stands at the post on the bridge, west of the stair's top.
+  Nothing happens until you step onto the ledge: then S2 comes down the stairs to relieve S1. They
+  meet beside S1 (he never leaves his spot or stops facing the entrance, so you can't go up
+  before the swap), stand a moment, swap, and S1 walks up to a post 3 m west of S2's old one, facing south-south-west with the
+  stair's exit behind him, while S2 goes to the ledge's
+  south-east edge, facing out over the water (`handoverRoute`). After that it repeats every
+  45 s with the roles swapped, and pauses while either is off patrol (`ShiftChange`). If you take out the ledge guard, the post guard finds out
+  when he comes to relieve him: he walks to the ledge spot, finds nobody, and raises the alarm
+  (full alert, radioed). While the
+  relief walks back up, the post is empty: that's the gap to follow him up the stairs.
+- **Ledge searchlights (L, L2):** each is a spotlight in the hands of its guard up on the bridge,
+  held out past the parapet. He stands still and swivels it to follow its pool, a crisp circle
+  that runs round a looped path over the ledge (triangles, from the landing planner) at an even
+  speed, the two half a lap out of step. (The circle is cast by an unseen light straight above it,
+  so it stays round; the lamp in his hands just points at it: `HeldSearchlight`.) L's (3.2 m, 12 s
+  a lap): east of mid-ledge, west, then north toward the upper stair's foot. L2's (3 m, 18 s): off
+  the lower stair's top, north-east, then mid-ledge. (`StairWatch` is no longer used here.)
+- **Searchlight guns** (`SearchlightGun`): each ledge light carries its guard's gun. Get caught in
+  the beam and it locks on: the guard swivels the light off its path to follow you at 3.8 m/s, and once he's
+  alert it fires fully automatic from the lamp in his hands, 0.5 s after lock-on and then 10 rounds a
+  second. With one hit point, that half second is your window: dash out of the beam or get
+  something solid over you. Out of the beam for 0.6 s and it lets go and swings back
+  to its path.
+- **Ledge lamp:** on a post south-west of the upper stair's entrance, over S1: a 4.2 m pool, all Lit, no Dim ring.
+- **Ledge crates:** three 1.2 m crates by the ledge's east end (landing planner).
+- **Round the back of the upper stairs:** along the ledge's south rail (1.35 m clear south of the crates), then north up the east side (1.35-1.85 m past the crates) to the 1.95 m gap behind the stairs. It passes behind S1 and stays out of the lamp's pool.
+- **No clambering onto the stairs** (`NoClamber` on both stair groups): you can't clamber,
+  jump-clamber or catch an edge onto any flight, landing or rail, so the only way up is from the foot.
+- **Guards on stairs:** the NavMesh is baked for a 0.3 m-radius, 1.8 m agent (`RuntimeNavMeshBaker`),
+  not the default 0.5 m Humanoid, which left almost nothing of the 1.3 m railed stair lanes, so
+  guards couldn't path up or down them.
+- **How the stairs are built:** like the real ones, the flights zig-zag up the wall in two 1.3 m
+  lanes (2.6 m deep in all), each flight running straight over the one two below it. Flights are
+  22 degrees, with a 1.5 m landing across both lanes at each end. The lowest flight in each lane is
+  solid; the rest are 0.3 m slabs with 2.4-2.9 m of headroom. Rails on the outer edge and between
+  the lanes.
+- **Bridge:** a 15.6 m, four-lane road (3.9 m lanes) from x -40 to 66, over chamber 1 (centre x -17), the pier, and the
+  east bank. Both ends are walled off past the climb limit.
+- **Road layout:** built exactly from the road layout planner (`design/tutorial-gatehouse/road/road-layout-v1.json`
+  in the project files; `LayoutProps` and `LayoutLamps` in the builder). Two Humvees with headlights
+  at x -25 light the road eastward, behind a line of four jersey barriers held by guards R1-R3.
+  Mid-road: a wrecked truck (cab and flatbed trailer, crawl under the trailer), containers, crates,
+  cars, and a third Humvee with a guard standing in its open back, swivelling (R4). The east end is a container yard.
+  On the pier deck: three boom gates east of the gatehouse, a Humvee, and guards G1-G4 round the
+  gatehouse. Patrols: T1 loops round the truck and the first container; T2 walks the road's north
+  edge from the west end to the gatehouse and back.
+- **Vehicle sizes:** 40/20 ft containers 12.2/6.1 x 2.44 x 2.6 m; truck cab 6.2 x 2.5 m (3.2 m cab,
+  1.2 m chassis); flatbed trailer 12.5 x 2.5 m, deck 1.0-1.4 m up; Humvee 4.9 x 2.2 m, a two-door pickup (cab 1.9 m, open bed with its floor at 0.9 m); car
+  3.8 x 2.6 x 1.6 m; jersey barrier 3 x 0.6 x 0.8 m; boom gate arm at about 1 m.
+- **Pier deck:** the gatehouse (15 x 13 m) against the chamber edge, a small box between it and
+  the bridge, open deck to the east and an outbuilding further north.
+- **Goal:** the gatehouse door, on its south face.
+- **Rules here:** one hit point (one shot kills), a silent dash and dash-jump, and no gun or
+  takedowns (`PlayerCombat.allowGun`, `PlayerContextActions.allowTakedown`); melee is still there.
+- **Stark lights:** every lamp, headlight and searchlight here is drawn like the guard
+  flashlights: the real light isn't rendered, and its pool is a crisp flat overlay, bright where
+  it makes you Lit and faint where Dim (`LightFootprintMesh`, set up by `StarkLights` in the builder).
+  Lamps pointing straight down get a full circle.
+
+The layout lives in `Editor/TutorialGatehouseBuilder.cs`, one method per area.
+
 ## Look and testing toggles
 
 - **Black and white, except guard state:** a global URP volume
@@ -193,8 +341,6 @@ the menu item again to try a variation.
 - **Flashlights are drawn crisp and flat**, in the same draped style as the vision cones: bright
   where the beam makes you Lit, faint where it makes you Dim, nothing in its shadows. Tinted
   amber or red with the guard's state.
-- **Long sight:** guards see a Lit player dead ahead (within 12 degrees) out to 26 m, shown as a
-  faint spike in front of each vision cone. Off-centre, the normal 13 m cone applies.
 - **Gunfire gives you away:** your muzzle flash counts as Lit for 1.5 s, and guards who hear a
   shot or get hit go alert at the shot and look up for 6 s, so shooting from the catwalk gets
   you shot back.
@@ -205,7 +351,7 @@ the menu item again to try a variation.
 | Path | What |
 | --- | --- |
 | `Scripts/Player/PlayerMotor.cs` | Movement, dash, crawling |
-| `Scripts/Player/PlayerContextActions.cs` | E: takedown, clamber, climb, ledge hang |
+| `Scripts/Player/PlayerContextActions.cs` | E: takedown, clamber, climb, ledge hang; dash-jump |
 | `Scripts/Player/PlayerCover.cs` | Cover cling, corner view, knock (also in vents and grates) |
 | `Scripts/Player/NoisePreview.cs` | The knock's reach drawn on the floor before you knock |
 | `Scripts/Core/NoiseSystem.cs` | Hearing: circle plus same-space rule, feed for Focus |
@@ -214,16 +360,23 @@ the menu item again to try a variation.
 | `Scripts/Core/NoiseShape.cs`, `NoiseRingFX.cs` | Noise rings and preview, cut at sealing walls |
 | `Scripts/Player/FocusMode.cs` | Focus (sound ripples) |
 | `Scripts/Player/PlayerCombat.cs` | Melee, aiming, gun |
-| `Scripts/Camera/CameraRig.cs` | Top-down follow, cover corner view, first-person look, shake |
+| `Scripts/Camera/CameraRig.cs` | Top-down follow, cover corner view, camera zones, first-person look, shake |
+| `Scripts/Camera/CameraZone.cs` | Cinematic shot boxes: track, crane, fixed |
+| `Scripts/Player/EdgeRules.cs` | What counts as a deadly drop |
 | `Scripts/Stealth/StealthLight.cs`, `LightExposure.cs` | Light tiers from the floor under the player |
 | `Scripts/Stealth/HeightLayers.cs` | Named height layers |
 | `Scripts/Level/AlarmLight.cs` | Lights that switch on for good after the first alert |
-| `Scripts/AI/GuardVision.cs` | Cone, line of sight, tier sight distances, height layers |
+| `Scripts/AI/GuardVision.cs` | Vision zones, rate table, line of sight, height |
+| `Scripts/Stealth/SwivelLight.cs` | Sweeping spotlight |
 | `Scripts/AI/GuardBrain.cs` | State machine, tells, hearing, radio, search, shooting |
+| `Scripts/AI/ShiftChange.cs` | Two guards trading a patrol and a post (shift change) |
+| `Scripts/AI/PatrolOnCue.cs` | A guard's scripted walk, started when the player steps into a box |
+| `Scripts/AI/StairWatch.cs` | Keeps the stair foot covered by the patroller or a searchlight |
 | `Scripts/AI/LastKnownMarker.cs` | Marker where hunting guards will search |
 | `Scripts/AI/VisionConeMesh.cs` | Vision drawn on the surfaces it covers |
 | `Scripts/Level/SandboxGoal.cs`, `FallHazard.cs` | Exit trigger with run stats, fall hazard |
 | `Scripts/Level/GrateRun.cs`, `Scripts/Player/PlayerGrateCrawl.cs` | Floor grates: enter, crawl, exit |
 | `Editor/GrayboxBuilder.cs` | Builds the test scene from code |
 | `Editor/DockSandboxBuilder.cs` | Builds the dock sandbox from a text map |
+| `Editor/TutorialGatehouseBuilder.cs` | Builds the tutorial's first stretch (map A) |
 | `Editor/PlaceholderAudit.cs` | Placeholder audit and release-build block |

@@ -621,7 +621,7 @@ namespace StealthProto.EditorTools
             flashGO.transform.localRotation = Quaternion.Euler(12f, 0f, 0f);
             var light = flashGO.AddComponent<Light>();
             light.type = LightType.Spot;
-            light.range = 14f;
+            light.range = 7f;     // the footprint overlay samples this far; the Lit area is the cone to Mid
             light.spotAngle = 70f;
             light.innerSpotAngle = 68f;
             light.intensity = 30f;
@@ -640,6 +640,8 @@ namespace StealthProto.EditorTools
             vision.target = player;
             vision.viewDistance = 13f;
             vision.halfAngle = 35f;
+            // Default kit: the flashlight lights the sight cone out to Mid (zones B and C).
+            stealthLight.coneOf = vision;
 
             var brain = g.AddComponent<GuardBrain>();
             brain.route = route;

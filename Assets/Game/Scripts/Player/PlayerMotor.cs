@@ -6,7 +6,7 @@ namespace StealthProto
     /// Snappy top-down movement: high acceleration, near-instant turning, a short dash with
     /// i-frames, and crawling (prone). There is one walking speed and no sneak button: walking
     /// is silent, and guards only notice you by sight. The dash is the noisy move.
-    /// Crawling's detection rules live in LightExposure.SeenTier and the prone VisibilityPoints.
+    /// Crawling's detection rules live in GuardVision's rate table and the prone VisibilityPoints.
     /// </summary>
     [RequireComponent(typeof(CharacterController), typeof(PlayerInputReader))]
     public class PlayerMotor : MonoBehaviour
@@ -26,6 +26,9 @@ namespace StealthProto
         [Tooltip("Name of the child holding the character visuals, rotated to lie flat when prone.")]
         public string visualRootName = "PH_Mannequin";
 
+        [Header("Crouch (behind low cover)")]
+        public float crouchHeight = 1.05f;
+
         [Header("Dash")]
         public float dashDistance = 3f;
         public float dashDuration = 0.15f;
@@ -33,6 +36,11 @@ namespace StealthProto
 
         [Header("Noise")]
         public float dashNoiseRadius = 6f;
+
+        [Header("Edges")]
+        [Tooltip("Drops at least this deep stop you at the edge. Walk into one and you hang from it (PlayerContextActions); dash into one and you stop, or jump the gap if there's a platform in range.")]
+        public float edgeDrop = 1.7f;
+        public bool edgeGuard = true;
 
         [Header("Misc")]
         public float gravity = -30f;
@@ -43,6 +51,7 @@ namespace StealthProto
         CharacterController controller;
         PlayerInputReader input;
         Health health;
+        PlayerContextActions context;
         Vector3 velocity;
         Vector3 lunge;
         Vector3 dashDirection;
@@ -52,11 +61,18 @@ namespace StealthProto
         Vector3? facingOverride;
 
         public bool IsDashing => dashTimer > 0f;
+        /// <summary>Outward normal of the edge you're walking into, if any (zero otherwise).</summary>
+        public Vector3 EdgeNormal { get; private set; }
+        /// <summary>How long you've been walking into an edge.</summary>
+        public float EdgePushTime { get; private set; }
         public bool IsProne { get; private set; }
+        /// <summary>Crouched behind low cover (PlayerCover): the body is below 1 m.</summary>
+        public bool IsCrouched { get; private set; }
         /// <summary>Height of the body's centre above the feet (aim point for guards).</summary>
-        public float CenterHeight => IsProne ? 0.25f : 1.1f;
+        public float CenterHeight => IsProne ? 0.25f : IsCrouched ? 0.6f : 1.1f;
         /// <summary>Local-space points guards test line of sight against.</summary>
-        public Vector3[] VisibilityPoints => IsProne ? PronePoints : StandingPoints;
+        public Vector3[] VisibilityPoints => IsProne ? PronePoints : IsCrouched ? CrouchPoints : StandingPoints;
+        static readonly Vector3[] CrouchPoints = { new Vector3(0f, 0.3f, 0f), new Vector3(0f, 0.65f, 0f), new Vector3(0f, 0.95f, 0f) };
         static readonly Vector3[] StandingPoints = { new Vector3(0f, 0.35f, 0f), new Vector3(0f, 1.1f, 0f), new Vector3(0f, 1.65f, 0f) };
         static readonly Vector3[] PronePoints = { new Vector3(0f, 0.2f, -0.6f), new Vector3(0f, 0.22f, 0f), new Vector3(0f, 0.25f, 0.7f) };
         /// <summary>Locks movement input (first-person look mode).</summary>
@@ -72,6 +88,8 @@ namespace StealthProto
             set
             {
                 externalControl = value;
+                EdgePushTime = 0f; // a push from before a climb or hang never carries over
+                EdgeNormal = Vector3.zero;
                 velocity = Vector3.zero;
                 lunge = Vector3.zero;
                 verticalVelocity = 0f;
@@ -90,6 +108,7 @@ namespace StealthProto
             controller = GetComponent<CharacterController>();
             input = GetComponent<PlayerInputReader>();
             health = GetComponent<Health>();
+            context = GetComponent<PlayerContextActions>();
             standHeight = controller.height;
             visualRoot = transform.Find(visualRootName);
         }
@@ -108,6 +127,26 @@ namespace StealthProto
                 // Lie face down along the facing direction, centred on the collider.
                 visualRoot.localRotation = prone ? Quaternion.Euler(90f, 0f, 0f) : Quaternion.identity;
                 visualRoot.localPosition = prone ? new Vector3(0f, 0.13f, -0.85f) : Vector3.zero;
+            }
+            return true;
+        }
+
+        /// <summary>Crouch (low cover) or stand back up. Standing needs head room.</summary>
+        public bool SetCrouch(bool crouch)
+        {
+            if (crouch == IsCrouched) return true;
+            if (IsProne) return false;
+            if (!crouch && !CanStand()) return false;
+            IsCrouched = crouch;
+            float h = crouch ? crouchHeight : standHeight;
+            controller.height = h;
+            controller.center = new Vector3(0f, h * 0.5f, 0f);
+            if (visualRoot != null)
+            {
+                // Placeholder pose: the mannequin squashed down to crouch height.
+                visualRoot.localRotation = Quaternion.identity;
+                visualRoot.localPosition = Vector3.zero;
+                visualRoot.localScale = crouch ? new Vector3(1f, 0.6f, 1f) : Vector3.one;
             }
             return true;
         }
@@ -162,7 +201,8 @@ namespace StealthProto
                 dashCooldownTimer = dashDuration + dashCooldown;
                 if (health != null) health.Invulnerable = true;
                 transform.rotation = Quaternion.LookRotation(dashDirection);
-                NoiseSystem.Emit(transform.position, dashNoiseRadius, 0.5f, null, SoundKind.Movement, gameObject);
+                if (dashNoiseRadius > 0f)
+                    NoiseSystem.Emit(transform.position, dashNoiseRadius, 0.5f, null, SoundKind.Movement, gameObject);
             }
 
             Vector3 horizontal;
@@ -187,6 +227,37 @@ namespace StealthProto
             horizontal += lunge;
             lunge = Vector3.MoveTowards(lunge, Vector3.zero, lungeDecay * dt);
 
+            // Edges: never walk or dash off a real drop.
+            bool pushingEdge = false;
+            if (edgeGuard && controller.isGrounded)
+            {
+                Vector3 flat = new Vector3(horizontal.x, 0f, horizontal.z);
+                if (flat.sqrMagnitude > 0.0001f && OverDrop(transform.position + flat * dt, flat.normalized, out Vector3 outward))
+                {
+                    if (IsDashing)
+                    {
+                        // A dash into a gap jumps it if there's somewhere to land; otherwise it stops here.
+                        Vector3 dir = dashDirection;
+                        EndDash();
+                        if (context != null && context.TryDashJump(dir)) return;
+                    }
+                    if (!IsDashing && Vector3.Dot(wish, outward) > 0.7f) // pushing out over it, not just along it
+                    {
+                        pushingEdge = true;
+                        EdgeNormal = outward;
+                    }
+                    // Slide along the edge, or stop.
+                    flat = Vector3.ProjectOnPlane(flat, outward);
+                    if (flat.sqrMagnitude > 0.0001f && OverDrop(transform.position + flat * dt, flat.normalized, out _))
+                        flat = Vector3.zero;
+                    horizontal = new Vector3(flat.x, horizontal.y, flat.z);
+                    velocity = Vector3.ProjectOnPlane(velocity, outward);
+                    lunge = Vector3.zero;
+                }
+            }
+            EdgePushTime = pushingEdge ? EdgePushTime + dt : 0f;
+            if (!pushingEdge) EdgeNormal = Vector3.zero;
+
             if (controller.isGrounded && verticalVelocity < 0f) verticalVelocity = -2f;
             verticalVelocity += gravity * dt;
             controller.Move((horizontal + Vector3.up * verticalVelocity) * dt);
@@ -198,6 +269,33 @@ namespace StealthProto
             {
                 transform.rotation = Quaternion.RotateTowards(transform.rotation, Quaternion.LookRotation(face), turnSpeed * dt);
             }
+        }
+
+        void EndDash()
+        {
+            dashTimer = 0f;
+            velocity = Vector3.zero;
+            if (health != null) health.Invulnerable = false;
+        }
+
+        /// <summary>
+        /// Would feet at this position be over a drop of at least edgeDrop? If so, outward is the
+        /// edge's horizontal normal (pointing out over the drop).
+        /// </summary>
+        public bool OverDrop(Vector3 feet, Vector3 direction, out Vector3 outward)
+        {
+            outward = direction;
+            Vector3 probe = feet + direction * 0.1f;
+            if (EdgeRules.GroundBelow(probe + Vector3.up * 0.4f, 0.4f + edgeDrop, transform, out _)) return false;
+            // Find the edge's face: cast back toward us from out over the drop, just under the top.
+            Vector3 outside = probe + direction * 0.6f + Vector3.down * 0.12f;
+            if (Occlusion.Raycast(outside, -direction, 1.2f, transform, null, out RaycastHit face) && Mathf.Abs(face.normal.y) < 0.3f)
+            {
+                Vector3 n = face.normal;
+                n.y = 0f;
+                if (n.sqrMagnitude > 0.01f) outward = n.normalized;
+            }
+            return true;
         }
     }
 }
