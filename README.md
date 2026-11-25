@@ -264,8 +264,8 @@ the project files), with the first-pass guards W, L and L2 from the guard vision
 - **Upper stairs:** seven flights of 1.37 m against the pier face at the ledge's east end (x 13.6..20).
   The foot is at the west end; it comes out at the east end onto the bridge through a gap in the
   south parapet. (The crawl-in hiding space under it was removed.)
-- **Shift change on the ledge:** guard S1 stands just south of the upper stair's foot, looking
-  north-west across the ledge; S2 stands at the post on the bridge, west of the stair's top.
+- **Shift change on the ledge:** guard S1 stands 5 m south-south-west of the upper stair's entrance,
+  facing it, so the far edge of his flashlight covers it; S2 stands at the post on the bridge, west of the stair's top.
   Nothing happens until you step onto the ledge: then S2 comes down the stairs to relieve S1. They
   meet mid-ledge, stand a moment, swap, and S1 walks up to the post while S2 goes to the ledge's
   south-east edge, facing out over the water (`handoverRoute`). After that it repeats every
@@ -277,7 +277,7 @@ the project files), with the first-pass guards W, L and L2 from the guard vision
   lap out of step. L's (3.2 m circle, 12 s a lap): east of mid-ledge, west, then north toward the
   upper stair's foot. L2's (3 m, 18 s): off the lower stair's top, north-east, then mid-ledge.
   (`StairWatch`, which kept L's light in step with S1's old beat, is no longer used here.)
-- **Ledge lamp:** on a post east of the upper stair's foot; its pool is 3.5 m across the floor (radius).
+- **Ledge lamp:** on a post east of the upper stair's foot; its pool on the floor is 7 m in radius.
 - **Ledge crates:** three 1.2 m crates by the ledge's east end (landing planner).
 - **No clambering onto the stairs** (`NoClamber` on both stair groups): you can't clamber,
   jump-clamber or catch an edge onto any flight, landing or rail, so the only way up is from the foot.

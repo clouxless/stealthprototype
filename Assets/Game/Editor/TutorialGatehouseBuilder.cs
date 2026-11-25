@@ -718,8 +718,12 @@ namespace StealthProto.EditorTools
             // being kept in step with him by StairWatch.) While the relief walks back up, the ledge
             // post is empty: that's your gap to follow S1 up.
             Vector3 Ld(float x, float z) => new Vector3(x, LedgeTop, z);
-            Vector3 watchPos = Ld(16f, 1f);
-            var shiftLoop = G.Route(routes, "PH_Route_Shift_Loop", true, 3f, (watchPos, 301f));
+            // S1 stands 5 m south-south-west of the upper stair's entrance (the open floor west of
+            // flight 1), facing it, so the far edge of his flashlight's Lit cone (6 m) covers it.
+            Vector3 stairEntrance = Ld(UpperX0 + 0.9f, UpperZ0 + Lane * 0.5f);
+            Vector3 watchPos = Ld(13f, 0.3f);
+            Vector3 toEntrance = stairEntrance - watchPos;
+            var shiftLoop = G.Route(routes, "PH_Route_Shift_Loop", true, 3f, (watchPos, Mathf.Atan2(toEntrance.x, toEntrance.z) * Mathf.Rad2Deg));
             Vector3 postPos = D(14f, 7.8f);
             var shiftPost = G.Route(routes, "PH_Route_Shift_Post", true, 3f, (postPos, 160f));
             var shiftMeet = G.Route(routes, "PH_Route_Shift_Meet", true, 3f, (Ld(9.5f, 0.5f), 90f));
@@ -778,7 +782,7 @@ namespace StealthProto.EditorTools
             // Planner radius = the pool's radius on the floor, so the cone is widened to reach it and
             // the range reaches the pool's rim with room to spare (a plain Lamp with range 3.5 m from
             // 3.4 m up barely touched the floor: v51-v53 showed no light).
-            const float lampPool = 3.5f, lampHeight = 3.4f;
+            const float lampPool = 7f, lampHeight = 3.4f;
             Vector3 lampAt = new Vector3(17f, LedgeTop + lampHeight, 0f);
             G.SpotLamp(lights, "PH_Lamp", lampAt, lampAt + Vector3.down, 2f * Mathf.Atan(lampPool / lampHeight) * Mathf.Rad2Deg,
                 1.3f * Mathf.Sqrt(lampPool * lampPool + lampHeight * lampHeight));
