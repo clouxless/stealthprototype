@@ -14,8 +14,8 @@ namespace StealthProto
     /// patrol (suspicious, searching, alert) and stops for good if either is down.
     ///
     /// If the patrolling guard is down, the post guard finds out when he comes to relieve him (at
-    /// once if he's already on his way): he walks to the patrol spot, gets suspicious there and
-    /// looks round, then stays on that spot as its new guard.
+    /// once if he's already on his way): he walks to the patrol spot, finds nobody there, and raises
+    /// the alarm (full alert, radioed).
     /// </summary>
     public class ShiftChange : MonoBehaviour
     {
@@ -82,12 +82,19 @@ namespace StealthProto
                 // Relief due (or under way): he finds nobody there and goes to see.
                 if (!Started && player != null && startZone.Contains(player.position)) { Started = true; timer = startDelay; }
                 bool due = CurrentPhase != Phase.Waiting || (Started && (timer -= Time.deltaTime) <= 0f);
-                if (!due || partnerLost) return;
-                if (onPost.State != GuardState.Patrol) return; // busy: notice when he's back
-                partnerLost = true;
+                if (!due) return;
                 Vector3 spot = patrolRoute.GetPoint(0).position;
-                onPost.AssignRoute(patrolRoute);
-                onPost.Investigate(spot);
+                if (!partnerLost)
+                {
+                    if (onPost.State != GuardState.Patrol) return; // busy: he'll go when he's back
+                    partnerLost = true;
+                    onPost.AssignRoute(patrolRoute); // goes to where his partner should be
+                    return;
+                }
+                if (onPost.State == GuardState.Alert) { enabled = false; return; } // already on to you
+                if (onPost.State != GuardState.Patrol) return; // busy: carries on to the spot after
+                if ((onPost.transform.position - spot).sqrMagnitude > 2.5f * 2.5f) return;
+                onPost.RaiseAlarm(spot);
                 enabled = false;
                 return;
             }
