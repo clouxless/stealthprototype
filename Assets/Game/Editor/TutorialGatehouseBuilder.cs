@@ -337,18 +337,12 @@ namespace StealthProto.EditorTools
         /// <summary>
         /// Upper stairs: seven flights of 1.37 m against the pier face (x 13.6..20, z 4.4..7). The foot is
         /// at the west end; the top landing at the east end opens north onto the bridge through a gap
-        /// in its south parapet (x 18.5..20).
-        ///
-        /// Hiding space: the inner lane under the second flight is hollow and walled off from the
-        /// stair, open only through a crawl hole (1.3 m wide, 1.07 m high) in the stair's EAST end,
-        /// along the pier face. The 1.9 m passage between the stair's east end and the ledge's east
-        /// rail leads to it. Inside it rises to 2.4 m headroom at the west end. It's dark, guards
-        /// can't get in, and nobody on the stairs or the ledge can see in except straight down the
-        /// hole. The stair foot is at the other end, covered by guard S1 and L's searchlight
-        /// (StairWatch). Used by the shift change.
+        /// in its south parapet (x 18.5..20). Solid under the first two flights (the crawl-in hiding
+        /// space was removed after playtest). The foot is covered by guard S1 and L's searchlight
+        /// (StairWatch). 1.9 m clear between its east end and the ledge's east rail.
         /// </summary>
         static void BuildUpperStairs(Transform parent)
-            => StackedStair(parent, UpperX0, UpperZ0, UpperFlights, UpperRise, UpperRun, LedgeTop, UpperFirstEast, LedgeTop, hollowUnder: true);
+            => StackedStair(parent, UpperX0, UpperZ0, UpperFlights, UpperRise, UpperRun, LedgeTop, UpperFirstEast, LedgeTop);
 
         /// <summary>
         /// A zig-zag stair up a wall face, two lanes deep (z0 outer, z0 + Lane inner, wall at z0 + 2 Lane).
@@ -715,9 +709,7 @@ namespace StealthProto.EditorTools
             //
             // Until the swap, the stair foot is always covered (StairWatch): at S1's watch point he
             // faces it (flashlight on it, 4 m away) while guard L's searchlight sweeps the ledge out
-            // and back; while he walks the rest of his beat, L's light rests on the foot. So the easy
-            // way in is the crawl hole at the stair's east end, round the far side, which neither
-            // light reaches. After the swap they fall out of step until the new post guard is up
+            // and back; while he walks the rest of his beat, L's light rests on the foot. After the swap they fall out of step until the new post guard is up
             // (L's light sweeps freely, S1 doesn't wait for it): that's your gap to follow S1 up.
             Vector3 Ld(float x, float z) => new Vector3(x, LedgeTop, z);
             Vector3 stairFoot = Ld(UpperX0 + 0.5f, UpperZ0 + 0.6f);
@@ -908,17 +900,6 @@ namespace StealthProto.EditorTools
             upper.lookStart = upper.lookEnd = new Vector3(0f, 1.2f, 0f);
             upper.fovStart = upper.fovEnd = 45f;
 
-            // Under the upper stair (the hiding space): nothing outside can see in, so a low shot
-            // from just outside the crawl hole at the east end, looking in. Wins over the stair shot.
-            float hz0 = UpperZ0 + Lane, hx0 = UpperX0, hx1 = UpperX0 + UpperLength + 0.3f;
-            var hide = Zone(zones, "PH_Cam_UnderStairs", CameraZone.Kind.Fixed,
-                new Vector3((hx0 + hx1) * 0.5f, LedgeTop, (hz0 + PierFace) * 0.5f),
-                new Vector3(hx1 - hx0, 1f, PierFace - hz0), 0.6f);
-            hide.priority = 1;
-            hide.eyeRelativeToPlayer = false;
-            hide.eyeStart = hide.eyeEnd = new Vector3(UpperX0 + UpperLength + 1.65f, LedgeTop + 0.8f, hz0 + Lane * 0.5f);
-            hide.lookStart = hide.lookEnd = new Vector3(0f, 0.4f, 0f);
-            hide.fovStart = hide.fovEnd = 55f;
         }
 
         static CameraZone Zone(Transform parent, string name, CameraZone.Kind kind, Vector3 centre, Vector3 size, float blendTime)

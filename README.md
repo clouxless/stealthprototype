@@ -262,11 +262,7 @@ the project files), with the first-pass guards W, L and L2 from the guard vision
   next to a small hut.
 - **Upper stairs:** seven flights of 1.37 m against the pier face at the ledge's east end (x 13.6..20).
   The foot is at the west end; it comes out at the east end onto the bridge through a gap in the
-  south parapet. Under it there's a **hiding space**: the inner lane under the second flight is
-  hollow and walled off, open only through a **crawl hole** (1.3 m wide, 1.07 m high) in the
-  stair's east end, reached by the 1.9 m passage between the stair and the ledge's east rail.
-  Inside it rises to 2.4 m at the west end. It's dark, guards can't get in, and nobody outside
-  can see in except straight down the hole. A low camera looks in through the hole while you're inside.
+  south parapet. (The crawl-in hiding space under it was removed.)
 - **Shift change on the ledge:** guard S1 paces a short beat west of the stair foot; S2 stands at
   the post on the bridge, west of the stair's top. Nothing happens until you step onto the ledge:
   then S2 comes down the stairs to relieve S1. They meet mid-ledge, stand a moment, swap, and S1
@@ -275,7 +271,7 @@ the project files), with the first-pass guards W, L and L2 from the guard vision
 - **The stair foot is covered until the swap** (`StairWatch`): at his watch point S1 faces the
   foot, flashlight on it, while guard L's searchlight sweeps from the foot across the ledge and
   back; he doesn't move on until it's back, and while he walks his beat the light rests on the
-  foot. So the easy way in is the crawl hole at the far end. After the swap they fall out of step
+  foot. After the swap they fall out of step
   (L's light sweeps freely, S1 doesn't wait) until the new post guard is up: that's the gap to
   follow S1 up the stairs. They also fall out of step whenever either guard is off patrol.
 - **Ledge searchlights (L, L2):** each hangs from a rail cantilevered off the bridge parapet,
