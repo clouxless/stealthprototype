@@ -891,7 +891,19 @@ namespace StealthProto.EditorTools
         {
             var zones = new GameObject("PH_CameraZones").transform; // outside PH_Level: triggers stay off the NavMesh
 
-            // Along the wall (spawn at z -118): 22 m of plain top-down, the dam view (z -96..-62, 34 m),
+            // Opening shot (spawn to the dam view, and out over the dolphins): still looking north up
+            // the wall, but pulled back and lower than the normal top-down, so the bottom of the frame
+            // reaches about 8.3 m behind you and takes in about half of the first dolphin (8.5 m south
+            // of the spawn) as well as the way ahead.
+            var opening = Zone(zones, "PH_Cam_Opening", CameraZone.Kind.Track, new Vector3(1.5f, 0.5f, -123f), new Vector3(10f, 8f, 54f), 1.5f);
+            opening.eyeRelativeToPlayer = opening.lookRelativeToPlayer = true;
+            opening.eyeStart = opening.eyeEnd = new Vector3(0f, 13f, -14f);
+            opening.lookStart = opening.lookEnd = new Vector3(0f, 0.5f, 1f);
+            opening.fovStart = opening.fovEnd = 50f;
+            opening.fixedControls = true;
+            opening.controlYaw = 0f;
+
+            // Along the wall (spawn at z -118): 22 m of the opening shot, the dam view (z -96..-62, 34 m),
             // then the over-the-shoulder approach (z -62 to the wall's end).
             // Dam view: tracks alongside you, 9 m to your right (east), looking west past you over the river.
             var dam = Zone(zones, "PH_Cam_DamView", CameraZone.Kind.Track, new Vector3(1.5f, 0.5f, -79f), new Vector3(10f, 8f, 34f), 1.8f);
