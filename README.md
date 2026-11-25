@@ -228,6 +228,13 @@ the project files), with the first-pass guards W, L and L2 from the guard vision
 - **Guide wall:** 3 m wide, 120 m long, with buttresses along its east side, away from the shipping channel (step down onto
   them) and four mooring dolphins carrying on downstream. No railings: a low lip marks each edge,
   and the edge rules keep you on. You start at its downstream tip.
+- **Guard W and the hiding step:** W stands at the top of the lower stairs. When you get within
+  about 25 m of the wall's end, he starts down; his flashlight shows him on the flights. At the
+  bottom he turns and walks south down the walkway toward you, past you, and on to a beat 35 to
+  60 m down the wall, clear of the stairs (`PatrolOnCue`). The last buttress, 12 m short of the
+  stairs, is a **hiding step**: narrow, 1.4 m below the walkway (step down, climb back up). Lie
+  prone against the wall face and the walkway's edge hides you as he passes above; lie out at
+  the step's outer edge and he can see you. Then head up the stairs behind him.
 - **Dolphins:** dash off the tip to jump out to them: gaps of 3.6, 3.2 and 3.2 m, then 4.2 m to
   the last one, where a short jump ends in a ledge catch. A placeholder item marker sits on the
   last one.
@@ -336,6 +343,7 @@ The layout lives in `Editor/TutorialGatehouseBuilder.cs`, one method per area.
 | `Scripts/Stealth/SwivelLight.cs` | Sweeping spotlight |
 | `Scripts/AI/GuardBrain.cs` | State machine, tells, hearing, radio, search, shooting |
 | `Scripts/AI/ShiftChange.cs` | Two guards trading a patrol and a post (shift change) |
+| `Scripts/AI/PatrolOnCue.cs` | A guard's scripted walk, started when the player steps into a box |
 | `Scripts/AI/StairWatch.cs` | Keeps the stair foot covered by the patroller or a searchlight |
 | `Scripts/AI/LastKnownMarker.cs` | Marker where hunting guards will search |
 | `Scripts/AI/VisionConeMesh.cs` | Vision drawn on the surfaces it covers |

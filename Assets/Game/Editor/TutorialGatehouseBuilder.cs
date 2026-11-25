@@ -32,7 +32,8 @@ namespace StealthProto.EditorTools
         const int UpperFlights = 7;
         const float LowerRise = (LedgeTop - WallTop) / LowerFlights;   // 1.6 m
         const float UpperRise = (DeckTop - LedgeTop) / UpperFlights;   // 1.37 m
-        const float Base = -8f;           // where the concrete meets the water (well under the surface)
+        const float Base = -8f;
+        const float HideStepTop = WallTop - 1.4f, HideStepWidth = 1.6f;           // where the concrete meets the water (well under the surface)
         const float WaterY = -5f;         // visual only
         const float HazardY = -12f;       // falling in the water kills you
 
@@ -257,7 +258,15 @@ namespace StealthProto.EditorTools
         {
             Box(parent, "PH_GuideWall", 0f, 3f, Base, WallTop, -120f, BlockFront);
             for (float z = -118f; z + 3f <= LowerZ0 - 1f; z += 9f)
-                Box(parent, "PH_Buttress", 3f, 5f, Base, WallTop - 0.6f, z, z + 3f);
+            {
+                bool last = z + 12f > LowerZ0 - 1f;
+                if (!last) { Box(parent, "PH_Buttress", 3f, 5f, Base, WallTop - 0.6f, z, z + 3f); continue; }
+                // The last one, 12 m short of the stairs, is a hiding step: narrow (1.6 m) and 1.4 m
+                // below the walkway, so you step down onto it and climb back up. Lie prone against
+                // the wall face and the walkway's edge hides you from a guard walking past above (the
+                // descending guard, W). Lie out at the step's outer edge and he can see you.
+                Box(parent, "PH_HidingStep", 3f, 3f + HideStepWidth, Base, HideStepTop, z, z + 4f);
+            }
 
             // No railings: the edge rules stop you walking off (you hang instead), and the open tip
             // lets you dash-jump out to the dolphins. A low concrete lip marks each edge from above.
@@ -629,7 +638,8 @@ namespace StealthProto.EditorTools
         /// <summary>
         /// First-pass guards from design/guard-vision/guard-vision-spec.md (map A placement).
         /// Each stands at one point (a one-point route: no back-and-forth) and sweeps its head.
-        ///   W  guide wall end, facing west over the river. Teaches: behind is safe, beside is not.
+        ///   W  top of the lower stairs; comes down and walks the guide wall toward you when you near
+        ///      its end (PatrolOnCue). Teaches: get off his path and lie low (the hiding step).
         ///   L, L2  bridge south parapet, 9.6 m above the ledge, facing south, each with a swivel
         ///          spotlight sweeping the ledge, out of step so a gap opens.
         ///   Road guards (R, G, T): from the road layout planner, see below.
@@ -663,7 +673,27 @@ namespace StealthProto.EditorTools
             }
             Vector3 D(float x, float z) => new Vector3(x, DeckTop, z);
 
-            Post("W", new Vector3(0.6f, WallTop, BlockFront - 1.8f), 270f);
+            // W: starts at the top of the lower stairs, on the ledge, facing out over them. When you
+            // get near the end of the guide wall he comes down (his flashlight shows him on the
+            // flights), then walks south down the walkway toward you, past the hiding step, and
+            // on to a beat well down the wall, clear of the stairs (PatrolOnCue).
+            Vector3 wTop = new Vector3(LowerX0 + LandingDepth * 0.5f, LedgeTop, BlockFront + 1.2f);
+            var wPost = G.Route(routes, "PH_Route_W_Post", true, 3f, (wTop, 180f));
+            G.BuildGuard("PH_Guard_W", wTop, 180f, wPost, player);
+            var wBrain = GameObject.Find("PH_Guard_W").GetComponent<GuardBrain>();
+            wBrain.sweepAngle = 20f; // a small look round while he waits up top
+            Vector3 Wk(float x, float z) => new Vector3(x, WallTop, z);
+            var wWalk = G.Route(routes, "PH_Route_W_Walk", false, 0.8f,
+                (new Vector3(LowerX0 + LandingDepth * 0.5f, WallTop, LowerZ0 + Lane), 225f), // bottom landing
+                (Wk(1.5f, LowerZ0 - 1f), 180f),
+                (Wk(1.5f, -38f), 180f));
+            var wBeat = G.Route(routes, "PH_Route_W_Beat", true, 2f, (Wk(1.5f, -62f), 0f), (Wk(1.5f, -38f), 180f));
+            var wCue = new GameObject("PH_W_Cue").AddComponent<PatrolOnCue>();
+            wCue.guard = wBrain;
+            wCue.walk = wWalk;
+            wCue.thenRoute = wBeat;
+            wCue.player = player;
+            wCue.cueZone = new Bounds(new Vector3(2.5f, WallTop + 1f, -21f), new Vector3(12f, 6f, 14f)); // z -28..-14 on the wall
             Post("L", new Vector3(8f, DeckTop, 7.6f), 180f);
             Post("L2", new Vector3(3f, DeckTop, 7.8f), 180f);
 
