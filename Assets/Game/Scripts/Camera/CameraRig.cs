@@ -290,7 +290,8 @@ namespace StealthProto
                     if (z != null && z.isActiveAndEnabled && z.Contains(target.position) && (active == null || z.priority > active.priority))
                         active = z;
             ActiveZone = active;
-            if (active != null && !zoneWeights.ContainsKey(active)) zoneWeights[active] = 0f;
+            // A zone you start the level in is fully on from the first frame (no blend in on load).
+            if (active != null && !zoneWeights.ContainsKey(active)) zoneWeights[active] = Time.timeSinceLevelLoad < 0.25f ? 1f : 0f;
 
             // Fading zones first, the active one last, so it ends on top.
             zoneOrder.Clear();
