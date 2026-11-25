@@ -32,8 +32,9 @@ namespace StealthProto.EditorTools
         const int UpperFlights = 7;
         const float LowerRise = (LedgeTop - WallTop) / LowerFlights;   // 1.6 m
         const float UpperRise = (DeckTop - LedgeTop) / UpperFlights;   // 1.37 m
-        const float Base = -8f;
-        const float HideStepTop = WallTop - 1.4f, HideStepWidth = 1.6f;           // where the concrete meets the water (well under the surface)
+        const float Base = -8f;           // where the concrete meets the water (well under the surface)
+        const float HideStepTop = WallTop - 1.4f, HideStepWidth = 1.6f;
+        const float HideStepZ = -19f;     // the last buttress slot: z -19..-15
         const float WaterY = -5f;         // visual only
         const float HazardY = -12f;       // falling in the water kills you
 
@@ -265,7 +266,7 @@ namespace StealthProto.EditorTools
                 // below the walkway, so you step down onto it and climb back up. Lie prone against
                 // the wall face and the walkway's edge hides you from a guard walking past above (the
                 // descending guard, W). Lie out at the step's outer edge and he can see you.
-                Box(parent, "PH_HidingStep", 3f, 3f + HideStepWidth, Base, HideStepTop, z, z + 4f);
+                Box(parent, "PH_HidingStep", 3f, 3f + HideStepWidth, Base, HideStepTop, HideStepZ, HideStepZ + 4f);
             }
 
             // No railings: the edge rules stop you walking off (you hang instead), and the open tip
@@ -683,17 +684,22 @@ namespace StealthProto.EditorTools
             var wBrain = GameObject.Find("PH_Guard_W").GetComponent<GuardBrain>();
             wBrain.sweepAngle = 20f; // a small look round while he waits up top
             Vector3 Wk(float x, float z) => new Vector3(x, WallTop, z);
-            var wWalk = G.Route(routes, "PH_Route_W_Walk", false, 0.8f,
-                (new Vector3(LowerX0 + LandingDepth * 0.5f, WallTop, LowerZ0 + Lane), 225f), // bottom landing
-                (Wk(1.5f, LowerZ0 - 1f), 180f),
-                (Wk(1.5f, -38f), 180f));
+            // Rendezvous: timed so a player walking straight up the wall meets him on the walkway
+            // right beside the hiding step (walk point 2). He sets off while you're still in the
+            // dam view and paces himself to keep the appointment (PatrolOnCue).
+            var wWalk = G.RouteTimed(routes, "PH_Route_W_Walk", 0f,
+                (new Vector3(LowerX0 + LandingDepth * 0.5f, WallTop, LowerZ0 + Lane), 225f, 0f), // bottom landing
+                (Wk(1.5f, LowerZ0 - 1f), 180f, 0f),
+                (Wk(1.5f, HideStepZ + 2f), 180f, 0f),                                           // beside the hiding step
+                (Wk(1.5f, -38f), 180f, 1f));
             var wBeat = G.Route(routes, "PH_Route_W_Beat", true, 2f, (Wk(1.5f, -62f), 0f), (Wk(1.5f, -38f), 180f));
             var wCue = new GameObject("PH_W_Cue").AddComponent<PatrolOnCue>();
             wCue.guard = wBrain;
             wCue.walk = wWalk;
             wCue.thenRoute = wBeat;
             wCue.player = player;
-            wCue.cueZone = new Bounds(new Vector3(2.5f, WallTop + 1f, -21f), new Vector3(12f, 6f, 14f)); // z -28..-14 on the wall
+            wCue.meetIndex = 2;
+            wCue.cueZone = new Bounds(new Vector3(2.5f, WallTop + 1f, (-120f + HideStepZ) * 0.5f), new Vector3(12f, 6f, HideStepZ + 120f)); // the wall, south of the step
             Post("L", new Vector3(8f, DeckTop, 7.6f), 180f);
             Post("L2", new Vector3(3f, DeckTop, 7.8f), 180f);
 
@@ -810,8 +816,8 @@ namespace StealthProto.EditorTools
 
         /// <summary>
         /// Cinematic shots. Guide wall: top-down at the spawn (so you see the dolphins), then the camera
-        /// swoops round to your right for the dam view, then slowly cranes back and up behind you onto
-        /// the lock head, and drops back to top-down 20 m before the wall's end. Each stair has a fixed
+        /// swoops round to your right for the dam view, then settles over your right shoulder looking
+        /// up the wall at the lock head (and guard W coming at you) to the wall's end. Each stair has a fixed
         /// camera out over the water, looking at it side-on.
         /// </summary>
         static void BuildCameraZones()
@@ -819,7 +825,7 @@ namespace StealthProto.EditorTools
             var zones = new GameObject("PH_CameraZones").transform; // outside PH_Level: triggers stay off the NavMesh
 
             // Along the wall (spawn at z -118): 16 m of plain top-down, the dam view (z -102..-52, 50 m),
-            // 12 m of plain top-down again, then the lock-head crane (z -40..-22, 18 m).
+            // then the over-the-shoulder approach (z -52 to the wall's end).
             // Dam view: tracks alongside you, 9 m to your right (east), looking west past you over the river.
             var dam = Zone(zones, "PH_Cam_DamView", CameraZone.Kind.Track, new Vector3(1.5f, 0.5f, -77f), new Vector3(10f, 8f, 50f), 1.8f);
             dam.eyeRelativeToPlayer = true;
@@ -831,20 +837,24 @@ namespace StealthProto.EditorTools
             dam.fixedControls = true;
             dam.controlYaw = 0f;
 
-            // Lock view: starts at your shoulder, then slowly cranes back and up until the head fills the frame.
-            var lockView = Zone(zones, "PH_Cam_LockView", CameraZone.Kind.Crane, new Vector3(1.5f, 0.5f, -31f), new Vector3(10f, 8f, 18f), 2.5f);
-            lockView.progressStart = new Vector3(1.5f, 0f, -40f);
-            lockView.progressEnd = new Vector3(1.5f, 0f, -22f);
-            lockView.easePower = 2f;
-            lockView.eyeRelativeToPlayer = true;
-            lockView.eyeStart = new Vector3(0.6f, 2f, -4.5f);
-            lockView.eyeEnd = new Vector3(4f, 13f, -19f);
-            lockView.lookStart = new Vector3(0f, 1.8f, 12f);
-            lockView.lookEnd = new Vector3(0f, 11f, 45f);
-            lockView.fovStart = 50f;
-            lockView.fovEnd = 42f;
-            lockView.fixedControls = true;
-            lockView.controlYaw = 0f;
+            // Approach: from the end of the dam view to the end of the walkway, one over-the-shoulder
+            // shot looking up the wall at the lock head, so you watch W come down the stairs (his
+            // flashlight) and walk straight at you. It starts a little high and wide behind your right
+            // shoulder and slowly pushes in tight as you close in. Up on the stick stays north.
+            var approach = Zone(zones, "PH_Cam_Approach", CameraZone.Kind.Crane,
+                new Vector3(2f, 0f, (-52f + BlockFront) * 0.5f), new Vector3(10f, 6f, BlockFront + 52f), 1.5f);
+            approach.progressStart = new Vector3(1.5f, 0f, -52f);
+            approach.progressEnd = new Vector3(1.5f, 0f, HideStepZ);
+            approach.easePower = 1.5f;
+            approach.eyeRelativeToPlayer = true;
+            approach.eyeStart = new Vector3(1.4f, 3.2f, -5.5f);
+            approach.eyeEnd = new Vector3(0.75f, 1.85f, -2.6f);
+            approach.lookStart = new Vector3(-0.2f, 2.6f, 16f);
+            approach.lookEnd = new Vector3(-0.3f, 1.5f, 8f);
+            approach.fovStart = 46f;
+            approach.fovEnd = 52f;
+            approach.fixedControls = true;
+            approach.controlYaw = 0f;
 
             // Stairs: fixed cameras over the water to the south, turning to keep you in frame. Each
             // zone is a box round its stair, capped in height, so climbing out of the top of it hands
@@ -856,6 +866,7 @@ namespace StealthProto.EditorTools
             var lower = Zone(zones, "PH_Cam_LowerStairs", CameraZone.Kind.Fixed,
                 new Vector3((lx0 - 0.5f + lx1 + 1f) * 0.5f, (lowY0 + lowY1) * 0.5f, (LowerZ0 - 1f + BlockFront) * 0.5f),
                 new Vector3(lx1 + 1f - (lx0 - 0.5f), lowY1 - lowY0, BlockFront - (LowerZ0 - 1f)), 1f);
+            lower.priority = 1; // wins over the approach shot where they meet at the walkway's end
             lower.eyeRelativeToPlayer = false;
             lower.eyeStart = lower.eyeEnd = new Vector3((lx0 + lx1) * 0.5f, WallTop + 5f, LowerZ0 - 12f);
             lower.lookStart = lower.lookEnd = new Vector3(0f, 1.2f, 0f);
