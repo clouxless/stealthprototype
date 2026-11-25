@@ -718,19 +718,24 @@ namespace StealthProto.EditorTools
             // being kept in step with him by StairWatch.) While the relief walks back up, the ledge
             // post is empty: that's your gap to follow S1 up.
             Vector3 Ld(float x, float z) => new Vector3(x, LedgeTop, z);
-            // S1 stands 5 m south-south-west of the upper stair's entrance (the open floor west of
-            // flight 1), facing it, so the far edge of his flashlight's Lit cone (6 m) covers it.
+            // S1 stands right by the ledge lamp, in its Lit core (walk up to him and you're Lit), 4.7 m
+            // south-south-east of the upper stair's entrance (the open floor west of flight 1), facing
+            // it, so the far edge of his flashlight's Lit cone (6 m) covers it.
             Vector3 stairEntrance = Ld(UpperX0 + 0.9f, UpperZ0 + Lane * 0.5f);
-            Vector3 watchPos = Ld(13f, 0.3f);
+            Vector3 watchPos = Ld(16.6f, 0.9f);
             Vector3 toEntrance = stairEntrance - watchPos;
             var shiftLoop = G.Route(routes, "PH_Route_Shift_Loop", true, 3f, (watchPos, Mathf.Atan2(toEntrance.x, toEntrance.z) * Mathf.Rad2Deg));
             Vector3 postPos = D(14f, 7.8f);
             var shiftPost = G.Route(routes, "PH_Route_Shift_Post", true, 3f, (postPos, 160f));
-            var shiftMeet = G.Route(routes, "PH_Route_Shift_Meet", true, 3f, (Ld(9.5f, 0.5f), 90f));
+            // The relief comes down and stops beside S1 (out of his beam), and S1 stays on his spot
+            // facing the entrance until the swap, so the stair is never left unwatched: you can only
+            // go up after the swap, behind S1 as he climbs to the post.
+            Vector3 meetPos = Ld(15.4f, 0.2f), toS1 = watchPos - meetPos;
+            var shiftMeet = G.Route(routes, "PH_Route_Shift_Meet", true, 3f, (meetPos, Mathf.Atan2(toS1.x, toS1.z) * Mathf.Rad2Deg));
             // After the swap the newcomer doesn't take S1's spot: he goes to the ledge's south edge,
             // east, facing out over the water (landing planner, "S2 endpoint").
             var shiftAfter = G.Route(routes, "PH_Route_Shift_After", true, 3f, (Ld(17f, -3f), 180f));
-            var shiftPartner = G.Route(routes, "PH_Route_Shift_Partner", true, 3f, (Ld(10.8f, 0.5f), 270f));
+            var shiftPartner = G.Route(routes, "PH_Route_Shift_Partner", true, 3f, (watchPos, Mathf.Atan2(toEntrance.x, toEntrance.z) * Mathf.Rad2Deg));
             G.BuildGuard("PH_Guard_S1", watchPos, shiftLoop.GetPoint(0).eulerAngles.y, shiftLoop, player);
             G.BuildGuard("PH_Guard_S2", postPos, 160f, shiftPost, player);
             var s1 = GameObject.Find("PH_Guard_S1").GetComponent<GuardBrain>();
