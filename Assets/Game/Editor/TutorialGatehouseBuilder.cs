@@ -881,13 +881,14 @@ namespace StealthProto.EditorTools
             approach.fixedControls = true;
             approach.controlYaw = 0f;
 
-            // Stairs: fixed cameras over the water to the south, turning to keep you in frame. Each
-            // zone is a box round its stair, capped in height, so climbing out of the top of it hands
-            // back to top-down. Lower stair: the first two flights (half the climb); from the second
-            // turn it's top-down, so you see the searchlights sweeping the ledge before you reach it
-            // (playtest: the side view walked you straight into the beam).
+            // Stairs: fixed cameras over the water to the south, turning to keep you in frame. On a
+            // stacked stair every flight but the last two has another flight straight over it, which
+            // hides you from the top-down camera. So each zone is a box round its stair capped at the
+            // turn under the last two flights (feet up to 15 cm above it): the side view lasts exactly
+            // while there's stair over your head, and it's top-down from the first step up the
+            // second-to-last flight (and back to the side view on the way down at the same point).
             float lx0 = LowerX0, lx1 = LowerX0 + LowerLength;
-            float lowY0 = WallTop - 1f, lowY1 = WallTop + 2f * LowerRise - 0.2f;
+            float lowY0 = WallTop - 1f, lowY1 = WallTop + (LowerFlights - 2) * LowerRise + 0.15f;
             var lower = Zone(zones, "PH_Cam_LowerStairs", CameraZone.Kind.Fixed,
                 new Vector3((lx0 - 0.5f + lx1 + 1f) * 0.5f, (lowY0 + lowY1) * 0.5f, (LowerZ0 - 1f + BlockFront) * 0.5f),
                 new Vector3(lx1 + 1f - (lx0 - 0.5f), lowY1 - lowY0, BlockFront - (LowerZ0 - 1f)), 1f);
@@ -897,10 +898,8 @@ namespace StealthProto.EditorTools
             lower.lookStart = lower.lookEnd = new Vector3(0f, 1.2f, 0f);
             lower.fovStart = lower.fovEnd = 45f;
 
-            // Upper stair: the side view lasts until halfway up the last flight, then it's top-down for
-            // the climb onto the bridge, where guards L and L2 stand.
             float ux0 = UpperX0, ux1 = UpperX0 + UpperLength;
-            float upY0 = LedgeTop - 1f, upY1 = LedgeTop + (UpperFlights - 0.5f) * UpperRise;
+            float upY0 = LedgeTop - 1f, upY1 = LedgeTop + (UpperFlights - 2) * UpperRise + 0.15f;
             var upper = Zone(zones, "PH_Cam_UpperStairs", CameraZone.Kind.Fixed,
                 new Vector3((ux0 - 0.5f + ux1 + 1f) * 0.5f, (upY0 + upY1) * 0.5f, (UpperZ0 - 0.5f + PierFace) * 0.5f),
                 new Vector3(ux1 + 1f - (ux0 - 0.5f), upY1 - upY0, PierFace - (UpperZ0 - 0.5f)), 1f);

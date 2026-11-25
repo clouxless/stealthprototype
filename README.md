@@ -249,10 +249,9 @@ the project files), with the first-pass guards W, L and L2 from the guard vision
   little high and wide behind your right shoulder and slowly pushes in tight as you near the
   hiding step, so you watch guard W come down the stairs and walk straight at you. Once he's
   walked past you it's top-down again. Each stair has a fixed camera out over the water,
-  looking at it side-on. On the lower stair it covers the first two flights (half the climb): from
-  the second turn it's top-down again, so you see the ledge's searchlights before you get there.
-  On the upper stair it lasts until halfway up the last flight, then it's top-down for the
-  climb onto the bridge. Any suspicious or alert guard snaps the camera back to top-down. The
+  looking at it side-on. The side view lasts exactly while there's stair over
+  your head: up to the turn under the last two flights (the second turn on the lower stair, the
+  fifth on the upper one). From the first step up the second-to-last flight it's top-down. Any suspicious or alert guard snaps the camera back to top-down. The
   shots are `CameraZone` boxes under `PH_CameraZones` (tweak them in the inspector).
   On the stairs, movement follows the camera, but when the view turns the stick keeps its old
   directions until you let go of it or swing it more than 45 degrees. Along the wall (the river
