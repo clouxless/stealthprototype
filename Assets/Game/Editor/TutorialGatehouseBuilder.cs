@@ -775,10 +775,19 @@ namespace StealthProto.EditorTools
             // Ledge lamp: its Dim ring is Slow walking, Very slow crawling; the ledge's
             // front edge stays dark.
             // (Planner, v51: moved east of the upper stair's foot, smaller.)
-            Vector3 lampAt = new Vector3(17f, LedgeTop + 3.4f, 0f);
-            G.Lamp(lights, lampAt, 3.5f);
+            // Planner radius = the pool's radius on the floor, so the cone is widened to reach it and
+            // the range reaches the pool's rim with room to spare (a plain Lamp with range 3.5 m from
+            // 3.4 m up barely touched the floor: v51-v53 showed no light).
+            const float lampPool = 3.5f, lampHeight = 3.4f;
+            Vector3 lampAt = new Vector3(17f, LedgeTop + lampHeight, 0f);
+            G.SpotLamp(lights, "PH_Lamp", lampAt, lampAt + Vector3.down, 2f * Mathf.Atan(lampPool / lampHeight) * Mathf.Rad2Deg,
+                1.3f * Mathf.Sqrt(lampPool * lampPool + lampHeight * lampHeight));
             G.Visual(PrimitiveType.Cylinder, lights, "PH_LampPost",
                 new Vector3(lampAt.x, LedgeTop + 1.7f, lampAt.z), new Vector3(0.15f, 1.7f, 0.15f), G.gridMat);
+
+            // Crates by the ledge's east end (landing planner): 1.2 m cubes, low enough to clamber.
+            foreach (var (cx, cz) in new[] { (18.5f, -2f), (19.5f, -1f), (20f, 2.5f) })
+                G.Block(root, "PH_Crate", new Vector3(cx, LedgeTop + 0.6f, cz), Vector3.one * 1.2f, Quaternion.identity);
         }
 
         /// <summary>

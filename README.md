@@ -277,7 +277,8 @@ the project files), with the first-pass guards W, L and L2 from the guard vision
   lap out of step. L's (3.2 m circle, 12 s a lap): east of mid-ledge, west, then north toward the
   upper stair's foot. L2's (3 m, 18 s): off the lower stair's top, north-east, then mid-ledge.
   (`StairWatch`, which kept L's light in step with S1's old beat, is no longer used here.)
-- **Ledge lamp:** on a post east of the upper stair's foot, range 3.5 m.
+- **Ledge lamp:** on a post east of the upper stair's foot; its pool is 3.5 m across the floor (radius).
+- **Ledge crates:** three 1.2 m crates by the ledge's east end (landing planner).
 - **No clambering onto the stairs** (`NoClamber` on both stair groups): you can't clamber,
   jump-clamber or catch an edge onto any flight, landing or rail, so the only way up is from the foot.
 - **Guards on stairs:** the NavMesh is baked for a 0.3 m-radius, 1.8 m agent (`RuntimeNavMeshBaker`),
