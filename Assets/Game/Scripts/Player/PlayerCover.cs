@@ -6,6 +6,9 @@ namespace StealthProto
     /// Cover cling (MGS1-style), on a held button: Shift / gamepad LB.
     ///   - Hold it next to a tall wall (or walk into one while holding it) to press your back to it.
     ///     Let go to step off.
+    ///   - Next to a low one (chest high: crates, sandbags, barriers; probed at lowProbeHeights but
+    ///     not the top of probeHeights) you crouch behind it instead, below its top, so guards on
+    ///     the far side can't see you over it. Sliding along keeps you crouched.
     ///   - The stick slides you along the wall. Left and right are read in the normal top-down frame,
     ///     so they don't change when the camera swings. You stop at the wall's end.
     ///   - Near the end of the wall (the last swingZone metres, short of the very edge) the camera
@@ -15,7 +18,8 @@ namespace StealthProto
     ///   - Dash or crawl also leave cover.
     /// In a vent or floor grate (SoundDuct) the same hold-melee / release knock works without
     /// Shift; moving cancels it. Its noise comes out at the vent's openings, or above the grate.
-    /// The player is still fully visible to guards in cover; it's for seeing and luring, not hiding.
+    /// Against a tall wall the player is still fully visible to guards; it's for seeing and luring.
+    /// Crouched behind low cover you're hidden from the far side (the body is below its top).
     /// </summary>
     [RequireComponent(typeof(PlayerMotor), typeof(PlayerInputReader), typeof(CharacterController))]
     public class PlayerCover : MonoBehaviour
@@ -28,8 +32,13 @@ namespace StealthProto
         public float knockRadius = 16f;
         [Range(0f, 1f)] public float knockLoudness = 0.5f;
         public float knockCooldown = 0.8f;
-        [Tooltip("Wall probe heights. All must hit for a wall to count as cover (no clinging to crates).")]
+        [Tooltip("Wall probe heights. All must hit for a wall to count as tall cover.")]
         public float[] probeHeights = { 1.0f, 1.6f };
+        [Tooltip("Low cover: all of these must hit (and it isn't tall cover). You crouch behind it.")]
+        public float[] lowProbeHeights = { 0.4f, 0.75f };
+
+        /// <summary>Crouched behind low cover (rather than standing against a tall wall).</summary>
+        public bool LowCover { get; private set; }
 
         public bool InCover { get; private set; }
         /// <summary>-1 or +1 when stopped at the left/right end of the wall (relative to the wall tangent), else 0.</summary>
@@ -45,7 +54,7 @@ namespace StealthProto
             get
             {
                 if (PreviewingKnock) return InCover ? "Release LMB: knock  |  let go of Shift: cancel" : "Release LMB: knock  |  move: cancel";
-                if (InCover) return Swinging ? "Corner view  |  hold LMB: knock" : "In cover  |  hold LMB: knock";
+                if (InCover) return Swinging ? "Corner view  |  hold LMB: knock" : LowCover ? "Crouched in cover  |  hold LMB: knock" : "In cover  |  hold LMB: knock";
                 if (inDuct) return "Hold LMB: knock";
                 return null;
             }
@@ -109,6 +118,7 @@ namespace StealthProto
                 return;
             }
 
+            if (motor.IsCrouched) motor.SetCrouch(false); // left low cover somewhere with no head room: stand when you can
             inDuct = SoundDuct.Find(transform.position) != null;
             if (inDuct) UpdateDuctKnock();
             else
@@ -128,18 +138,27 @@ namespace StealthProto
                            || (context != null && context.Busy) || (rig != null && rig.IsFirstPerson);
             if (blocked) return;
 
-            // The wall you're walking into first, then the one you're facing, then the nearest.
+            // Tall walls first, then low cover. Within each: the wall you're walking into, then the
+            // one you're facing, then the nearest.
+            if (FindWall(probeHeights, out Vector3 n0, out float d0)) { Enter(false, n0, d0); return; }
+            if (FindWall(lowProbeHeights, out Vector3 n1, out float d1)) Enter(true, n1, d1);
+        }
+
+        bool FindWall(float[] heights, out Vector3 bestNormal, out float bestDistance)
+        {
+            probeSet = heights;
             Vector3 wish = motor.CameraRelative(input.Move);
             wish.y = 0f;
             bool found = false;
-            Vector3 bestNormal = default;
-            float bestDistance = float.MaxValue;
+            bestNormal = default;
+            bestDistance = float.MaxValue;
             if (wish.sqrMagnitude > 0.25f && ProbeWall(transform.position, wish.normalized, out bestNormal, out bestDistance))
                 found = true;
             else if (ProbeWall(transform.position, Flat(transform.forward), out bestNormal, out bestDistance))
                 found = true;
             else
             {
+                bestDistance = float.MaxValue; // the failed probes above wrote 0 here
                 foreach (var dir in Compass)
                 {
                     if (!ProbeWall(transform.position, dir, out Vector3 n, out float d) || d >= bestDistance) continue;
@@ -148,8 +167,14 @@ namespace StealthProto
                     bestDistance = d;
                 }
             }
-            if (!found) return;
+            return found;
+        }
 
+        void Enter(bool low, Vector3 bestNormal, float bestDistance)
+        {
+            if (low && !motor.SetCrouch(true)) return;
+            LowCover = low;
+            probeSet = low ? lowProbeHeights : probeHeights;
             InCover = true;
             wallNormal = bestNormal;
             lastMoveSide = 0;
@@ -164,14 +189,17 @@ namespace StealthProto
             return v.sqrMagnitude > 0.0001f ? v.normalized : Vector3.forward;
         }
 
-        /// <summary>A tall, roughly vertical, non-character wall in direction dir at every probe height.</summary>
+        /// <summary>The probe heights in use: probeHeights (tall wall) or lowProbeHeights (low cover).</summary>
+        float[] probeSet;
+
+        /// <summary>A roughly vertical, non-character wall in direction dir at every height in probeSet.</summary>
         bool ProbeWall(Vector3 feet, Vector3 dir, out Vector3 normal, out float distance)
         {
             normal = default;
             distance = 0f;
             float maxDist = controller.radius + reach;
             Vector3 sum = Vector3.zero;
-            foreach (float h in probeHeights)
+            foreach (float h in probeSet ?? probeHeights)
             {
                 if (!Occlusion.Raycast(feet + Vector3.up * h, dir, maxDist, transform, null, out RaycastHit hit)) return false;
                 if (Mathf.Abs(hit.normal.y) > 0.3f) return false;
@@ -309,6 +337,9 @@ namespace StealthProto
         void Exit()
         {
             InCover = false;
+            if (LowCover && motor != null) motor.SetCrouch(false);
+            LowCover = false;
+            probeSet = probeHeights;
             Swinging = false;
             AtEdge = 0;
             CancelKnock();

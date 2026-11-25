@@ -126,7 +126,10 @@ While hanging: the stick shimmies along the edge, E climbs up, Space or C lets g
   as they are on screen top-down, even when the camera swings). Near the end of the wall, in the
   last metre and short of the very edge, the camera swings low to look along the wall and round
   the corner, MGS1-style (`CameraRig.coverSwing`: 1 is the full swing, 0 stays top-down). Cover
-  is for seeing and luring, not hiding: guards still see you there.
+  is for seeing and luring, not hiding: guards still see you there. Against low cover (chest high:
+  crates, sandbags, barriers) Shift crouches you behind it instead (placeholder pose: the
+  mannequin squashed), below its top, so guards on the far side can't see you over it; you can
+  slide along it crouched.
 - **Knocking (luring).** In cover, hold LMB (X) to show the knock's reach on the floor: a 16 m
   circle with any sealed-off spaces cut out. Release to knock; let go of Shift first to cancel.
   Every guard who hears it stops and turns to it with a "?" for a second (`hearNoticeTime`),
@@ -264,12 +267,14 @@ the project files), with the first-pass guards W, L and L2 from the guard vision
 - **Upper stairs:** seven flights of 1.37 m against the pier face at the ledge's east end (x 13.6..20).
   The foot is at the west end; it comes out at the east end onto the bridge through a gap in the
   south parapet. (The crawl-in hiding space under it was removed.)
-- **Shift change on the ledge:** guard S1 stands right by the ledge lamp, in its Lit core, 4.7 m
+- **Shift change on the ledge:** S1 and S2 walk 2.4 m/s (guards normally walk 1.4) since they only walk between posts.
+- **Shift change details:** guard S1 stands in the ledge lamp's pool, 4.7 m
   south-south-east of the upper stair's entrance and facing it, so the far edge of his flashlight
   covers it; S2 stands at the post on the bridge, west of the stair's top.
   Nothing happens until you step onto the ledge: then S2 comes down the stairs to relieve S1. They
   meet beside S1 (he never leaves his spot or stops facing the entrance, so you can't go up
-  before the swap), stand a moment, swap, and S1 walks up to the post while S2 goes to the ledge's
+  before the swap), stand a moment, swap, and S1 walks up to a post 3 m west of S2's old one, facing south-south-west with the
+  stair's exit behind him, while S2 goes to the ledge's
   south-east edge, facing out over the water (`handoverRoute`). After that it repeats every
   45 s with the roles swapped, and pauses while either is off patrol (`ShiftChange`). While the
   relief walks back up, the post is empty: that's the gap to follow him up the stairs.
@@ -279,9 +284,9 @@ the project files), with the first-pass guards W, L and L2 from the guard vision
   lap out of step. L's (3.2 m circle, 12 s a lap): east of mid-ledge, west, then north toward the
   upper stair's foot. L2's (3 m, 18 s): off the lower stair's top, north-east, then mid-ledge.
   (`StairWatch`, which kept L's light in step with S1's old beat, is no longer used here.)
-- **Ledge lamp:** on a post east of the upper stair's foot; its pool on the floor is 7 m in radius.
+- **Ledge lamp:** on a post south-west of the upper stair's entrance, over S1: a 4.2 m pool, all Lit, no Dim ring.
 - **Ledge crates:** three 1.2 m crates by the ledge's east end (landing planner).
-- **Round the back of the upper stairs:** along the ledge's south rail (1.35 m clear south of the crates), then north up the east side (1.35-1.85 m past the crates) to the 1.95 m gap behind the stairs. It passes behind S1, through the lamp's Lit core.
+- **Round the back of the upper stairs:** along the ledge's south rail (1.35 m clear south of the crates), then north up the east side (1.35-1.85 m past the crates) to the 1.95 m gap behind the stairs. It passes behind S1 and stays out of the lamp's pool.
 - **No clambering onto the stairs** (`NoClamber` on both stair groups): you can't clamber,
   jump-clamber or catch an edge onto any flight, landing or rail, so the only way up is from the foot.
 - **Guards on stairs:** the NavMesh is baked for a 0.3 m-radius, 1.8 m agent (`RuntimeNavMeshBaker`),

@@ -718,7 +718,7 @@ namespace StealthProto.EditorTools
             // being kept in step with him by StairWatch.) While the relief walks back up, the ledge
             // post is empty: that's your gap to follow S1 up.
             Vector3 Ld(float x, float z) => new Vector3(x, LedgeTop, z);
-            // S1 stands right by the ledge lamp, in its Lit core (walk up to him and you're Lit), 4.7 m
+            // S1 stands by the ledge lamp, in its pool (walk up to him and you're Lit), 4.7 m
             // south-south-east of the upper stair's entrance (the open floor west of flight 1), facing
             // it, so the far edge of his flashlight's Lit cone (6 m) covers it.
             Vector3 stairEntrance = Ld(UpperX0 + 0.9f, UpperZ0 + Lane * 0.5f);
@@ -741,6 +741,8 @@ namespace StealthProto.EditorTools
             var s1 = GameObject.Find("PH_Guard_S1").GetComponent<GuardBrain>();
             var s2 = GameObject.Find("PH_Guard_S2").GetComponent<GuardBrain>();
             s1.sweepAngle = s2.sweepAngle = 0f; // heads still: the flashlight stays on what he faces
+            // They only walk between posts (up and down the stairs, to the meet): brisk, not a stroll.
+            s1.walkSpeed = s2.walkSpeed = 2.4f;
             var shift = new GameObject("PH_ShiftChange").AddComponent<ShiftChange>();
             shift.patrolling = s1;
             shift.onPost = s2;
@@ -750,6 +752,10 @@ namespace StealthProto.EditorTools
             shift.partnerRoute = shiftPartner;
             shift.reliefInterval = 45f;
             shift.handoverRoute = shiftAfter;
+            // And the guard going up doesn't stand at S2's old post by the stair's top (he'd be
+            // looking right at you coming up behind him): he goes 3 m further west and faces
+            // south-south-west over the parapet, with the stair's exit behind him.
+            shift.handoverPostRoute = G.Route(routes, "PH_Route_Shift_PostAfter", true, 3f, (D(11f, 8.2f), 200f));
             shift.player = player;
             shift.startZone = new Bounds(new Vector3(11f, LedgeTop + 1.5f, (BlockFront + PierFace) * 0.5f), new Vector3(22f, 3f, LedgeDepth));
 
@@ -781,16 +787,16 @@ namespace StealthProto.EditorTools
             GameObject.Find("PH_Guard_L").GetComponent<GuardVision>().searchlights = new[] { swivelL };
             GameObject.Find("PH_Guard_L2").GetComponent<GuardVision>().searchlights = new[] { swivelL2 };
 
-            // Ledge lamp: its Dim ring is Slow walking, Very slow crawling; the ledge's
-            // front edge stays dark.
-            // (Planner, v51: moved east of the upper stair's foot, smaller.)
-            // Planner radius = the pool's radius on the floor, so the cone is widened to reach it and
-            // the range reaches the pool's rim with room to spare (a plain Lamp with range 3.5 m from
-            // 3.4 m up barely touched the floor: v51-v53 showed no light).
-            const float lampPool = 7f, lampHeight = 3.4f;
-            Vector3 lampAt = new Vector3(17f, LedgeTop + lampHeight, 0f);
-            G.SpotLamp(lights, "PH_Lamp", lampAt, lampAt + Vector3.down, 2f * Mathf.Atan(lampPool / lampHeight) * Mathf.Rad2Deg,
+            // Ledge lamp, south-west of the upper stair's entrance, over S1: all Lit, no Dim ring
+            // (v57), a 4.2 m pool (the Lit core it had before). The cone is set to that radius on
+            // the floor and the range reaches past its rim. The south-east corner stays dark.
+            const float lampPool = 4.2f, lampHeight = 3.4f;
+            Vector3 lampAt = new Vector3(15f, LedgeTop + lampHeight, 1.5f);
+            var lamp = G.SpotLamp(lights, "PH_Lamp", lampAt, lampAt + Vector3.down, 2f * Mathf.Atan(lampPool / lampHeight) * Mathf.Rad2Deg,
                 1.3f * Mathf.Sqrt(lampPool * lampPool + lampHeight * lampHeight));
+            var lampStealth = lamp.GetComponent<StealthLight>();
+            lampStealth.litFraction = 1f;       // the whole pool is Lit
+            lampStealth.litRangeFraction = 1f;
             G.Visual(PrimitiveType.Cylinder, lights, "PH_LampPost",
                 new Vector3(lampAt.x, LedgeTop + 1.7f, lampAt.z), new Vector3(0.15f, 1.7f, 0.15f), G.gridMat);
 

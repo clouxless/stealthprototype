@@ -32,6 +32,8 @@ namespace StealthProto
         public int handoverStartIndex;
         [Tooltip("Optional: the route the newcomer takes after the handover instead of patrolRoute (every swap).")]
         public PatrolRoute handoverRoute;
+        [Tooltip("Optional: from the first swap on, the post is here instead (the guard going up walks to it, and later reliefs start from it).")]
+        public PatrolRoute handoverPostRoute;
         public Transform player;
         [Tooltip("World-space box; the first relief starts when the player steps into it.")]
         public Bounds startZone;
@@ -107,6 +109,7 @@ namespace StealthProto
                     if (timer > 0f) return;
                     if (handoverRoute != null) onPost.AssignRoute(handoverRoute);
                     else onPost.AssignRoute(patrolRoute, handoverStartIndex);
+                    if (handoverPostRoute != null) postRoute = handoverPostRoute;
                     patrolling.AssignRoute(postRoute);
                     (patrolling, onPost) = (onPost, patrolling);
                     timer = reliefInterval;
