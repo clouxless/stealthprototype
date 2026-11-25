@@ -365,6 +365,7 @@ namespace StealthProto
             float probeLength = clamberMaxHeight + 0.3f - minClimbHeight;
             if (!Occlusion.Raycast(probe, Vector3.down, probeLength, transform, null, out RaycastHit top)) return false;
             if (top.normal.y < 0.7f) return false;
+            if (NoClamber.On(top.collider) || NoClamber.On(wall.collider)) return false; // e.g. stairs: go up from the foot
             float height = top.point.y - origin.y;
             if (height < minClimbHeight || height > clamberMaxHeight) return false;
 
@@ -649,6 +650,7 @@ namespace StealthProto
                 if (landDistance > jumpLandReach) continue;
                 Vector3 p = origin + d * landDistance;
                 if (!GroundAt(p, origin.y, out RaycastHit hit) || Mathf.Abs(hit.point.y - topY) > 0.3f) continue;
+                if (dy > 0.3f && NoClamber.On(hit.collider)) continue; // can't jump-clamber onto it
                 Vector3 land = hit.point;
                 if (!BodyFits(land)) continue;
                 // A clear flight: nothing solid between chest height here and over the landing.
@@ -674,6 +676,7 @@ namespace StealthProto
             Vector3 from = new Vector3(origin.x, topY - 0.12f, origin.z) + d * (edgeDistance - 0.8f);
             if (!Occlusion.Raycast(from, d, 1.2f, transform, null, out RaycastHit face)) return false;
             if (Mathf.Abs(face.normal.y) > 0.3f) return false;
+            if (NoClamber.On(face.collider)) return false; // can't catch its edge
             Vector3 normal = face.normal;
             normal.y = 0f;
             if (normal.sqrMagnitude < 0.01f) return false;

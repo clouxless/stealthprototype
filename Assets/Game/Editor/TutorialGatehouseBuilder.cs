@@ -331,7 +331,10 @@ namespace StealthProto.EditorTools
         /// opens north onto the ledge.
         /// </summary>
         static void BuildLowerStairs(Transform parent)
-            => StackedStair(parent, LowerX0, LowerZ0, LowerFlights, LowerRise, LowerRun, WallTop, true, Base);
+        {
+            StackedStair(parent, LowerX0, LowerZ0, LowerFlights, LowerRise, LowerRun, WallTop, true, Base);
+            parent.gameObject.AddComponent<NoClamber>(); // the only way up is from the foot
+        }
 
         /// <summary>
         /// Upper stairs: seven flights of 1.37 m against the pier face (x 13.6..20, z 4.4..7). The foot is
@@ -341,7 +344,10 @@ namespace StealthProto.EditorTools
         /// 1.9 m clear between its east end and the ledge's east rail.
         /// </summary>
         static void BuildUpperStairs(Transform parent)
-            => StackedStair(parent, UpperX0, UpperZ0, UpperFlights, UpperRise, UpperRun, LedgeTop, UpperFirstEast, LedgeTop);
+        {
+            StackedStair(parent, UpperX0, UpperZ0, UpperFlights, UpperRise, UpperRun, LedgeTop, UpperFirstEast, LedgeTop);
+            parent.gameObject.AddComponent<NoClamber>(); // the only way up is from the foot
+        }
 
         /// <summary>
         /// A zig-zag stair up a wall face, two lanes deep (z0 outer, z0 + Lane inner, wall at z0 + 2 Lane).
@@ -715,6 +721,9 @@ namespace StealthProto.EditorTools
             Vector3 postPos = D(14f, 7.8f);
             var shiftPost = G.Route(routes, "PH_Route_Shift_Post", true, 3f, (postPos, 160f));
             var shiftMeet = G.Route(routes, "PH_Route_Shift_Meet", true, 3f, (Ld(9.5f, 0.5f), 90f));
+            // After the swap the newcomer doesn't take S1's spot: he goes to the ledge's south edge,
+            // east, facing out over the water (landing planner, "S2 endpoint").
+            var shiftAfter = G.Route(routes, "PH_Route_Shift_After", true, 3f, (Ld(17f, -3f), 180f));
             var shiftPartner = G.Route(routes, "PH_Route_Shift_Partner", true, 3f, (Ld(10.8f, 0.5f), 270f));
             G.BuildGuard("PH_Guard_S1", watchPos, shiftLoop.GetPoint(0).eulerAngles.y, shiftLoop, player);
             G.BuildGuard("PH_Guard_S2", postPos, 160f, shiftPost, player);
@@ -729,7 +738,7 @@ namespace StealthProto.EditorTools
             shift.meetRoute = shiftMeet;
             shift.partnerRoute = shiftPartner;
             shift.reliefInterval = 45f;
-            shift.handoverStartIndex = 0; // the newcomer walks to the ledge post
+            shift.handoverRoute = shiftAfter;
             shift.player = player;
             shift.startZone = new Bounds(new Vector3(11f, LedgeTop + 1.5f, (BlockFront + PierFace) * 0.5f), new Vector3(22f, 3f, LedgeDepth));
 

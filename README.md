@@ -266,7 +266,8 @@ the project files), with the first-pass guards W, L and L2 from the guard vision
 - **Shift change on the ledge:** guard S1 stands just south of the upper stair's foot, looking
   north-west across the ledge; S2 stands at the post on the bridge, west of the stair's top.
   Nothing happens until you step onto the ledge: then S2 comes down the stairs to relieve S1. They
-  meet mid-ledge, stand a moment, swap, and S1 walks up to the post. After that it repeats every
+  meet mid-ledge, stand a moment, swap, and S1 walks up to the post while S2 goes to the ledge's
+  south-east edge, facing out over the water (`handoverRoute`). After that it repeats every
   45 s with the roles swapped, and pauses while either is off patrol (`ShiftChange`). While the
   relief walks back up, the post is empty: that's the gap to follow him up the stairs.
 - **Ledge searchlights (L, L2):** each hangs from a rail cantilevered off the bridge parapet,
@@ -276,6 +277,8 @@ the project files), with the first-pass guards W, L and L2 from the guard vision
   upper stair's foot. L2's (3 m, 18 s): off the lower stair's top, north-east, then mid-ledge.
   (`StairWatch`, which kept L's light in step with S1's old beat, is no longer used here.)
 - **Ledge lamp:** on a post east of the upper stair's foot, range 3.5 m.
+- **No clambering onto the stairs** (`NoClamber` on both stair groups): you can't clamber,
+  jump-clamber or catch an edge onto any flight, landing or rail, so the only way up is from the foot.
 - **Guards on stairs:** the NavMesh is baked for a 0.3 m-radius, 1.8 m agent (`RuntimeNavMeshBaker`),
   not the default 0.5 m Humanoid, which left almost nothing of the 1.3 m railed stair lanes, so
   guards couldn't path up or down them.

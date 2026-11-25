@@ -6,7 +6,7 @@ namespace StealthProto
     /// Two guards trading a beat (a shift change). One walks the patrol route, the other stands at
     /// the post. When relief is due, the guard at the post walks to the meeting point; when he gets
     /// there the patrolling guard joins him, they stand a moment, then swap: the newcomer takes the
-    /// patrol (starting at handoverStartIndex) and the other walks back up to the post. Then it
+    /// patrol (starting at handoverStartIndex, or handoverRoute if set) and the other walks back up to the post. Then it
     /// repeats every reliefInterval with roles swapped.
     ///
     /// Nothing happens until the player steps into startZone: the first relief starts startDelay
@@ -30,6 +30,8 @@ namespace StealthProto
         public float handoverTime = 3f;
         [Tooltip("Where on patrolRoute the newcomer starts after the handover.")]
         public int handoverStartIndex;
+        [Tooltip("Optional: the route the newcomer takes after the handover instead of patrolRoute (every swap).")]
+        public PatrolRoute handoverRoute;
         public Transform player;
         [Tooltip("World-space box; the first relief starts when the player steps into it.")]
         public Bounds startZone;
@@ -103,7 +105,8 @@ namespace StealthProto
                     if (!bothOnPatrol) return;
                     timer -= Time.deltaTime;
                     if (timer > 0f) return;
-                    onPost.AssignRoute(patrolRoute, handoverStartIndex);
+                    if (handoverRoute != null) onPost.AssignRoute(handoverRoute);
+                    else onPost.AssignRoute(patrolRoute, handoverStartIndex);
                     patrolling.AssignRoute(postRoute);
                     (patrolling, onPost) = (onPost, patrolling);
                     timer = reliefInterval;
