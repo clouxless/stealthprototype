@@ -700,8 +700,10 @@ namespace StealthProto.EditorTools
             wCue.thenRoute = wBeat;
             wCue.player = player;
             wCue.meetIndex = 2;
-            // Once he's walked past you, the over-the-shoulder shot ends and it's top-down again.
+            // The over-the-shoulder shot ends (top-down again) the moment he's further south than you,
+            // or you reach the end of the walkway, whichever comes first.
             wCue.zoneUntilPassed = GameObject.Find("PH_Cam_Approach").GetComponent<CameraZone>();
+            wCue.zoneEndZ = BlockFront - 0.5f;
             wCue.cueZone = new Bounds(new Vector3(2.5f, WallTop + 1f, (-120f + HideStepZ) * 0.5f), new Vector3(12f, 6f, HideStepZ + 120f)); // the wall, south of the step
             Post("L", new Vector3(8f, DeckTop, 7.6f), 180f);
             Post("L2", new Vector3(3f, DeckTop, 7.8f), 180f);

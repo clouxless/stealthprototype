@@ -237,8 +237,9 @@ the project files), with the first-pass guards W, L and L2 from the guard vision
   walk straight up the wall you meet him on the walkway right beside the last buttress, 12 m
   short of the stairs: he paces himself to keep that appointment (brisk, 1.4 to 3.2 m/s), and
   drops to a normal walk if you stop. From the over-the-shoulder shot you see his flashlight
-  coming down the flights, then him walking straight at you. Once he's walked past you the
-  camera goes back to top-down. He carries on to a beat 35 to 60 m down the wall, clear of the
+  coming down the flights, then him walking straight at you. The moment he's further south
+  than you (or you reach the end of the walkway, whichever comes first) the camera goes back to
+  top-down. He carries on to a beat 35 to 60 m down the wall, clear of the
   stairs (`PatrolOnCue`). Then head up the stairs behind him.
 - **Dolphins:** dash off the tip to jump out to them: gaps of 3.6, 3.2 and 3.2 m, then 4.2 m to
   the last one, where a short jump ends in a ledge catch. A placeholder item marker sits on the
@@ -247,8 +248,8 @@ the project files), with the first-pass guards W, L and L2 from the guard vision
   your right for a view over the river (where the dam will go) for 34 m. From there to the end
   of the wall it's one over-the-shoulder shot looking up the wall at the lock head: it starts a
   little high and wide behind your right shoulder and slowly pushes in tight as you near the
-  hiding step, so you watch guard W come down the stairs and walk straight at you. Once he's
-  walked past you it's top-down again. Each stair has a fixed camera out over the water,
+  hiding step, so you watch guard W come down the stairs and walk straight at you. It goes top-down again the
+  moment he's further south than you, or you reach the end of the walkway. Each stair has a fixed camera out over the water,
   looking at it side-on. The side view lasts exactly while there's stair over
   your head: up to the turn under the last two flights (the second turn on the lower stair, the
   fifth on the upper one). From the first step up the second-to-last flight it's top-down. Any suspicious or alert guard snaps the camera back to top-down. The
