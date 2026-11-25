@@ -761,8 +761,8 @@ namespace StealthProto.EditorTools
             // the ledge, in step with S1 (StairWatch). L2's runs north from the top of the lower stairs:
             // at that end the circle covers the stair's top landing, so you can't wait there; you
             // have to step out onto the ledge.
-            var swivelL = Swivel(lights, "PH_Swivel_L", Ld(UpperX0 - 0.6f, UpperZ0 - 1.1f), Ld(5.5f, 0.5f), 6f, 0f);
-            var swivelL2 = Swivel(lights, "PH_Swivel_L2", Ld(LowerX0 + LandingDepth * 0.5f, LowerZ0 + Lane), Ld(LowerX0 + LandingDepth * 0.5f, 2f), 7f, 0.5f);
+            var swivelL = Swivel(lights, "PH_Swivel_L", Ld(UpperX0 - 0.6f, UpperZ0 - 1.1f), Ld(5.5f, 0.5f), 6f, 0f, false);
+            var swivelL2 = Swivel(lights, "PH_Swivel_L2", Ld(LowerX0 + LandingDepth * 0.5f, LowerZ0 + Lane), Ld(LowerX0 + LandingDepth * 0.5f, 2f), 7f, 0.5f, false);
             var swivelLMove = swivelL.GetComponent<SwivelLight>();
             var watch = shift.gameObject.AddComponent<StairWatch>();
             watch.shift = shift;
@@ -781,7 +781,7 @@ namespace StealthProto.EditorTools
         /// down, and slides along the rail over the ledge (from, any stops, to: floor points),
         /// so its pool is a big circle (SearchRadius) sliding over the floor. The whole pool is Lit.
         /// </summary>
-        static StealthLight Swivel(Transform parent, string name, Vector3 from, Vector3 to, float sweepTime, float phase, params Vector3[] stops)
+        static StealthLight Swivel(Transform parent, string name, Vector3 from, Vector3 to, float sweepTime, float phase, bool loop, params Vector3[] stops)
         {
             float y = DeckTop + 1.3f, drop = y - LedgeTop;
             Vector3 a = new Vector3(from.x, y, from.z), b = new Vector3(to.x, y, to.z);
@@ -797,6 +797,7 @@ namespace StealthProto.EditorTools
             swivel.trackFrom = a;
             swivel.trackTo = b;
             swivel.trackStops = mid;
+            swivel.trackLoop = loop;
             swivel.sweepTime = sweepTime;
             swivel.phase = phase;
 
@@ -812,6 +813,7 @@ namespace StealthProto.EditorTools
             Vector3 prev = a, near = a;
             foreach (var m in mid) { Beam(name + "_Rail", prev + up, m + up); prev = m; if (m.z > near.z) near = m; }
             Beam(name + "_Rail", prev + up, b + up);
+            if (loop) Beam(name + "_Rail", b + up, a + up); // closes the loop
             if (b.z > near.z) near = b;
             Beam(name + "_Strut", near + up, new Vector3(near.x, DeckTop + 1.1f, RoadZ0 + ParapetThick * 0.5f));
             return stealth;

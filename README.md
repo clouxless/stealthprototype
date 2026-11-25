@@ -66,7 +66,7 @@ While hanging: the stick shimmies along the edge, E climbs up, Space or C lets g
 
 - **Light in three tiers.** Only the floor under your feet counts: Dark, Dim or Lit.
   Lamp pools have a crisp Lit core and a Dim ring. A guard's flashlight makes you Lit inside
-  their sight cone out to Mid. Swivel spotlights sweep a fixed arc (80 degrees over 11 s), or between two aim points, or slide along a rail pointing straight down (a circle on the floor); standing in the beam gets you spotted at once by the guard who works it.
+  their sight cone out to Mid. Swivel spotlights sweep a fixed arc (80 degrees over 11 s), or between two aim points, or slide along a rail pointing straight down (a circle on the floor), back and forth or round a loop (`trackLoop`, even speed, no pauses); standing in the beam gets you spotted at once by the guard who works it.
   Your character's tint shows the tier.
 - **Guard vision model** (`design/guard-vision/guard-vision-spec.md`). Three overlapping zones
   around each guard, by 3D distance: the sight cone (70 degrees, to Far: A Mid–Far, B Near–Mid,

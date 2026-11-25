@@ -11,7 +11,8 @@ namespace StealthProto
     /// - Yaw (default): turns side to side about the vertical axis, sweepAngle in all, centred on
     ///   the direction it starts in.
     /// - Track (useTrack): the light slides along a rail between two points, pointing straight
-    ///   down, so its pool is a circle sliding over the floor.
+    ///   down, so its pool is a circle sliding over the floor. With trackLoop it goes round the
+    ///   rail (trackTo runs on back to trackFrom) at an even speed instead of turning back.
     /// - Aim points (useAimPoints): the beam's aim slides along the line aimFrom -> aimTo (world
     ///   points), so it can tilt as well as turn and its pool tracks a path on the floor.
     ///
@@ -37,13 +38,17 @@ namespace StealthProto
         public Vector3 trackTo;
         [Tooltip("Optional stops in between, in order (a rail that bends): trackFrom -> these -> trackTo. Speed along the rail is even.")]
         public Vector3[] trackStops = new Vector3[0];
+        [Tooltip("Go round: after trackTo the rail runs on back to trackFrom and the light keeps going the same way, at an even speed, with no pauses. sweepTime is one full lap.")]
+        public bool trackLoop;
 
-        /// <summary>The point a fraction t (0..1) of the way along the rail, by length.</summary>
+        /// <summary>The point a fraction t (0..1) of the way along the rail, by length (round the loop when trackLoop).</summary>
         Vector3 AlongTrack(float t)
         {
-            if (trackStops == null || trackStops.Length == 0) return Vector3.Lerp(trackFrom, trackTo, t);
-            int n = trackStops.Length + 2;
-            Vector3 P(int i) => i == 0 ? trackFrom : i == n - 1 ? trackTo : trackStops[i - 1];
+            if (!trackLoop && (trackStops == null || trackStops.Length == 0)) return Vector3.Lerp(trackFrom, trackTo, t);
+            int stopCount = trackStops == null ? 0 : trackStops.Length;
+            int n = stopCount + (trackLoop ? 3 : 2);
+            Vector3 P(int i) => i == 0 || (trackLoop && i == n - 1) ? trackFrom
+                : i == stopCount + 1 ? trackTo : trackStops[i - 1];
             float total = 0f;
             for (int i = 1; i < n; i++) total += Vector3.Distance(P(i - 1), P(i));
             float d = t * total;
@@ -53,8 +58,10 @@ namespace StealthProto
                 if (d <= seg || i == n - 1) return Vector3.Lerp(P(i - 1), P(i), seg > 0f ? Mathf.Clamp01(d / seg) : 1f);
                 d -= seg;
             }
-            return trackTo;
+            return P(n - 1);
         }
+
+        bool Looping => useTrack && trackLoop;
 
         [Header("Aim points (instead of yaw)")]
         public bool useAimPoints;
@@ -66,7 +73,8 @@ namespace StealthProto
         public bool hold;
         [Range(0f, 1f)] public float holdK;
 
-        /// <summary>Where along the sweep it is now: 0 = start end (aimFrom), 1 = far end (aimTo). Not eased.</summary>
+        /// <summary>Where along the sweep it is now: 0 = start end (aimFrom), 1 = far end (aimTo). Not eased.
+        /// On a looped rail it is the fraction of the lap (0 and 1 are both the start).</summary>
         public float K => k;
         /// <summary>Counts each arrival at either end of a free sweep (not while held).</summary>
         public int EndsReached { get; private set; }
@@ -82,7 +90,8 @@ namespace StealthProto
             // Start where the old time-based cycle would have been at phase.
             float cycle = 2f * (sweepTime + pauseAtEnds);
             float t = Mathf.Repeat(phase, 1f) * cycle;
-            if (t < sweepTime) { k = t / sweepTime; direction = 1; }
+            if (Looping) { k = Mathf.Repeat(phase, 1f); direction = 1; }
+            else if (t < sweepTime) { k = t / sweepTime; direction = 1; }
             else if (t < sweepTime + pauseAtEnds) { k = 1f; direction = -1; pauseTimer = sweepTime + pauseAtEnds - t; }
             else if (t < 2f * sweepTime + pauseAtEnds) { k = 1f - (t - sweepTime - pauseAtEnds) / sweepTime; direction = -1; }
             else { k = 0f; direction = 1; pauseTimer = cycle - t; }
@@ -99,6 +108,11 @@ namespace StealthProto
                 direction = holdK >= 0.5f ? -1 : 1;
                 pauseTimer = 0f;
             }
+            else if (Looping)
+            {
+                k += step;
+                if (k >= 1f) { k -= 1f; EndsReached++; }
+            }
             else if (pauseTimer > 0f)
             {
                 pauseTimer -= Time.deltaTime;
@@ -114,7 +128,8 @@ namespace StealthProto
 
         void Apply()
         {
-            float e = k * k * (3f - 2f * k); // eased, so it slows into each end (readable)
+            // Eased, so it slows into each end (readable); a loop has no ends, so it runs evenly.
+            float e = Looping ? k : k * k * (3f - 2f * k);
             if (useTrack)
             {
                 transform.SetPositionAndRotation(AlongTrack(e), Quaternion.LookRotation(Vector3.down, Vector3.forward));
