@@ -241,8 +241,8 @@ the project files), with the first-pass guards W, L and L2 from the guard vision
 - **Dolphins:** dash off the tip to jump out to them: gaps of 3.6, 3.2 and 3.2 m, then 4.2 m to
   the last one, where a short jump ends in a ledge catch. A placeholder item marker sits on the
   last one.
-- **Cameras along the wall:** top-down at the spawn. About 16 m in, the camera swoops round to
-  your right for a view over the river (where the dam will go) for 50 m. From there to the end
+- **Cameras along the wall:** top-down at the spawn. About 22 m in, the camera swoops round to
+  your right for a view over the river (where the dam will go) for 34 m. From there to the end
   of the wall it's one over-the-shoulder shot looking up the wall at the lock head: it starts a
   little high and wide behind your right shoulder and slowly pushes in tight as you near the
   hiding step, so you watch guard W come down the stairs and walk straight at you. Each stair has a fixed camera out over the water,

@@ -824,10 +824,10 @@ namespace StealthProto.EditorTools
         {
             var zones = new GameObject("PH_CameraZones").transform; // outside PH_Level: triggers stay off the NavMesh
 
-            // Along the wall (spawn at z -118): 16 m of plain top-down, the dam view (z -102..-52, 50 m),
-            // then the over-the-shoulder approach (z -52 to the wall's end).
+            // Along the wall (spawn at z -118): 22 m of plain top-down, the dam view (z -96..-62, 34 m),
+            // then the over-the-shoulder approach (z -62 to the wall's end).
             // Dam view: tracks alongside you, 9 m to your right (east), looking west past you over the river.
-            var dam = Zone(zones, "PH_Cam_DamView", CameraZone.Kind.Track, new Vector3(1.5f, 0.5f, -77f), new Vector3(10f, 8f, 50f), 1.8f);
+            var dam = Zone(zones, "PH_Cam_DamView", CameraZone.Kind.Track, new Vector3(1.5f, 0.5f, -79f), new Vector3(10f, 8f, 34f), 1.8f);
             dam.eyeRelativeToPlayer = true;
             dam.eyeStart = dam.eyeEnd = new Vector3(9f, 3.5f, -2f);
             dam.lookStart = dam.lookEnd = new Vector3(-30f, 4f, 8f);
@@ -842,8 +842,8 @@ namespace StealthProto.EditorTools
             // flashlight) and walk straight at you. It starts a little high and wide behind your right
             // shoulder and slowly pushes in tight as you close in. Up on the stick stays north.
             var approach = Zone(zones, "PH_Cam_Approach", CameraZone.Kind.Crane,
-                new Vector3(2f, 0f, (-52f + BlockFront) * 0.5f), new Vector3(10f, 6f, BlockFront + 52f), 1.5f);
-            approach.progressStart = new Vector3(1.5f, 0f, -52f);
+                new Vector3(2f, 0f, (-62f + BlockFront) * 0.5f), new Vector3(10f, 6f, BlockFront + 62f), 1.5f);
+            approach.progressStart = new Vector3(1.5f, 0f, -62f);
             approach.progressEnd = new Vector3(1.5f, 0f, HideStepZ);
             approach.easePower = 1.5f;
             approach.eyeRelativeToPlayer = true;
